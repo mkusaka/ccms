@@ -49,7 +49,10 @@ indicatif = "0.17"
 
 # Colored output
 colored = "2.1"
-console = "0.15"
+
+# TUI framework
+ratatui = "0.28"
+crossterm = "0.28"
 
 # Memory mapping for large files
 memmap2 = "0.9"

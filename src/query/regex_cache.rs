@@ -11,7 +11,7 @@ lazy_static::lazy_static! {
 }
 
 pub fn get_or_compile_regex(pattern: &str, flags: &str) -> Result<Regex, regex::Error> {
-    let cache_key = format!("{}\0{}", pattern, flags);
+    let cache_key = format!("{pattern}\0{flags}");
     
     // Try to get from cache first
     if let Ok(mut cache) = REGEX_CACHE.try_lock() {
