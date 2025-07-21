@@ -4,7 +4,8 @@ use ccms::{
     interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
 use chrono::{DateTime, Local, Utc};
-use clap::{Parser, ValueEnum};
+use clap::{Command, CommandFactory, Parser, ValueEnum};
+use clap_complete::{Generator, Shell, generate};
 use parse_datetime::parse_datetime_at_date;
 use std::io::{self, Write};
 
@@ -88,6 +89,10 @@ struct Cli {
     #[cfg(not(feature = "profiling"))]
     #[arg(long, hide = true)]
     profile: Option<String>,
+
+    /// Generate shell completion script
+    #[arg(long = "completion", value_enum)]
+    generator: Option<Shell>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -97,8 +102,25 @@ enum OutputFormat {
     JsonL,
 }
 
+fn print_completions<G: Generator>(generator: G, cmd: &mut Command) {
+    generate(
+        generator,
+        cmd,
+        cmd.get_name().to_string(),
+        &mut io::stdout(),
+    );
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
+
+    // Handle completion generation
+    if let Some(generator) = cli.generator {
+        let mut cmd = Cli::command();
+        eprintln!("Generating completion file for {generator:?}...");
+        print_completions(generator, &mut cmd);
+        return Ok(());
+    }
 
     // Initialize tracing
     profiling::init_tracing();

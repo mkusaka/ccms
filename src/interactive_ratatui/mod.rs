@@ -18,11 +18,11 @@ use ratatui::{
 use std::collections::HashMap;
 use std::io::{self, Stdout};
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, Duration};
 use std::sync::Arc;
-use std::sync::mpsc::{self, Sender, Receiver};
-use std::thread;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread;
+use std::time::{Duration, SystemTime};
 
 use crate::{SearchOptions, SearchResult, SessionMessage, parse_query};
 
@@ -149,7 +149,7 @@ pub struct InteractiveSearch {
 
     // For search performance
     is_searching: bool,
-    
+
     // Async search support
     search_sender: Option<Sender<SearchRequest>>,
     search_receiver: Option<Receiver<SearchResponse>>,
@@ -190,10 +190,10 @@ impl InteractiveSearch {
         let (response_sender, response_receiver) = mpsc::channel::<SearchResponse>();
         self.search_sender = Some(sender);
         self.search_receiver = Some(response_receiver);
-        
+
         // Start search worker thread
         let search_worker_handle = self.start_search_worker(receiver, response_sender, pattern);
-        
+
         // Load initial results
         self.load_initial_results(pattern);
 
@@ -208,10 +208,10 @@ impl InteractiveSearch {
         disable_raw_mode()?;
         execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
         terminal.show_cursor()?;
-        
+
         // Cleanup: drop sender to signal worker to stop
         drop(self.search_sender.take());
-        
+
         // Wait for worker thread to finish
         let _ = search_worker_handle.join();
 
@@ -239,7 +239,7 @@ impl InteractiveSearch {
                         self.last_processed_search_id = response.id;
                         self.results = response.results;
                         self.is_searching = false;
-                        
+
                         // Maintain selected index if possible
                         if !self.results.is_empty() {
                             self.selected_index = self.selected_index.min(self.results.len() - 1);
@@ -251,14 +251,14 @@ impl InteractiveSearch {
                     }
                 }
             }
-            
+
             // Adjust scroll offset if needed (outside of the borrow scope)
             if need_scroll_adjust {
                 let (_, height) = crossterm::terminal::size().unwrap_or((80, 24));
                 let available_height = height.saturating_sub(7);
                 self.adjust_scroll_offset(available_height);
             }
-            
+
             terminal.draw(|f| self.draw(f))?;
 
             // No debouncing - search executes immediately on input
@@ -806,7 +806,7 @@ impl InteractiveSearch {
         if max_width == 0 {
             return String::new();
         }
-        
+
         let cleaned = text.replace('\n', " ");
 
         if cleaned.chars().count() <= max_width {
@@ -1125,17 +1125,22 @@ impl InteractiveSearch {
                 role_filter: self.role_filter.clone(),
                 pattern: pattern.to_string(),
             };
-            
+
             // Mark as searching before sending request
             self.is_searching = true;
-            
+
             // Send request, ignore if channel is disconnected
             let _ = sender.send(request);
         }
     }
 
     #[allow(dead_code)]
-    fn execute_cached_search(&mut self, pattern: &str, query: &crate::query::QueryCondition, role_filter: &Option<String>) -> Result<Vec<SearchResult>> {
+    fn execute_cached_search(
+        &mut self,
+        pattern: &str,
+        query: &crate::query::QueryCondition,
+        role_filter: &Option<String>,
+    ) -> Result<Vec<SearchResult>> {
         use crate::search::{discover_claude_files, expand_tilde};
 
         let expanded_pattern = expand_tilde(pattern);
@@ -1210,7 +1215,7 @@ impl InteractiveSearch {
                 return encoded_path.replace('-', "/");
             }
         }
-        
+
         // Fallback to parent directory
         if let Some(parent) = file_path.parent() {
             parent.to_string_lossy().to_string()
@@ -1436,7 +1441,7 @@ impl InteractiveSearch {
 
         Ok(())
     }
-    
+
     // Synchronous search method for testing
     #[cfg(test)]
     pub fn execute_search_sync(&mut self, pattern: &str) {
@@ -1456,44 +1461,43 @@ impl InteractiveSearch {
             Err(_) => self.results.clear(),
         }
     }
-    
+
     fn start_search_worker(
-        &self, 
-        receiver: Receiver<SearchRequest>, 
+        &self,
+        receiver: Receiver<SearchRequest>,
         sender: Sender<SearchResponse>,
-        pattern: &str
+        pattern: &str,
     ) -> thread::JoinHandle<()> {
         let base_options = self.base_options.clone();
         let max_results = self.max_results;
         let _pattern_owned = pattern.to_string();
-        
+
         thread::spawn(move || {
             let mut cache = MessageCache::new();
-            
+
             loop {
                 // Use recv_timeout to avoid blocking forever
                 match receiver.recv_timeout(Duration::from_millis(100)) {
                     Ok(request) => {
-                // Execute search in worker thread
-                let results = match parse_query(&request.query) {
-                    Ok(parsed_query) => {
-                        Self::execute_cached_search_static(
-                            &mut cache,
-                            &request.pattern,
-                            &parsed_query,
-                            &request.role_filter,
-                            &base_options,
-                            max_results,
-                        ).unwrap_or_else(|_| Vec::new())
-                    }
-                    Err(_) => Vec::new(),
-                };
-                
-                let response = SearchResponse {
-                    id: request.id,
-                    results,
-                };
-                
+                        // Execute search in worker thread
+                        let results = match parse_query(&request.query) {
+                            Ok(parsed_query) => Self::execute_cached_search_static(
+                                &mut cache,
+                                &request.pattern,
+                                &parsed_query,
+                                &request.role_filter,
+                                &base_options,
+                                max_results,
+                            )
+                            .unwrap_or_else(|_| Vec::new()),
+                            Err(_) => Vec::new(),
+                        };
+
+                        let response = SearchResponse {
+                            id: request.id,
+                            results,
+                        };
+
                         // Send response back, stop worker if channel is disconnected
                         if sender.send(response).is_err() {
                             break;
@@ -1511,27 +1515,27 @@ impl InteractiveSearch {
             }
         })
     }
-    
+
     // Static version of execute_cached_search for use in worker thread
     fn execute_cached_search_static(
         cache: &mut MessageCache,
-        pattern: &str, 
-        query: &crate::query::QueryCondition, 
+        pattern: &str,
+        query: &crate::query::QueryCondition,
         role_filter: &Option<String>,
         base_options: &SearchOptions,
         max_results: usize,
     ) -> Result<Vec<SearchResult>> {
         use crate::search::{discover_claude_files, expand_tilde};
-        
+
         let expanded_pattern = expand_tilde(pattern);
         let files = if expanded_pattern.is_file() {
             vec![expanded_pattern]
         } else {
             discover_claude_files(Some(pattern))?
         };
-        
+
         let mut results = Vec::new();
-        
+
         for file_path in &files {
             let cached_file = cache.get_messages(file_path)?;
             let file_name = file_path
@@ -1539,10 +1543,10 @@ impl InteractiveSearch {
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown")
                 .to_string();
-            
+
             for (idx, message) in cached_file.messages.iter().enumerate() {
                 let text = message.get_content_text();
-                
+
                 if let Ok(matches) = query.evaluate(&text) {
                     if matches {
                         if let Some(role) = role_filter {
@@ -1550,17 +1554,15 @@ impl InteractiveSearch {
                                 continue;
                             }
                         }
-                        
+
                         if let Some(session_id) = &base_options.session_id {
                             if message.get_session_id() != Some(session_id) {
                                 continue;
                             }
                         }
-                        
-                        let timestamp = message.get_timestamp()
-                            .unwrap_or("")
-                            .to_string();
-                        
+
+                        let timestamp = message.get_timestamp().unwrap_or("").to_string();
+
                         results.push(SearchResult {
                             file: file_name.clone(),
                             uuid: message.get_uuid().unwrap_or("").to_string(),
@@ -1579,19 +1581,23 @@ impl InteractiveSearch {
                 }
             }
         }
-        
+
         Self::apply_filters_static(&mut results, base_options)?;
         results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
         results.truncate(max_results);
-        
+
         Ok(results)
     }
-    
-    fn apply_filters_static(results: &mut Vec<SearchResult>, options: &SearchOptions) -> Result<()> {
+
+    fn apply_filters_static(
+        results: &mut Vec<SearchResult>,
+        options: &SearchOptions,
+    ) -> Result<()> {
         use chrono::DateTime;
-        
+
         if let Some(before) = &options.before {
-            let before_time = DateTime::parse_from_rfc3339(before).context("Invalid 'before' timestamp")?;
+            let before_time =
+                DateTime::parse_from_rfc3339(before).context("Invalid 'before' timestamp")?;
             results.retain(|r| {
                 if let Ok(time) = DateTime::parse_from_rfc3339(&r.timestamp) {
                     time < before_time
@@ -1602,7 +1608,8 @@ impl InteractiveSearch {
         }
 
         if let Some(after) = &options.after {
-            let after_time = DateTime::parse_from_rfc3339(after).context("Invalid 'after' timestamp")?;
+            let after_time =
+                DateTime::parse_from_rfc3339(after).context("Invalid 'after' timestamp")?;
             results.retain(|r| {
                 if let Ok(time) = DateTime::parse_from_rfc3339(&r.timestamp) {
                     time > after_time
