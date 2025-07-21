@@ -1,5 +1,4 @@
 #[cfg(test)]
-mod tests {
     use super::super::*;
     use crate::{QueryCondition, SearchOptions, SearchResult};
     use ratatui::{
@@ -325,9 +324,11 @@ mod tests {
         writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Middle"}},"uuid":"2","timestamp":"2024-01-02T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
         writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Late"}},"uuid":"3","timestamp":"2024-01-03T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
 
-        let mut options = SearchOptions::default();
-        options.after = Some("2024-01-01T12:00:00Z".to_string());
-        options.before = Some("2024-01-02T12:00:00Z".to_string());
+        let options = SearchOptions {
+            after: Some("2024-01-01T12:00:00Z".to_string()),
+            before: Some("2024-01-02T12:00:00Z".to_string()),
+            ..Default::default()
+        };
 
         let mut search = InteractiveSearch::new(options);
         search.query = "Middle".to_string();
@@ -396,11 +397,13 @@ mod tests {
         // Create file with many messages
         let mut file = File::create(&test_file).unwrap();
         for i in 0..100 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, format!("{:02}", i)).unwrap();
+            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{i:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
         }
 
-        let mut options = SearchOptions::default();
-        options.max_results = Some(10);
+        let options = SearchOptions {
+            max_results: Some(10),
+            ..Default::default()
+        };
 
         let mut search = InteractiveSearch::new(options);
         search.query = "Message".to_string();
@@ -418,7 +421,7 @@ mod tests {
         let mut file = File::create(&test_file).unwrap();
         writeln!(file, r#"{{"type":"user","content":"Message 1"}}"#).unwrap();
         writeln!(file, r#"{{"type":"assistant","content":"Message 2"}}"#).unwrap();
-        writeln!(file, "").unwrap(); // Empty line should be skipped
+        writeln!(file).unwrap(); // Empty line should be skipped
         writeln!(file, r#"{{"type":"system","content":"Message 3"}}"#).unwrap();
 
         let mut search = InteractiveSearch::new(SearchOptions::default());
@@ -489,7 +492,7 @@ mod tests {
 
         // Create a result with multi-line text
         let long_text = (0..50)
-            .map(|i| format!("Line {}", i))
+            .map(|i| format!("Line {i}"))
             .collect::<Vec<_>>()
             .join("\n");
         search.selected_result = Some(create_test_result(
@@ -622,7 +625,7 @@ mod tests {
         // Create file with many messages
         let mut file = File::create(&test_file).unwrap();
         for i in 0..100 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, format!("{:02}", i % 60)).unwrap();
+            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i % 60).unwrap();
         }
 
         // Test with custom max_results
@@ -694,7 +697,7 @@ mod tests {
 
         let mut file = File::create(&test_file).unwrap();
         for i in 0..10 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
+            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{i:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
         }
 
         let mut search = InteractiveSearch::new(SearchOptions::default());
@@ -748,7 +751,7 @@ mod tests {
 
         let mut file = File::create(&test_file).unwrap();
         for i in 0..20 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
+            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{i:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
         }
 
         let mut search = InteractiveSearch::new(SearchOptions::default());
@@ -822,7 +825,7 @@ mod tests {
         // Create session with many messages
         let mut file = File::create(&test_file).unwrap();
         for i in 0..10 {
-            writeln!(file, r#"{{"type":"user","content":"Message {}"}}"#, i).unwrap();
+            writeln!(file, r#"{{"type":"user","content":"Message {i}"}}"#).unwrap();
         }
 
         let mut search = InteractiveSearch::new(SearchOptions::default());
@@ -875,11 +878,13 @@ mod tests {
         // Create more messages than the limit
         let mut file = File::create(&test_file).unwrap();
         for i in 0..60 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
+            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i % 60).unwrap();
         }
 
-        let mut options = SearchOptions::default();
-        options.max_results = Some(50);
+        let options = SearchOptions {
+            max_results: Some(50),
+            ..Default::default()
+        };
         let mut search = InteractiveSearch::new(options);
 
         search.query = "Message".to_string();
@@ -941,7 +946,7 @@ mod tests {
         // Create many results to test scrolling
         let mut file = File::create(&test_file).unwrap();
         for i in 0..100 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
+            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i % 60).unwrap();
         }
 
         let mut search = InteractiveSearch::new(SearchOptions::default());
@@ -1066,7 +1071,7 @@ mod tests {
         // Create exactly 30 results
         let mut file = File::create(&test_file).unwrap();
         for i in 0..30 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
+            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{i:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
         }
 
         let mut search = InteractiveSearch::new(SearchOptions::default());
@@ -1142,7 +1147,7 @@ mod tests {
         // Create 50 results
         let mut file = File::create(&test_file).unwrap();
         for i in 0..50 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
+            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i % 60).unwrap();
         }
 
         let mut search = InteractiveSearch::new(SearchOptions::default());
@@ -1224,22 +1229,16 @@ mod tests {
             if message.len() > available_width {
                 assert!(
                     truncated.contains(expected),
-                    "Width {}: Message '{}' should contain '{}' but got '{}'",
-                    width,
-                    message,
-                    expected,
-                    truncated
+                    "Width {width}: Message '{message}' should contain '{expected}' but got '{truncated}'"
                 );
                 assert!(
                     truncated.ends_with("..."),
-                    "Width {}: Long message should end with ellipsis",
-                    width
+                    "Width {width}: Long message should end with ellipsis"
                 );
             } else {
                 assert_eq!(
                     truncated, message,
-                    "Width {}: Short message should not be truncated",
-                    width
+                    "Width {width}: Short message should not be truncated"
                 );
             }
         }
@@ -1276,7 +1275,7 @@ mod tests {
         // Create test data
         let mut file = File::create(&test_file).unwrap();
         for i in 0..10 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
+            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{i:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
         }
 
         let mut search = InteractiveSearch::new(SearchOptions::default());
@@ -1596,7 +1595,7 @@ mod tests {
         // Search and enter detail view
         search.query = "message".to_string();
         search.execute_search(test_file.to_str().unwrap());
-        assert!(search.results.len() > 0);
+        assert!(!search.results.is_empty());
 
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -1766,7 +1765,7 @@ mod tests {
                         break;
                     }
 
-                    let cell = &buffer[(pos_x as u16, y as u16)];
+                    let cell = &buffer[(pos_x as u16, y)];
                     if cell.symbol() != ch.to_string() {
                         matches = false;
                         break;
@@ -1780,4 +1779,3 @@ mod tests {
         }
         None
     }
-}
