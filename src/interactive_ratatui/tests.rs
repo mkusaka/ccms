@@ -53,7 +53,7 @@ mod tests {
 
         let search = InteractiveSearch::new(options);
         assert_eq!(search.max_results, 20);
-        assert_eq!(search.mode, Mode::Search);
+        assert_eq!(search.current_mode(), Mode::Search);
         assert!(search.query.is_empty());
         assert_eq!(search.selected_index, 0);
         assert!(search.results.is_empty());
@@ -65,19 +65,19 @@ mod tests {
         let mut search = InteractiveSearch::new(SearchOptions::default());
 
         // Start in Search mode
-        assert_eq!(search.mode, Mode::Search);
+        assert_eq!(search.current_mode(), Mode::Search);
 
         // Transition to Help
-        search.mode = Mode::Help;
-        assert_eq!(search.mode, Mode::Help);
+        search.set_mode(Mode::Help);
+        assert_eq!(search.current_mode(), Mode::Help);
 
         // Transition to ResultDetail
-        search.mode = Mode::ResultDetail;
-        assert_eq!(search.mode, Mode::ResultDetail);
+        search.set_mode(Mode::ResultDetail);
+        assert_eq!(search.current_mode(), Mode::ResultDetail);
 
         // Transition to SessionViewer
-        search.mode = Mode::SessionViewer;
-        assert_eq!(search.mode, Mode::SessionViewer);
+        search.set_mode(Mode::SessionViewer);
+        assert_eq!(search.current_mode(), Mode::SessionViewer);
     }
 
     #[test]
@@ -204,7 +204,7 @@ mod tests {
         let mut search = InteractiveSearch::new(SearchOptions::default());
         let mut terminal = create_test_terminal();
 
-        search.mode = Mode::Help;
+        search.set_mode(Mode::Help);
         terminal.draw(|f| search.draw_help(f)).unwrap();
     }
 
@@ -526,7 +526,7 @@ mod tests {
         let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
         search.handle_result_detail_input(esc_key).unwrap();
         assert_eq!(search.detail_scroll_offset, 0);
-        assert_eq!(search.mode, Mode::Search);
+        assert_eq!(search.current_mode(), Mode::Search);
     }
 
     #[test]
@@ -537,13 +537,13 @@ mod tests {
         search.message = Some("Test message".to_string());
 
         // Message should be cleared when returning from detail to search
-        search.mode = Mode::ResultDetail;
+        search.push_screen(Mode::ResultDetail);
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
         let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
         search.handle_result_detail_input(esc_key).unwrap();
 
         assert!(search.message.is_none());
-        assert_eq!(search.mode, Mode::Search);
+        assert_eq!(search.current_mode(), Mode::Search);
     }
 
     #[test]
@@ -672,7 +672,7 @@ mod tests {
     fn test_copy_feedback_messages() {
         let mut search = InteractiveSearch::new(SearchOptions::default());
         search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-        search.mode = Mode::ResultDetail;
+        search.set_mode(Mode::ResultDetail);
 
         // Test file copy feedback
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -684,7 +684,7 @@ mod tests {
         assert!(search.message.as_ref().unwrap().contains("File path"));
 
         // Should stay in detail mode
-        assert_eq!(search.mode, Mode::ResultDetail);
+        assert_eq!(search.current_mode(), Mode::ResultDetail);
     }
 
     #[test]
@@ -832,7 +832,7 @@ mod tests {
 
         // Set up session viewer
         search.session_order = Some(SessionOrder::Ascending);
-        search.mode = Mode::SessionViewer;
+        search.set_mode(Mode::SessionViewer);
 
         // Test that we have multiple messages
         assert_eq!(search.session_messages.len(), 10);
@@ -859,12 +859,12 @@ mod tests {
             .unwrap();
 
         assert!(continue_running); // Should continue running
-        assert_eq!(search.mode, Mode::Help);
+        assert_eq!(search.current_mode(), Mode::Help);
 
         // In help mode, any key returns to search (handled in run loop)
         // We can simulate this by setting mode back
-        search.mode = Mode::Search;
-        assert_eq!(search.mode, Mode::Search);
+        search.set_mode(Mode::Search);
+        assert_eq!(search.current_mode(), Mode::Search);
     }
 
     #[test]
@@ -897,7 +897,7 @@ mod tests {
     fn test_clipboard_error_handling() {
         let mut search = InteractiveSearch::new(SearchOptions::default());
         search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-        search.mode = Mode::ResultDetail;
+        search.set_mode(Mode::ResultDetail);
 
         // Test clipboard operation that will fail in test environment
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -1333,7 +1333,7 @@ mod tests {
         let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
 
         // Test plain Esc exits from search mode
-        search.mode = Mode::Search;
+        search.set_mode(Mode::Search);
         let temp_dir = tempdir().unwrap();
         let temp_file = temp_dir.path().join("test.jsonl");
         File::create(&temp_file).unwrap();
@@ -1350,11 +1350,11 @@ mod tests {
         assert!(!continue_running); // false means exit
 
         // From detail mode - Esc should return to search
-        search.mode = Mode::ResultDetail;
+        search.push_screen(Mode::ResultDetail);
         search.detail_scroll_offset = 10;
         search.message = Some("Test message".to_string());
         search.handle_result_detail_input(esc_key).unwrap();
-        assert_eq!(search.mode, Mode::Search);
+        assert_eq!(search.current_mode(), Mode::Search);
         assert_eq!(search.detail_scroll_offset, 0);
         assert!(search.message.is_none());
     }
@@ -1420,7 +1420,7 @@ mod tests {
         search
             .handle_search_input(enter_key, test_file.to_str().unwrap())
             .unwrap();
-        assert_eq!(search.mode, Mode::ResultDetail);
+        assert_eq!(search.current_mode(), Mode::ResultDetail);
 
         // Test various copy operations
         // Note: We can't test actual clipboard functionality in tests, but we can test the flow
@@ -1513,29 +1513,64 @@ mod tests {
     #[test]
     fn test_session_viewer_quit() {
         let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.mode = Mode::SessionViewer;
+        // Simulate navigating from Search to SessionViewer
+        search.push_screen(Mode::SessionViewer);
         search.session_order = Some(SessionOrder::Ascending);
         search.session_messages = vec!["msg1".to_string(), "msg2".to_string()];
         search.session_index = 0;
 
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-        // Test Q key quits session viewer
+        // Test Q key quits session viewer back to Search
         let q_key = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty());
         search.handle_session_viewer_input(q_key).unwrap();
-        assert_eq!(search.mode, Mode::Search);
+        assert_eq!(search.current_mode(), Mode::Search);
 
-        // Test lowercase q also works
-        search.mode = Mode::SessionViewer;
-        let q_lower = KeyEvent::new(KeyCode::Char('Q'), KeyModifiers::empty());
-        search.handle_session_viewer_input(q_lower).unwrap();
-        assert_eq!(search.mode, Mode::Search);
+        // Test uppercase Q also works
+        search.push_screen(Mode::SessionViewer);
+        let q_upper = KeyEvent::new(KeyCode::Char('Q'), KeyModifiers::empty());
+        search.handle_session_viewer_input(q_upper).unwrap();
+        assert_eq!(search.current_mode(), Mode::Search);
 
         // Test Esc also quits
-        search.mode = Mode::SessionViewer;
+        search.push_screen(Mode::SessionViewer);
         let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
         search.handle_session_viewer_input(esc_key).unwrap();
-        assert_eq!(search.mode, Mode::Search);
+        assert_eq!(search.current_mode(), Mode::Search);
+    }
+
+    #[test]
+    fn test_navigation_stack_behavior() {
+        let temp_dir = tempdir().unwrap();
+        let test_file = temp_dir.path().join("test.jsonl");
+        let mut file = File::create(&test_file).unwrap();
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Test"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
+
+        // Start in Search mode
+        assert_eq!(search.current_mode(), Mode::Search);
+
+        // Navigate to ResultDetail
+        search.push_screen(Mode::ResultDetail);
+        assert_eq!(search.current_mode(), Mode::ResultDetail);
+
+        // Navigate to SessionViewer from ResultDetail
+        search.base_options.session_id = Some("s1".to_string());
+        search.session_messages = vec![r#"{"type":"user","message":{"role":"user","content":"Test"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string()];
+        search.push_screen(Mode::SessionViewer);
+        assert_eq!(search.current_mode(), Mode::SessionViewer);
+
+        // Press ESC in SessionViewer should return to ResultDetail
+        search.handle_session_viewer_input(esc_key).unwrap();
+        assert_eq!(search.current_mode(), Mode::ResultDetail);
+
+        // Press ESC in ResultDetail should return to Search
+        search.handle_result_detail_input(esc_key).unwrap();
+        assert_eq!(search.current_mode(), Mode::Search);
     }
 
     #[test]
@@ -1605,7 +1640,7 @@ mod tests {
         search
             .handle_search_input(enter_key, test_file.to_str().unwrap())
             .unwrap();
-        assert_eq!(search.mode, Mode::ResultDetail);
+        assert_eq!(search.current_mode(), Mode::ResultDetail);
         assert!(search.selected_result.is_some());
 
         // Skip the S key test since it requires complex file discovery
@@ -1618,7 +1653,7 @@ mod tests {
         ];
         search.session_index = 0;
         search.session_order = None;
-        search.mode = Mode::SessionViewer;
+        search.set_mode(Mode::SessionViewer);
         assert!(search.session_order.is_none()); // Not selected yet
 
         // Select ascending order
@@ -1685,7 +1720,7 @@ mod tests {
     #[test]
     fn test_help_screen_colors() {
         let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.mode = Mode::Help;
+        search.set_mode(Mode::Help);
         let mut terminal = create_test_terminal();
 
         terminal.draw(|f| search.draw_help(f)).unwrap();
@@ -1711,7 +1746,7 @@ mod tests {
     #[test]
     fn test_error_message_color() {
         let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.mode = Mode::ResultDetail;
+        search.set_mode(Mode::ResultDetail);
         search.message = Some("⚠ Error occurred".to_string());
         let mut terminal = create_test_terminal();
 
@@ -1733,7 +1768,7 @@ mod tests {
     #[test]
     fn test_success_message_color() {
         let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.mode = Mode::ResultDetail;
+        search.set_mode(Mode::ResultDetail);
         search.message = Some("✓ Success!".to_string());
         let mut terminal = create_test_terminal();
 

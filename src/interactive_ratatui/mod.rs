@@ -91,7 +91,7 @@ impl MessageCache {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum Mode {
+pub(crate) enum Mode {
     Search,
     ResultDetail,
     SessionViewer,
@@ -109,8 +109,8 @@ pub struct InteractiveSearch {
     max_results: usize,
     cache: MessageCache,
 
-    // UI state
-    mode: Mode,
+    // UI state - navigation stack
+    screen_stack: Vec<Mode>,
     query: String,
     selected_index: usize,
     results: Vec<SearchResult>,
@@ -140,7 +140,7 @@ impl InteractiveSearch {
             base_options: options,
             max_results,
             cache: MessageCache::new(),
-            mode: Mode::Search,
+            screen_stack: vec![Mode::Search],
             query: String::new(),
             selected_index: 0,
             results: Vec::new(),
@@ -154,6 +154,25 @@ impl InteractiveSearch {
             scroll_offset: 0,
             is_searching: false,
         }
+    }
+
+    pub(crate) fn current_mode(&self) -> Mode {
+        self.screen_stack.last().copied().unwrap_or(Mode::Search)
+    }
+
+    pub(crate) fn push_screen(&mut self, mode: Mode) {
+        self.screen_stack.push(mode);
+    }
+
+    fn pop_screen(&mut self) {
+        if self.screen_stack.len() > 1 {
+            self.screen_stack.pop();
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_mode(&mut self, mode: Mode) {
+        self.screen_stack = vec![mode];
     }
 
     pub fn run(&mut self, pattern: &str) -> Result<()> {
@@ -194,7 +213,7 @@ impl InteractiveSearch {
             // Non-blocking event polling with 50ms timeout
             if poll(Duration::from_millis(50))? {
                 if let Event::Key(key) = event::read()? {
-                    match self.mode {
+                    match self.current_mode() {
                         Mode::Search => {
                             if !self.handle_search_input(key, pattern)? {
                                 break;
@@ -207,7 +226,7 @@ impl InteractiveSearch {
                             self.handle_session_viewer_input(key)?;
                         }
                         Mode::Help => {
-                            self.mode = Mode::Search;
+                            self.pop_screen();
                         }
                     }
                 }
@@ -217,7 +236,7 @@ impl InteractiveSearch {
     }
 
     fn draw(&mut self, f: &mut Frame) {
-        match self.mode {
+        match self.current_mode() {
             Mode::Search => self.draw_search(f),
             Mode::ResultDetail => self.draw_result_detail(f),
             Mode::SessionViewer => self.draw_session_viewer(f),
@@ -791,7 +810,7 @@ impl InteractiveSearch {
                 self.message = Some("Cache cleared and reloaded".to_string());
             }
             KeyCode::Char('?') => {
-                self.mode = Mode::Help;
+                self.push_screen(Mode::Help);
             }
             KeyCode::Tab => {
                 self.role_filter = match self.role_filter {
@@ -872,7 +891,7 @@ impl InteractiveSearch {
             KeyCode::Enter => {
                 if !self.results.is_empty() && self.selected_index < self.results.len() {
                     self.selected_result = Some(self.results[self.selected_index].clone());
-                    self.mode = Mode::ResultDetail;
+                    self.push_screen(Mode::ResultDetail);
                     self.detail_scroll_offset = 0; // Reset scroll when entering detail
                     self.message = None; // Clear any previous message
                 }
@@ -885,7 +904,7 @@ impl InteractiveSearch {
     fn handle_result_detail_input(&mut self, key: KeyEvent) -> Result<()> {
         match key.code {
             KeyCode::Esc => {
-                self.mode = Mode::Search;
+                self.pop_screen();
                 self.message = None; // Clear message when returning to search
                 self.detail_scroll_offset = 0;
             }
@@ -943,7 +962,7 @@ impl InteractiveSearch {
                         Ok(_) => {
                             self.session_index = 0;
                             self.session_order = None;
-                            self.mode = Mode::SessionViewer;
+                            self.push_screen(Mode::SessionViewer);
                         }
                         Err(e) => {
                             self.message = Some(format!("⚠ Failed to load session: {e}"));
@@ -1006,7 +1025,7 @@ impl InteractiveSearch {
                     self.session_messages.reverse();
                 }
                 KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
-                    self.mode = Mode::Search;
+                    self.pop_screen();
                 }
                 _ => {}
             }
@@ -1028,7 +1047,7 @@ impl InteractiveSearch {
                         (self.session_index + 3).min(self.session_messages.len().saturating_sub(1));
                 }
                 KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
-                    self.mode = Mode::Search;
+                    self.pop_screen();
                 }
                 _ => {}
             }
