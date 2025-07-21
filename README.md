@@ -58,21 +58,27 @@ CCMS supports shell completion for bash, zsh, and fish. To enable it:
 ### Bash
 
 ```bash
-# Generate completion script
+# Generate completion script to file
 ccms --completion bash > ~/.bash_completion.d/ccms
 
-# Or add to .bashrc
+# Or add to .bashrc for persistent completion
 echo 'source <(ccms --completion bash)' >> ~/.bashrc
+
+# Or enable completion immediately in current shell
+source <(ccms --completion bash)
 ```
 
 ### Zsh
 
 ```bash
-# Generate completion script
+# Generate completion script to file
 ccms --completion zsh > ~/.zsh/completions/_ccms
 
-# Or add to .zshrc
+# Or add to .zshrc for persistent completion
 echo 'source <(ccms --completion zsh)' >> ~/.zshrc
+
+# Or enable completion immediately in current shell
+source <(ccms --completion zsh)
 ```
 
 ### Fish
