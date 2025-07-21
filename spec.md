@@ -105,24 +105,50 @@ Actions:
 When 'S' is pressed in the full result view:
 
 ```
-Session Viewer
-Session: [session_id]
-File: [filename]
-
-[A]scending / [D]escending / [Q]uit
-
-[After choosing order]
-────────────────────────────────────────────────────────────────────────────────
-Message 1/N
-Role: [role]
-Time: [timestamp]
-
-[message content]
-────────────────────────────────────────────────────────────────────────────────
-[Additional messages...]
-
-Press any key to continue, Q to quit... [shown every 3 messages]
+┌─ Session Viewer ──────────────────────────────────────────────────────────────┐
+│ Session: [session_id]                                                          │
+│ File: [filename]                                                              │
+└────────────────────────────────────────────────────────────────────────────────┘
+┌─ Search ───────────────────────────────────────────────────────────────────────┐
+│ Filter: [query]                                                                │
+└────────────────────────────────────────────────────────────────────────────────┘
+┌─ Messages (N total[, M filtered]) ─────────────────────────────────────────────┐
+│  1. [ROLE     ] MM/DD HH:MM Preview text of message...                        │
+│> 2. [ROLE     ] MM/DD HH:MM Preview text of selected message...               │
+│  3. [ROLE     ] MM/DD HH:MM Preview text of another message...                │
+│  ...                                                                           │
+│                                                                                │
+│ Showing X-Y of Z messages ↑/↓ to scroll                                        │
+└────────────────────────────────────────────────────────────────────────────────┘
+Enter: View | ↑/↓: Navigate | /: Search | Esc: Clear search | Q: Back
 ```
+
+#### Session Viewer Features
+
+1. **List View Display**:
+   - Shows all messages in a scrollable list format
+   - Each message displays: index, role (centered), timestamp, and preview text
+   - Selected message is highlighted with ">" indicator and different background
+
+2. **Interactive Search**:
+   - Type to filter messages in real-time (no need to press '/')
+   - Case-insensitive search across message content
+   - Shows filtered count: "Messages (123 total, 45 filtered)"
+   - Backspace to delete characters, Esc to clear search
+
+3. **Navigation**:
+   - ↑/↓: Move selection through messages
+   - PageUp/PageDown: Jump 10 messages at a time
+   - Enter: View full message in detail view
+   - Q: Return to previous result detail view
+   - Maintains scroll position and selection state
+
+4. **Message Content Search**:
+   - Searches in both simple text content and array-based content
+   - Handles various message structures:
+     - Direct: `{"content": "text"}`
+     - Nested: `{"message": {"content": "text"}}`
+     - Array: `{"content": [{"type": "text", "text": "content"}]}`
 
 ## Search Functionality
 
@@ -271,17 +297,15 @@ Applied before other filters in the search pipeline.
 - Prevents crashes with Unicode text (Japanese, emoji, etc.)
 - Dynamic ellipsis placement based on available terminal width
 
-### Session Viewer
+### Session Viewer Display Limits
 
-- Shows all messages in the session file
-- Pauses every 3 messages for readability
-- Supports ascending/descending order
-- Handles multiple JSON formats:
-  - Direct content: `{"content": "text"}`
-  - Nested message content: `{"message": {"content": "text"}}`
-  - Array content: `{"message": {"content": [{"type": "text", "text": "content"}]}}`
-- Properly resolves file paths from search results
-- Displays formatted messages with role, timestamp, and content
+- Shows all messages in the session file in a scrollable list
+- No longer uses 3-message pagination (replaced by continuous scrolling)
+- Default order: Ascending (chronological)
+- List view dynamically adjusts to terminal height
+- Scroll indicators show position: "Showing X-Y of Z messages"
+- Message preview dynamically truncated based on terminal width
+- Filtered view shows subset count: "Messages (123 total, 45 filtered)"
 
 ## Exit Behavior
 
@@ -354,8 +378,12 @@ struct InteractiveSearch {
     selected_index: usize,          // Selected result index
     selected_result: Option<SearchResult>, // Detail view result
     session_messages: Vec<String>,  // Session viewer messages
-    session_order: Option<SessionOrder>, // Session display order
-    session_index: usize,           // Current position in session viewer
+    session_order: Option<SessionOrder>, // Session display order (always Ascending)
+    session_index: usize,           // Legacy: position in old viewer
+    session_query: String,          // Session search filter
+    session_filtered_indices: Vec<usize>, // Filtered message indices
+    session_scroll_offset: usize,   // Session list scroll position
+    session_selected_index: usize,  // Selected message in session list
     detail_scroll_offset: usize,    // Scroll position in detail view
     message: Option<String>,        // Feedback message
     scroll_offset: usize,           // Scroll offset for results list
@@ -368,9 +396,24 @@ struct InteractiveSearch {
 - Search → ResultDetail: Enter key on result
 - ResultDetail → Search: Esc or other keys (clears message and scroll offset)
 - ResultDetail → SessionViewer: S key
-- SessionViewer → Search: Q or completion
+- SessionViewer → ResultDetail: Q key or Enter on message
+- SessionViewer → Search: Never directly (must go through ResultDetail)
 - Any → Help: ? key in search mode
 - Help → Search: Any key
+
+### Session Viewer State Management
+
+When entering SessionViewer:
+- Loads all messages from the session file
+- Sets default order to Ascending
+- Initializes filtered indices to show all messages
+- Clears search query
+- Resets scroll position and selection
+
+When exiting SessionViewer:
+- Clears all session-related state
+- Returns to ResultDetail mode
+- Preserves the selected result for continued navigation
 
 ## Project Path Extraction
 

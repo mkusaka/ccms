@@ -1517,25 +1517,51 @@ mod tests {
         search.session_order = Some(SessionOrder::Ascending);
         search.session_messages = vec!["msg1".to_string(), "msg2".to_string()];
         search.session_index = 0;
+        search.selected_result = Some(SearchResult {
+            file: "test.jsonl".to_string(),
+            uuid: "test-uuid".to_string(),
+            timestamp: "2024-01-01T00:00:00Z".to_string(),
+            session_id: "test-session".to_string(),
+            role: "user".to_string(),
+            text: "test message".to_string(),
+            has_tools: false,
+            has_thinking: false,
+            message_type: "user".to_string(),
+            query: crate::query::QueryCondition::Literal { 
+                pattern: "test".to_string(),
+                case_sensitive: false,
+            },
+            project_path: "test-project".to_string(),
+            raw_json: None,
+        });
 
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-        // Test Q key quits session viewer
+        // Test Q key goes back to ResultDetail
         let q_key = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty());
         search.handle_session_viewer_input(q_key).unwrap();
-        assert_eq!(search.mode, Mode::Search);
+        assert_eq!(search.mode, Mode::ResultDetail);
 
-        // Test lowercase q also works
+        // Test uppercase Q also works
         search.mode = Mode::SessionViewer;
-        let q_lower = KeyEvent::new(KeyCode::Char('Q'), KeyModifiers::empty());
-        search.handle_session_viewer_input(q_lower).unwrap();
-        assert_eq!(search.mode, Mode::Search);
+        let q_upper = KeyEvent::new(KeyCode::Char('Q'), KeyModifiers::empty());
+        search.handle_session_viewer_input(q_upper).unwrap();
+        assert_eq!(search.mode, Mode::ResultDetail);
 
-        // Test Esc also quits
+        // Test Esc with empty search goes back to ResultDetail
         search.mode = Mode::SessionViewer;
+        search.session_query.clear();
         let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
         search.handle_session_viewer_input(esc_key).unwrap();
-        assert_eq!(search.mode, Mode::Search);
+        assert_eq!(search.mode, Mode::ResultDetail);
+
+        // Test Esc with search query just clears the query
+        search.mode = Mode::SessionViewer;
+        search.session_query = "test".to_string();
+        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
+        search.handle_session_viewer_input(esc_key).unwrap();
+        assert_eq!(search.mode, Mode::SessionViewer);
+        assert_eq!(search.session_query, "");
     }
 
     #[test]
@@ -1617,26 +1643,33 @@ mod tests {
             r#"{"type":"assistant","message":{"id":"msg2","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"Another response"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}},"uuid":"4","timestamp":"2024-01-01T00:00:03Z","sessionId":"test-session","parentUuid":"3","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
         ];
         search.session_index = 0;
-        search.session_order = None;
+        search.session_order = Some(SessionOrder::Ascending); // Now defaults to ascending
+        search.session_filtered_indices = vec![0, 1, 2, 3]; // All messages shown by default
+        search.session_selected_index = 0;
+        search.session_query.clear();
         search.mode = Mode::SessionViewer;
-        assert!(search.session_order.is_none()); // Not selected yet
-
-        // Select ascending order
-        let a_key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty());
-        search.handle_session_viewer_input(a_key).unwrap();
         assert_eq!(search.session_order, Some(SessionOrder::Ascending));
-        assert!(search.session_messages.len() >= 4); // Should have loaded all messages
+        assert_eq!(search.session_messages.len(), 4); // Should have 4 messages
 
-        // Test navigation
-        let initial_index = search.session_index;
+        // Test search functionality - typing 'S' adds to query
+        let s_key = KeyEvent::new(KeyCode::Char('S'), KeyModifiers::empty());
+        search.handle_session_viewer_input(s_key).unwrap();
+        assert_eq!(search.session_query, "S");
+        assert_eq!(search.mode, Mode::SessionViewer); // Still in session viewer
+
+        // Clear search
+        search.session_query.clear();
+
+        // Test navigation with list view
+        let initial_index = search.session_selected_index;
         let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
         search.handle_session_viewer_input(down_key).unwrap();
-        assert_eq!(search.session_index, initial_index + 1);
+        assert_eq!(search.session_selected_index, initial_index + 1);
 
         // Test page down
         let page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty());
         search.handle_session_viewer_input(page_down).unwrap();
-        assert!(search.session_index >= initial_index + 3);
+        assert_eq!(search.session_selected_index, 3); // Should be at last message
     }
 
     #[test]
@@ -1750,6 +1783,526 @@ mod tests {
             let cell = &buffer[(pos.0, pos.1)];
             assert_eq!(cell.fg, Color::Green);
         }
+    }
+
+    #[test]
+    fn test_session_viewer_search_filtering() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Set up test messages with various content
+        search.session_messages = vec![
+            r#"{"type":"user","message":{"role":"user","content":"Hello world"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Hi there!"}]},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"How are you?"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I'm doing great, thanks!"}]},"uuid":"4","timestamp":"2024-01-01T00:00:03Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"What's the weather?"},"uuid":"5","timestamp":"2024-01-01T00:00:04Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        // Initialize with all messages visible
+        search.session_filtered_indices = vec![0, 1, 2, 3, 4];
+        search.session_selected_index = 0;
+        
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        
+        // Test typing search query
+        search.session_query.clear();
+        let h_key = KeyEvent::new(KeyCode::Char('h'), KeyModifiers::empty());
+        search.handle_session_viewer_input(h_key).unwrap();
+        assert_eq!(search.session_query, "h");
+        
+        let e_key = KeyEvent::new(KeyCode::Char('e'), KeyModifiers::empty());
+        search.handle_session_viewer_input(e_key).unwrap();
+        assert_eq!(search.session_query, "he");
+        
+        let l_key = KeyEvent::new(KeyCode::Char('l'), KeyModifiers::empty());
+        search.handle_session_viewer_input(l_key).unwrap();
+        assert_eq!(search.session_query, "hel");
+        
+        // Test backspace
+        let backspace = KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty());
+        search.handle_session_viewer_input(backspace).unwrap();
+        assert_eq!(search.session_query, "he");
+        
+        // Clear search with Esc
+        search.session_query = "test".to_string();
+        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
+        search.handle_session_viewer_input(esc_key).unwrap();
+        assert_eq!(search.session_query, "");
+        assert_eq!(search.mode, Mode::SessionViewer); // Should stay in session viewer
+        
+        // Test case-insensitive search by drawing the UI
+        search.session_query = "hello".to_string();
+        let mut terminal = create_test_terminal();
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        // The filtering should happen in draw_session_message_list
+        // Check that filtered indices were calculated (this would be set by the draw function)
+        // In reality, the filtering happens during drawing, so we test the behavior indirectly
+    }
+
+    #[test]
+    fn test_session_viewer_list_rendering() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Create test message with long content to test truncation
+        let long_message = "This is a very long message that should be truncated when displayed in the list view because it exceeds the available width";
+        search.session_messages = vec![
+            format!(r#"{{"type":"user","message":{{"role":"user","content":"{}"}},"uuid":"1","timestamp":"2024-01-01T12:34:56Z","sessionId":"test-session"}}"#, long_message),
+            // Test multibyte characters
+            r#"{"type":"user","message":{"role":"user","content":"こんにちは世界！🌍 Hello!"},"uuid":"2","timestamp":"2024-01-01T12:35:00Z","sessionId":"test-session"}"#.to_string(),
+            // Test array content
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"First part"},{"type":"text","text":"Second part"}]},"uuid":"3","timestamp":"2024-01-01T12:35:01Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        search.session_filtered_indices = vec![0, 1, 2];
+        search.session_selected_index = 1; // Select the multibyte message
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Check that timestamps are formatted properly (MM/DD HH:MM)
+        let expected_time = "01/01 12:34";
+        assert!(find_text_in_buffer(buffer, expected_time).is_some());
+        
+        // Check role formatting (centered with spaces)
+        let role_user = "[  USER   ]"; // Centered format
+        assert!(find_text_in_buffer(buffer, role_user).is_some());
+        
+        // Check that assistant role is also displayed
+        let role_assistant = "[ASSISTANT]";
+        assert!(find_text_in_buffer(buffer, role_assistant).is_some());
+        
+        // For multibyte content, check for the beginning of the string
+        // (multibyte characters might be split in the buffer)
+        let hello = "Hello!";
+        assert!(find_text_in_buffer(buffer, hello).is_some());
+        
+        // Check selected item highlighting (item 2 should be selected)
+        // The selected item should have different styling which is harder to test directly
+        // but we can verify the list is rendered
+        
+        // Check scroll indicator when there are many messages
+        let title = "Messages (3 total)";
+        assert!(find_text_in_buffer(buffer, title).is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_enter_detail() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Set up messages
+        search.session_messages = vec![
+            r#"{"type":"user","message":{"role":"user","content":"Test message"},"uuid":"123","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Response part 1"},{"type":"text","text":"Response part 2"}]},"uuid":"456","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        search.session_filtered_indices = vec![0, 1];
+        search.session_selected_index = 1; // Select the assistant message
+        
+        // Need a selected_result for the transition to work
+        search.selected_result = Some(SearchResult {
+            file: "test.jsonl".to_string(),
+            uuid: "old-uuid".to_string(),
+            timestamp: "2024-01-01T00:00:00Z".to_string(),
+            session_id: "test-session".to_string(),
+            role: "user".to_string(),
+            text: "old text".to_string(),
+            has_tools: false,
+            has_thinking: false,
+            message_type: "user".to_string(),
+            query: crate::query::QueryCondition::Literal { 
+                pattern: "test".to_string(),
+                case_sensitive: false,
+            },
+            project_path: "test-project".to_string(),
+            raw_json: None,
+        });
+        
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        
+        // Press Enter to view details
+        let enter_key = KeyEvent::new(KeyCode::Enter, KeyModifiers::empty());
+        search.handle_session_viewer_input(enter_key).unwrap();
+        
+        // Should transition to ResultDetail mode
+        assert_eq!(search.mode, Mode::ResultDetail);
+        
+        // Check that the selected_result was updated with the message details
+        if let Some(ref result) = search.selected_result {
+            assert_eq!(result.role, "assistant");
+            assert_eq!(result.uuid, "456");
+            assert_eq!(result.text, "Response part 1\nResponse part 2"); // Array content joined
+            assert!(result.raw_json.is_some());
+        } else {
+            panic!("selected_result should be Some after Enter");
+        }
+        
+        // Verify detail scroll offset was reset
+        assert_eq!(search.detail_scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_session_viewer_navigation_complete() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Create many messages to test scrolling
+        let mut messages = Vec::new();
+        for i in 0..20 {
+            messages.push(format!(
+                r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"test-session"}}"#,
+                i, i, i
+            ));
+        }
+        search.session_messages = messages;
+        search.session_filtered_indices = (0..20).collect();
+        search.session_selected_index = 0;
+        search.session_scroll_offset = 0;
+        
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        
+        // Test PageDown
+        let pagedown = KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty());
+        search.handle_session_viewer_input(pagedown).unwrap();
+        assert_eq!(search.session_selected_index, 10);
+        
+        // Test PageUp
+        let pageup = KeyEvent::new(KeyCode::PageUp, KeyModifiers::empty());
+        search.handle_session_viewer_input(pageup).unwrap();
+        assert_eq!(search.session_selected_index, 0);
+        
+        // Test navigation with filtered results
+        search.session_query = "5".to_string(); // This would filter to messages containing "5"
+        // Manually set filtered indices for testing (normally done in draw)
+        search.session_filtered_indices = vec![5, 15]; // Messages 5 and 15
+        search.session_selected_index = 0;
+        
+        // Navigate down in filtered view
+        let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
+        search.handle_session_viewer_input(down_key).unwrap();
+        assert_eq!(search.session_selected_index, 1); // Should move to next filtered item
+        
+        // Try to navigate past the end
+        search.handle_session_viewer_input(down_key).unwrap();
+        assert_eq!(search.session_selected_index, 1); // Should stay at last item
+        
+        // Navigate up
+        let up_key = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
+        search.handle_session_viewer_input(up_key).unwrap();
+        assert_eq!(search.session_selected_index, 0);
+        
+        // Try to navigate before start
+        search.handle_session_viewer_input(up_key).unwrap();
+        assert_eq!(search.session_selected_index, 0); // Should stay at first item
+    }
+
+    #[test]
+    fn test_session_viewer_slash_key() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        search.session_messages = vec!["msg1".to_string()];
+        search.session_filtered_indices = vec![0];
+        
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        
+        // Test slash key - it should just be handled as a no-op
+        // (cursor positioning happens in draw)
+        let slash_key = KeyEvent::new(KeyCode::Char('/'), KeyModifiers::empty());
+        let result = search.handle_session_viewer_input(slash_key);
+        assert!(result.is_ok());
+        assert_eq!(search.mode, Mode::SessionViewer);
+        // The search query should remain empty since '/' is just for focus
+        assert_eq!(search.session_query, "");
+    }
+
+    #[test]
+    fn test_session_viewer_empty_search_results() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Set up messages that won't match our search
+        search.session_messages = vec![
+            r#"{"type":"user","message":{"role":"user","content":"Hello world"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Hi there!"}]},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        search.session_filtered_indices = vec![0, 1];
+        search.session_query = "xyz123notfound".to_string(); // Query that won't match anything
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should show "No messages match filter"
+        let no_results = "No messages match filter";
+        assert!(find_text_in_buffer(buffer, no_results).is_some());
+    }
+
+    #[test]
+    fn test_adjust_session_scroll_offset() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        
+        // Test scrolling down when selected item is below visible area
+        search.session_selected_index = 25;
+        search.session_scroll_offset = 0;
+        search.adjust_session_scroll_offset();
+        // Should adjust offset to show selected item
+        assert!(search.session_scroll_offset > 0);
+        
+        // Test scrolling up when selected item is above visible area
+        search.session_selected_index = 5;
+        search.session_scroll_offset = 20;
+        search.adjust_session_scroll_offset();
+        // Should adjust offset to show selected item
+        assert_eq!(search.session_scroll_offset, 5);
+        
+        // Test when selected item is already visible
+        search.session_selected_index = 10;
+        search.session_scroll_offset = 5;
+        search.adjust_session_scroll_offset();
+        // Should not change offset if item is visible
+        assert_eq!(search.session_scroll_offset, 5);
+    }
+
+    #[test]
+    fn test_session_viewer_invalid_message_handling() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Add invalid JSON message
+        search.session_messages = vec![
+            "invalid json".to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"Valid message"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        search.session_filtered_indices = vec![0, 1];
+        search.session_selected_index = 0;
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should show error for invalid JSON
+        let error = "(error parsing message)";
+        assert!(find_text_in_buffer(buffer, error).is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_complex_content_types() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Test various content structures
+        search.session_messages = vec![
+            // Empty content
+            r#"{"type":"user","message":{"role":"user"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            // Null content
+            r#"{"type":"user","message":{"role":"user","content":null},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+            // Complex nested structure
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"123"},{"type":"text","text":"Using tool"}]},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        search.session_filtered_indices = vec![0, 1, 2];
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should handle empty/null content
+        let no_content = "(no content)";
+        assert!(find_text_in_buffer(buffer, no_content).is_some());
+        
+        // Should display text from complex content
+        let tool_text = "Using tool";
+        assert!(find_text_in_buffer(buffer, tool_text).is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_filtered_count_display() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Set up 5 messages, 3 will match the filter
+        search.session_messages = vec![
+            r#"{"type":"user","message":{"role":"user","content":"Hello world"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":"Hi there!"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"Hello again"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":"How can I help?"},"uuid":"4","timestamp":"2024-01-01T00:00:03Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"Goodbye"},"uuid":"5","timestamp":"2024-01-01T00:00:04Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        search.session_query = "hello".to_string(); // Should match messages 1 and 3
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should show filtered count
+        let filtered_title = "Messages (5 total, 2 filtered)";
+        assert!(find_text_in_buffer(buffer, filtered_title).is_some(), 
+                "Should display filtered count in title");
+    }
+
+    #[test]
+    fn test_session_viewer_case_insensitive_search() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Messages with different case variations
+        search.session_messages = vec![
+            r#"{"type":"user","message":{"role":"user","content":"HELLO WORLD"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"hello world"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"Hello World"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"hElLo WoRlD"},"uuid":"4","timestamp":"2024-01-01T00:00:03Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        // Search with lowercase - should match all messages
+        search.session_query = "hello".to_string();
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // All 4 messages should be shown (case-insensitive)
+        assert!(find_text_in_buffer(buffer, "HELLO WORLD").is_some());
+        assert!(find_text_in_buffer(buffer, "hello world").is_some());
+        assert!(find_text_in_buffer(buffer, "Hello World").is_some());
+        
+        // Check filtered count shows all messages
+        let title = "Messages (4 total, 4 filtered)";
+        assert!(find_text_in_buffer(buffer, title).is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_search_filtering_implementation() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Various messages to test filtering
+        search.session_messages = vec![
+            r#"{"type":"user","message":{"role":"user","content":"Rust programming"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":"Python coding"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"JavaScript development"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":"Rust is great"},"uuid":"4","timestamp":"2024-01-01T00:00:03Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        // Test filtering for "rust" - should match messages 1 and 4
+        search.session_query = "rust".to_string();
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should show Rust messages
+        assert!(find_text_in_buffer(buffer, "Rust programming").is_some());
+        assert!(find_text_in_buffer(buffer, "Rust is great").is_some());
+        
+        // Should NOT show non-matching messages (they would be filtered out)
+        // We can verify this by checking the filtered count
+        let filtered_title = "Messages (4 total, 2 filtered)";
+        assert!(find_text_in_buffer(buffer, filtered_title).is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_array_content_search() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Messages with array content
+        search.session_messages = vec![
+            // Simple text
+            r#"{"type":"user","message":{"role":"user","content":"Simple message"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            // Array content with search term in first part
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"First part with KEYWORD"},{"type":"text","text":"Second part"}]},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+            // Array content with search term in second part
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"First part"},{"type":"text","text":"Second part with KEYWORD"}]},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
+            // Array with non-text types
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"123"},{"type":"text","text":"Text with KEYWORD"}]},"uuid":"4","timestamp":"2024-01-01T00:00:03Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        search.session_query = "keyword".to_string();
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should find keyword in all array content messages
+        assert!(find_text_in_buffer(buffer, "First part with KEYWORD").is_some());
+        assert!(find_text_in_buffer(buffer, "Second part with KEYWORD").is_some());
+        assert!(find_text_in_buffer(buffer, "Text with KEYWORD").is_some());
+        
+        // Check that 3 messages were filtered (messages 2, 3, 4)
+        let filtered_title = "Messages (4 total, 3 filtered)";
+        assert!(find_text_in_buffer(buffer, filtered_title).is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_loading_error_handling() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        
+        // Test with non-existent file
+        let result = search.load_session_messages("/nonexistent/path/file.jsonl");
+        assert!(result.is_err());
+        
+        // Test with directory instead of file
+        use std::env;
+        let temp_dir = env::temp_dir();
+        let result = search.load_session_messages(temp_dir.to_str().unwrap());
+        assert!(result.is_err());
+        
+        // Create a file with mixed valid/invalid content
+        use tempfile::tempdir;
+        use std::fs::File;
+        use std::io::Write;
+        
+        let temp_dir = tempdir().unwrap();
+        let test_file = temp_dir.path().join("mixed.jsonl");
+        let mut file = File::create(&test_file).unwrap();
+        
+        // Write some valid lines and some empty lines
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Valid"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test"}}"#).unwrap();
+        writeln!(file, "").unwrap(); // Empty line
+        writeln!(file, "   ").unwrap(); // Whitespace only
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Also valid"}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test"}}"#).unwrap();
+        
+        // Load should succeed and skip empty lines
+        let result = search.load_session_messages(test_file.to_str().unwrap());
+        assert!(result.is_ok());
+        assert_eq!(search.session_messages.len(), 2); // Only valid lines
     }
 
     // Helper function to find text in buffer
