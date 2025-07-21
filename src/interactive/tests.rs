@@ -113,7 +113,9 @@ mod tests {
 
             // In CI environment, clipboard tools might not be available
             if !has_xclip && !has_xsel {
-                eprintln!("Warning: Neither xclip nor xsel found - clipboard operations may not work");
+                eprintln!(
+                    "Warning: Neither xclip nor xsel found - clipboard operations may not work"
+                );
             }
         }
 
