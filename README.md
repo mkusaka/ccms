@@ -1,4 +1,4 @@
-# CCMS (Claude Conversation Management System)
+# CCMS (Claude Code Message Searcher)
 
 [![CI](https://github.com/mkusaka/ccmeta/actions/workflows/ci.yml/badge.svg)](https://github.com/mkusaka/ccmeta/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
