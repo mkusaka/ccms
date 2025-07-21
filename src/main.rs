@@ -68,6 +68,10 @@ struct Cli {
     #[arg(long)]
     full_text: bool,
 
+    /// Show raw JSON of matched messages
+    #[arg(long)]
+    raw: bool,
+
     /// Interactive search mode (fzf-like)
     #[arg(short = 'i', long)]
     interactive: bool,
@@ -205,6 +209,13 @@ fn main() -> Result<()> {
         OutputFormat::Text => {
             if results.is_empty() {
                 println!("No results found.");
+            } else if cli.raw {
+                // Raw mode: output raw JSON lines
+                for result in &results {
+                    if let Some(raw_json) = &result.raw_json {
+                        println!("{raw_json}");
+                    }
+                }
             } else {
                 println!("Found {} results:\n", results.len());
                 for result in &results {

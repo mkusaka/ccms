@@ -24,6 +24,7 @@ mod tests {
                 case_sensitive: false,
             },
             project_path: "/test/project".to_string(),
+            raw_json: None,
         }
     }
 

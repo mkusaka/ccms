@@ -170,6 +170,8 @@ pub struct SearchResult {
     pub message_type: String,
     pub query: QueryCondition,
     pub project_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_json: Option<String>,
 }
 
 #[cfg(test)]

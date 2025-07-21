@@ -110,6 +110,8 @@ ccms -i -n 100                               # Adjust result limit
 - `F` - Copy file path to clipboard
 - `I` - Copy session ID to clipboard
 - `P` - Copy project path to clipboard
+- `M` - Copy message text to clipboard
+- `R` - Copy raw JSON to clipboard
 
 ### Advanced Queries
 
@@ -170,6 +172,9 @@ ccms --no-color "query"
 
 # Show full message text
 ccms --full-text "query"
+
+# Show raw JSON of matched messages
+ccms --raw "query"
 
 # JSON output
 ccms -f json "query" > results.json

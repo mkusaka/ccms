@@ -286,6 +286,7 @@ impl SearchEngine {
                                 message_type: message.get_type().to_string(),
                                 query: query.clone(),
                                 project_path: Self::extract_project_path(file_path),
+                                raw_json: Some(line.clone()),
                             });
                         }
                     }

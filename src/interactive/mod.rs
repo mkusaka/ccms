@@ -193,6 +193,20 @@ impl InteractiveSearch {
                                 println!("\n{}", "Project path copied to clipboard!".green());
                                 term.read_key()?;
                             }
+                            Key::Char('m') | Key::Char('M') => {
+                                self.copy_to_clipboard(&results[selected_index].text)?;
+                                println!("\n{}", "Message text copied to clipboard!".green());
+                                term.read_key()?;
+                            }
+                            Key::Char('r') | Key::Char('R') => {
+                                if let Some(raw_json) = &results[selected_index].raw_json {
+                                    self.copy_to_clipboard(raw_json)?;
+                                    println!("\n{}", "Raw JSON copied to clipboard!".green());
+                                } else {
+                                    println!("\n{}", "No raw JSON available".yellow());
+                                }
+                                term.read_key()?;
+                            }
                             _ => {}
                         }
 
@@ -305,6 +319,8 @@ impl InteractiveSearch {
         println!("  {} - Copy file path", "[F]".yellow());
         println!("  {} - Copy session ID", "[I]".yellow());
         println!("  {} - Copy project path", "[P]".yellow());
+        println!("  {} - Copy message text", "[M]".yellow());
+        println!("  {} - Copy raw JSON", "[R]".yellow());
         println!("  {} - Continue", "[Any other key]".yellow());
 
         Ok(())
