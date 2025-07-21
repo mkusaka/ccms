@@ -1,26 +1,26 @@
 #[cfg(test)]
 mod tests;
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers, poll},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Frame, Terminal,
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
-    Frame, Terminal,
 };
-use std::io::{self, Stdout};
 use std::collections::HashMap;
+use std::io::{self, Stdout};
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, Duration};
+use std::time::{Duration, SystemTime};
 
-use crate::{SearchOptions, SearchResult, parse_query, SessionMessage};
+use crate::{SearchOptions, SearchResult, SessionMessage, parse_query};
 
 // Re-use cache structures from the original implementation
 struct CachedFile {
@@ -43,7 +43,7 @@ impl MessageCache {
     fn get_messages(&mut self, path: &Path) -> Result<&CachedFile> {
         let metadata = std::fs::metadata(path)?;
         let modified = metadata.modified()?;
-        
+
         let needs_reload = match self.files.get(path) {
             Some(cached) => cached.last_modified != modified,
             None => true,
@@ -53,24 +53,25 @@ impl MessageCache {
             let file = std::fs::File::open(path)?;
             let reader = std::io::BufReader::with_capacity(32 * 1024, file);
             use std::io::BufRead;
-            
+
             let mut messages = Vec::new();
             let mut raw_lines = Vec::new();
-            
+
             for line in reader.lines() {
                 let line = line?;
                 if line.trim().is_empty() {
                     continue;
                 }
-                
+
                 raw_lines.push(line.clone());
-                
+
                 let mut json_bytes = line.as_bytes().to_vec();
-                if let Ok(message) = simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes) {
+                if let Ok(message) = simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes)
+                {
                     messages.push(message);
                 }
             }
-            
+
             self.files.insert(
                 path.to_path_buf(),
                 CachedFile {
@@ -80,10 +81,10 @@ impl MessageCache {
                 },
             );
         }
-        
+
         Ok(self.files.get(path).unwrap())
     }
-    
+
     fn clear(&mut self) {
         self.files.clear();
     }
@@ -107,7 +108,7 @@ pub struct InteractiveSearch {
     base_options: SearchOptions,
     max_results: usize,
     cache: MessageCache,
-    
+
     // UI state
     mode: Mode,
     query: String,
@@ -115,19 +116,19 @@ pub struct InteractiveSearch {
     results: Vec<SearchResult>,
     role_filter: Option<String>,
     message: Option<String>,
-    
+
     // Session viewer state
     session_messages: Vec<String>,
     session_index: usize,
     session_order: Option<SessionOrder>,
-    
+
     // For result detail
     selected_result: Option<SearchResult>,
-    detail_scroll_offset: usize,  // Scroll offset for detail view
-    
+    detail_scroll_offset: usize, // Scroll offset for detail view
+
     // For search results scrolling
-    scroll_offset: usize,  // Scroll offset for search results list
-    
+    scroll_offset: usize, // Scroll offset for search results list
+
     // For search performance
     is_searching: bool,
 }
@@ -158,7 +159,7 @@ impl InteractiveSearch {
     pub fn run(&mut self, pattern: &str) -> Result<()> {
         // Load initial results
         self.load_initial_results(pattern);
-        
+
         enable_raw_mode()?;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen)?;
@@ -180,7 +181,11 @@ impl InteractiveSearch {
         Ok(())
     }
 
-    fn run_app(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>, pattern: &str) -> Result<()> {
+    fn run_app(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+        pattern: &str,
+    ) -> Result<()> {
         loop {
             terminal.draw(|f| self.draw(f))?;
 
@@ -224,16 +229,20 @@ impl InteractiveSearch {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),    // Header
-                Constraint::Length(3),    // Search input
-                Constraint::Min(0),       // Results
-                Constraint::Length(1),    // Status line
+                Constraint::Length(3), // Header
+                Constraint::Length(3), // Search input
+                Constraint::Min(0),    // Results
+                Constraint::Length(1), // Status line
             ])
             .split(f.area());
 
         // Header
         let header = Paragraph::new("Interactive Claude Search")
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::BOTTOM));
         f.render_widget(header, chunks[0]);
@@ -245,13 +254,13 @@ impl InteractiveSearch {
         } else {
             format!("Search: {display_query}")
         };
-        
+
         let title = if self.is_searching {
             "Query (searching...)"
         } else {
             "Query"
         };
-        
+
         let input = Paragraph::new(search_label.as_str())
             .style(Style::default())
             .block(Block::default().borders(Borders::ALL).title(title));
@@ -281,16 +290,18 @@ impl InteractiveSearch {
         } else {
             "Tab: Filter | ↑/↓: Navigate | Enter: Select | Ctrl+R: Reload | Esc: Exit".to_string()
         };
-        let status_bar = Paragraph::new(status)
-            .style(Style::default().fg(Color::DarkGray));
+        let status_bar = Paragraph::new(status).style(Style::default().fg(Color::DarkGray));
         f.render_widget(status_bar, chunks[3]);
 
         // Position cursor
-        let cursor_x = chunks[1].x + 1 + if let Some(ref role) = self.role_filter {
-            ("Search [".len() + role.len() + "]: ".len()) as u16
-        } else {
-            "Search: ".len() as u16
-        } + self.query.len() as u16;
+        let cursor_x = chunks[1].x
+            + 1
+            + if let Some(ref role) = self.role_filter {
+                ("Search [".len() + role.len() + "]: ".len()) as u16
+            } else {
+                "Search: ".len() as u16
+            }
+            + self.query.len() as u16;
         let cursor_y = chunks[1].y + 1;
         f.set_cursor_position((cursor_x.min(chunks[1].x + chunks[1].width - 2), cursor_y));
     }
@@ -315,8 +326,9 @@ impl InteractiveSearch {
 
         // Calculate visible range with scrolling
         let (start_idx, end_idx) = self.calculate_visible_range(inner.height);
-        
-        let items: Vec<ListItem> = self.results
+
+        let items: Vec<ListItem> = self
+            .results
             .iter()
             .skip(start_idx)
             .take(end_idx - start_idx)
@@ -325,36 +337,35 @@ impl InteractiveSearch {
                 let actual_idx = start_idx + idx;
                 let timestamp = Self::format_timestamp(&result.timestamp);
                 let role_str = format!("[{:^9}]", result.role.to_uppercase());
-                
+
                 // Calculate available width for message
                 // Format: "NN. [ROLE     ] MM/DD HH:MM <message>"
                 let index_str = format!("{:2}. ", actual_idx + 1);
                 let fixed_part = format!("{index_str}{role_str} {timestamp} ");
                 let fixed_width = fixed_part.chars().count();
-                
+
                 // Get terminal width and calculate available space for message
                 let terminal_width = inner.width as usize;
                 let available_width = terminal_width.saturating_sub(fixed_width).saturating_sub(1); // -1 for safety
-                
+
                 // Truncate message to fit
                 let truncated_message = self.truncate_message(&result.text, available_width);
-                
+
                 let line_content = format!("{fixed_part}{truncated_message}");
-                
+
                 let style = if actual_idx == self.selected_index {
-                    Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .bg(Color::DarkGray)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default()
                 };
-                
-                ListItem::new(Line::from(vec![
-                    Span::styled(line_content, style),
-                ]))
+
+                ListItem::new(Line::from(vec![Span::styled(line_content, style)]))
             })
             .collect();
 
-        let list = List::new(items)
-            .highlight_style(Style::default());
+        let list = List::new(items).highlight_style(Style::default());
         f.render_widget(list, inner);
 
         // Show scroll indicator
@@ -375,11 +386,11 @@ impl InteractiveSearch {
                     self.results.len()
                 )
             };
-            
+
             let scroll_indicator = Paragraph::new(scroll_text)
                 .style(Style::default().fg(Color::DarkGray))
                 .alignment(Alignment::Center);
-            
+
             let indicator_area = Rect {
                 x: inner.x,
                 y: inner.y + inner.height.saturating_sub(1),
@@ -403,7 +414,7 @@ impl InteractiveSearch {
 
         if let Some(ref result) = self.selected_result {
             let timestamp = Self::format_timestamp_long(&result.timestamp);
-            
+
             let content = vec![
                 Line::from(vec![
                     Span::styled("Role: ", Style::default().fg(Color::Yellow)),
@@ -433,38 +444,42 @@ impl InteractiveSearch {
                 Line::from("─".repeat(80)),
                 Line::from(""),
             ];
-            
+
             // Build all lines including the message content
             let header_lines = content.len();
             let mut all_lines = content;
-            
+
             // Split message text into lines
             for line in result.text.lines() {
                 all_lines.push(Line::from(line));
             }
-            
+
             // Calculate visible area
             let inner_area = Block::default().borders(Borders::ALL).inner(chunks[0]);
             let visible_height = inner_area.height as usize;
-            
+
             // Apply scroll offset
             let display_lines: Vec<Line> = all_lines
                 .into_iter()
                 .skip(self.detail_scroll_offset)
                 .take(visible_height)
                 .collect();
-            
-            let detail = Paragraph::new(display_lines)
-                .block(Block::default().borders(Borders::ALL).title(format!(
+
+            let detail = Paragraph::new(display_lines).block(
+                Block::default().borders(Borders::ALL).title(format!(
                     "Result Detail (↑/↓ or j/k to scroll, line {}/{})",
                     self.detail_scroll_offset + 1,
                     header_lines + result.text.lines().count()
-                )));
+                )),
+            );
             f.render_widget(detail, chunks[0]);
 
             // Actions
             let actions = vec![
-                Line::from(vec![Span::styled("Actions:", Style::default().fg(Color::Cyan))]),
+                Line::from(vec![Span::styled(
+                    "Actions:",
+                    Style::default().fg(Color::Cyan),
+                )]),
                 Line::from(vec![
                     Span::styled("[S]", Style::default().fg(Color::Yellow)),
                     Span::raw(" - View full session"),
@@ -498,24 +513,28 @@ impl InteractiveSearch {
                     Span::raw(" - Scroll message"),
                 ]),
             ];
-            
-            let actions_widget = Paragraph::new(actions)
-                .block(Block::default().borders(Borders::ALL));
+
+            let actions_widget =
+                Paragraph::new(actions).block(Block::default().borders(Borders::ALL));
             f.render_widget(actions_widget, chunks[1]);
-            
+
             // Show message if any
             if let Some(ref msg) = self.message {
                 let message_widget = Paragraph::new(msg.clone())
-                    .style(Style::default().fg(if msg.starts_with('✓') {
-                        Color::Green
-                    } else if msg.starts_with('⚠') {
-                        Color::Yellow
-                    } else {
-                        Color::White
-                    }).add_modifier(Modifier::BOLD))
+                    .style(
+                        Style::default()
+                            .fg(if msg.starts_with('✓') {
+                                Color::Green
+                            } else if msg.starts_with('⚠') {
+                                Color::Yellow
+                            } else {
+                                Color::White
+                            })
+                            .add_modifier(Modifier::BOLD),
+                    )
                     .alignment(Alignment::Center);
                 f.render_widget(message_widget, chunks[2]);
-                
+
                 // Clear message after 2 seconds (will be cleared on next keypress)
                 // For now, it stays until next action
             }
@@ -526,16 +545,19 @@ impl InteractiveSearch {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(5),  // Header
-                Constraint::Min(0),     // Content
-                Constraint::Length(2),  // Status
+                Constraint::Length(5), // Header
+                Constraint::Min(0),    // Content
+                Constraint::Length(2), // Status
             ])
             .split(f.area());
 
         // Header
         if let Some(ref result) = self.selected_result {
             let header_text = vec![
-                Line::from(vec![Span::styled("Session Viewer", Style::default().fg(Color::Cyan))]),
+                Line::from(vec![Span::styled(
+                    "Session Viewer",
+                    Style::default().fg(Color::Cyan),
+                )]),
                 Line::from(vec![
                     Span::styled("Session: ", Style::default().fg(Color::Yellow)),
                     Span::raw(&result.session_id),
@@ -545,9 +567,9 @@ impl InteractiveSearch {
                     Span::raw(&result.file),
                 ]),
             ];
-            
-            let header = Paragraph::new(header_text)
-                .block(Block::default().borders(Borders::BOTTOM));
+
+            let header =
+                Paragraph::new(header_text).block(Block::default().borders(Borders::BOTTOM));
             f.render_widget(header, chunks[0]);
         }
 
@@ -561,33 +583,36 @@ impl InteractiveSearch {
         } else if !self.session_messages.is_empty() {
             let total = self.session_messages.len();
             let current_msg = &self.session_messages[self.session_index];
-            
+
             if let Ok(msg) = serde_json::from_str::<serde_json::Value>(current_msg) {
-                let mut content = vec![
-                    Line::from(format!("Message {}/{}", self.session_index + 1, total)),
-                ];
-                
+                let mut content = vec![Line::from(format!(
+                    "Message {}/{}",
+                    self.session_index + 1,
+                    total
+                ))];
+
                 if let Some(role) = msg.get("type").and_then(|v| v.as_str()) {
                     content.push(Line::from(vec![
                         Span::styled("Role: ", Style::default().fg(Color::Yellow)),
                         Span::raw(role),
                     ]));
                 }
-                
+
                 if let Some(ts) = msg.get("timestamp").and_then(|v| v.as_str()) {
                     content.push(Line::from(vec![
                         Span::styled("Time: ", Style::default().fg(Color::Yellow)),
                         Span::raw(ts),
                     ]));
                 }
-                
+
                 content.push(Line::from(""));
-                
+
                 // Extract message content - handle both direct content and message.content
-                let message_content = msg.get("message")
+                let message_content = msg
+                    .get("message")
                     .and_then(|m| m.get("content"))
                     .or_else(|| msg.get("content"));
-                    
+
                 if let Some(content_val) = message_content {
                     if let Some(text) = content_val.as_str() {
                         // Split text into lines for proper display
@@ -604,12 +629,14 @@ impl InteractiveSearch {
                         }
                     }
                 }
-                
-                let message = Paragraph::new(content)
-                    .wrap(Wrap { trim: false })
-                    .block(Block::default().borders(Borders::ALL).title(
-                        format!("Message {}/{}", self.session_index + 1, total)
-                    ));
+
+                let message = Paragraph::new(content).wrap(Wrap { trim: false }).block(
+                    Block::default().borders(Borders::ALL).title(format!(
+                        "Message {}/{}",
+                        self.session_index + 1,
+                        total
+                    )),
+                );
                 f.render_widget(message, chunks[1]);
             } else {
                 // Failed to parse JSON
@@ -642,9 +669,17 @@ impl InteractiveSearch {
 
     fn draw_help(&mut self, f: &mut Frame) {
         let help_text = vec![
-            Line::from(vec![Span::styled("CCMS Help", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))]),
+            Line::from(vec![Span::styled(
+                "CCMS Help",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )]),
             Line::from(""),
-            Line::from(vec![Span::styled("Search Mode:", Style::default().fg(Color::Yellow))]),
+            Line::from(vec![Span::styled(
+                "Search Mode:",
+                Style::default().fg(Color::Yellow),
+            )]),
             Line::from("  Type        - Search for text"),
             Line::from("  Tab         - Cycle role filter"),
             Line::from("  ↑/↓         - Navigate results"),
@@ -652,7 +687,10 @@ impl InteractiveSearch {
             Line::from("  Ctrl+R      - Clear cache & reload"),
             Line::from("  Esc         - Exit"),
             Line::from(""),
-            Line::from(vec![Span::styled("Query Syntax:", Style::default().fg(Color::Yellow))]),
+            Line::from(vec![Span::styled(
+                "Query Syntax:",
+                Style::default().fg(Color::Yellow),
+            )]),
             Line::from("  word        - Search for word"),
             Line::from("  \"phrase\"    - Search for exact phrase"),
             Line::from("  AND/OR/NOT  - Boolean operators"),
@@ -661,12 +699,12 @@ impl InteractiveSearch {
             Line::from(""),
             Line::from("Press any key to return..."),
         ];
-        
+
         let help = Paragraph::new(help_text)
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: false })
             .block(Block::default().borders(Borders::ALL).title("Help"));
-        
+
         let area = self.centered_rect(60, 80, f.area());
         f.render_widget(Clear, area);
         f.render_widget(help, area);
@@ -691,10 +729,10 @@ impl InteractiveSearch {
             ])
             .split(popup_layout[1])[1]
     }
-    
+
     fn truncate_message(&self, text: &str, max_width: usize) -> String {
         let cleaned = text.replace('\n', " ");
-        
+
         if cleaned.chars().count() <= max_width {
             cleaned
         } else {
@@ -704,7 +742,7 @@ impl InteractiveSearch {
             format!("{truncated}...")
         }
     }
-    
+
     fn calculate_visible_range(&self, available_height: u16) -> (usize, usize) {
         // Reserve 1 line for scroll indicator if needed
         let height_for_items = if self.results.len() > available_height as usize {
@@ -712,13 +750,13 @@ impl InteractiveSearch {
         } else {
             available_height
         };
-        
+
         let visible_count = (height_for_items as usize).min(self.results.len());
         let start = self.scroll_offset;
         let end = (start + visible_count).min(self.results.len());
         (start, end)
     }
-    
+
     fn adjust_scroll_offset(&mut self, available_height: u16) {
         // Reserve 1 line for scroll indicator if needed
         let height_for_items = if self.results.len() > available_height as usize {
@@ -726,9 +764,9 @@ impl InteractiveSearch {
         } else {
             available_height
         };
-        
+
         let visible_count = (height_for_items as usize).min(self.results.len());
-        
+
         // If selected index is above the visible range, scroll up
         if self.selected_index < self.scroll_offset {
             self.scroll_offset = self.selected_index;
@@ -767,7 +805,7 @@ impl InteractiveSearch {
                 self.selected_index = 0;
                 self.scroll_offset = 0;
                 self.execute_search(pattern);
-                self.message = None;  // Clear any message when changing role filter
+                self.message = None; // Clear any message when changing role filter
             }
             KeyCode::Char(c) => {
                 self.query.push(c);
@@ -806,7 +844,8 @@ impl InteractiveSearch {
             }
             KeyCode::PageDown => {
                 let page_size = 10;
-                self.selected_index = (self.selected_index + page_size).min(self.results.len().saturating_sub(1));
+                self.selected_index =
+                    (self.selected_index + page_size).min(self.results.len().saturating_sub(1));
                 let (_, height) = crossterm::terminal::size().unwrap_or((80, 24));
                 let available_height = height.saturating_sub(7);
                 self.adjust_scroll_offset(available_height);
@@ -834,8 +873,8 @@ impl InteractiveSearch {
                 if !self.results.is_empty() && self.selected_index < self.results.len() {
                     self.selected_result = Some(self.results[self.selected_index].clone());
                     self.mode = Mode::ResultDetail;
-                    self.detail_scroll_offset = 0;  // Reset scroll when entering detail
-                    self.message = None;  // Clear any previous message
+                    self.detail_scroll_offset = 0; // Reset scroll when entering detail
+                    self.message = None; // Clear any previous message
                 }
             }
             _ => {}
@@ -847,7 +886,7 @@ impl InteractiveSearch {
         match key.code {
             KeyCode::Esc => {
                 self.mode = Mode::Search;
-                self.message = None;  // Clear message when returning to search
+                self.message = None; // Clear message when returning to search
                 self.detail_scroll_offset = 0;
             }
             KeyCode::Up | KeyCode::Char('k') => {
@@ -856,7 +895,8 @@ impl InteractiveSearch {
             KeyCode::Down | KeyCode::Char('j') => {
                 if let Some(ref result) = self.selected_result {
                     let total_lines = 9 + result.text.lines().count(); // 9 header lines
-                    self.detail_scroll_offset = self.detail_scroll_offset
+                    self.detail_scroll_offset = self
+                        .detail_scroll_offset
                         .saturating_add(1)
                         .min(total_lines.saturating_sub(10)); // Keep some lines visible
                 }
@@ -867,7 +907,8 @@ impl InteractiveSearch {
             KeyCode::PageDown => {
                 if let Some(ref result) = self.selected_result {
                     let total_lines = 9 + result.text.lines().count();
-                    self.detail_scroll_offset = self.detail_scroll_offset
+                    self.detail_scroll_offset = self
+                        .detail_scroll_offset
                         .saturating_add(10)
                         .min(total_lines.saturating_sub(10));
                 }
@@ -875,26 +916,29 @@ impl InteractiveSearch {
             KeyCode::Char('s') | KeyCode::Char('S') => {
                 if let Some(result) = &self.selected_result {
                     // Try to find the full file path from search results
-                    let file_path = if let Some(matching_result) = self.results.iter().find(|r| 
-                        r.uuid == result.uuid && r.session_id == result.session_id
-                    ) {
+                    let file_path = if let Some(matching_result) = self
+                        .results
+                        .iter()
+                        .find(|r| r.uuid == result.uuid && r.session_id == result.session_id)
+                    {
                         // Use the file path from the matching result
                         matching_result.file.clone()
                     } else {
                         // Fallback to the stored file name
                         result.file.clone()
                     };
-                    
+
                     // Search for the actual file in the default pattern
                     use crate::search::discover_claude_files;
                     let files = discover_claude_files(None).unwrap_or_default();
-                    
+
                     // Find the file that matches our session
-                    let full_path = files.iter()
+                    let full_path = files
+                        .iter()
                         .find(|f| f.to_string_lossy().contains(&result.session_id))
                         .map(|f| f.to_string_lossy().to_string())
                         .unwrap_or(file_path);
-                    
+
                     match self.load_session_messages(&full_path) {
                         Ok(_) => {
                             self.session_index = 0;
@@ -980,7 +1024,8 @@ impl InteractiveSearch {
                     self.session_index = self.session_index.saturating_sub(3);
                 }
                 KeyCode::PageDown | KeyCode::Char(' ') => {
-                    self.session_index = (self.session_index + 3).min(self.session_messages.len().saturating_sub(1));
+                    self.session_index =
+                        (self.session_index + 3).min(self.session_messages.len().saturating_sub(1));
                 }
                 KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
                     self.mode = Mode::Search;
@@ -1009,18 +1054,23 @@ impl InteractiveSearch {
         }
     }
 
-    fn execute_cached_search(&mut self, pattern: &str, query: &crate::query::QueryCondition, role_filter: &Option<String>) -> Result<Vec<SearchResult>> {
+    fn execute_cached_search(
+        &mut self,
+        pattern: &str,
+        query: &crate::query::QueryCondition,
+        role_filter: &Option<String>,
+    ) -> Result<Vec<SearchResult>> {
         use crate::search::{discover_claude_files, expand_tilde};
-        
+
         let expanded_pattern = expand_tilde(pattern);
         let files = if expanded_pattern.is_file() {
             vec![expanded_pattern]
         } else {
             discover_claude_files(Some(pattern))?
         };
-        
+
         let mut results = Vec::new();
-        
+
         for file_path in &files {
             let cached_file = self.cache.get_messages(file_path)?;
             let file_name = file_path
@@ -1028,10 +1078,10 @@ impl InteractiveSearch {
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown")
                 .to_string();
-            
+
             for (idx, message) in cached_file.messages.iter().enumerate() {
                 let text = message.get_content_text();
-                
+
                 if let Ok(matches) = query.evaluate(&text) {
                     if matches {
                         if let Some(role) = role_filter {
@@ -1039,17 +1089,15 @@ impl InteractiveSearch {
                                 continue;
                             }
                         }
-                        
+
                         if let Some(session_id) = &self.base_options.session_id {
                             if message.get_session_id() != Some(session_id) {
                                 continue;
                             }
                         }
-                        
-                        let timestamp = message.get_timestamp()
-                            .unwrap_or("")
-                            .to_string();
-                        
+
+                        let timestamp = message.get_timestamp().unwrap_or("").to_string();
+
                         results.push(SearchResult {
                             file: file_name.clone(),
                             uuid: message.get_uuid().unwrap_or("").to_string(),
@@ -1068,11 +1116,11 @@ impl InteractiveSearch {
                 }
             }
         }
-        
+
         self.apply_filters(&mut results)?;
         results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
         results.truncate(self.max_results);
-        
+
         Ok(results)
     }
 
@@ -1089,9 +1137,10 @@ impl InteractiveSearch {
 
     fn apply_filters(&self, results: &mut Vec<SearchResult>) -> Result<()> {
         use chrono::DateTime;
-        
+
         if let Some(before) = &self.base_options.before {
-            let before_time = DateTime::parse_from_rfc3339(before).context("Invalid 'before' timestamp")?;
+            let before_time =
+                DateTime::parse_from_rfc3339(before).context("Invalid 'before' timestamp")?;
             results.retain(|r| {
                 if let Ok(time) = DateTime::parse_from_rfc3339(&r.timestamp) {
                     time < before_time
@@ -1102,7 +1151,8 @@ impl InteractiveSearch {
         }
 
         if let Some(after) = &self.base_options.after {
-            let after_time = DateTime::parse_from_rfc3339(after).context("Invalid 'after' timestamp")?;
+            let after_time =
+                DateTime::parse_from_rfc3339(after).context("Invalid 'after' timestamp")?;
             results.retain(|r| {
                 if let Ok(time) = DateTime::parse_from_rfc3339(&r.timestamp) {
                     time > after_time
@@ -1130,19 +1180,23 @@ impl InteractiveSearch {
             }
         }
     }
-    
-    fn load_all_messages(&mut self, pattern: &str, role_filter: &Option<String>) -> Result<Vec<SearchResult>> {
+
+    fn load_all_messages(
+        &mut self,
+        pattern: &str,
+        role_filter: &Option<String>,
+    ) -> Result<Vec<SearchResult>> {
         use crate::search::{discover_claude_files, expand_tilde};
-        
+
         let expanded_pattern = expand_tilde(pattern);
         let files = if expanded_pattern.is_file() {
             vec![expanded_pattern]
         } else {
             discover_claude_files(Some(pattern))?
         };
-        
+
         let mut results = Vec::new();
-        
+
         for file_path in &files {
             let cached_file = self.cache.get_messages(file_path)?;
             let file_name = file_path
@@ -1150,27 +1204,25 @@ impl InteractiveSearch {
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown")
                 .to_string();
-            
+
             for (idx, message) in cached_file.messages.iter().enumerate() {
                 let text = message.get_content_text();
-                
+
                 // Apply role filter only
                 if let Some(role) = role_filter {
                     if message.get_type() != role {
                         continue;
                     }
                 }
-                
+
                 if let Some(session_id) = &self.base_options.session_id {
                     if message.get_session_id() != Some(session_id) {
                         continue;
                     }
                 }
-                
-                let timestamp = message.get_timestamp()
-                    .unwrap_or("")
-                    .to_string();
-                
+
+                let timestamp = message.get_timestamp().unwrap_or("").to_string();
+
                 results.push(SearchResult {
                     file: file_name.clone(),
                     uuid: message.get_uuid().unwrap_or("").to_string(),
@@ -1190,9 +1242,9 @@ impl InteractiveSearch {
                 });
             }
         }
-        
+
         self.apply_filters(&mut results)?;
-        
+
         Ok(results)
     }
 
@@ -1216,7 +1268,7 @@ impl InteractiveSearch {
 
     fn format_timestamp(timestamp: &str) -> String {
         use chrono::DateTime;
-        
+
         if let Ok(dt) = DateTime::parse_from_rfc3339(timestamp) {
             dt.format("%m/%d %H:%M").to_string()
         } else {
@@ -1226,7 +1278,7 @@ impl InteractiveSearch {
 
     fn format_timestamp_long(timestamp: &str) -> String {
         use chrono::DateTime;
-        
+
         if let Ok(dt) = DateTime::parse_from_rfc3339(timestamp) {
             dt.format("%Y-%m-%d %H:%M:%S").to_string()
         } else {
