@@ -209,6 +209,33 @@ mod tests {
     }
 
     #[test]
+    fn test_empty_query_shows_initial_screen() {
+        let temp_dir = tempdir().unwrap();
+        let test_file = temp_dir.path().join("test.jsonl");
+        
+        // Create test file
+        let mut file = File::create(&test_file).unwrap();
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Test message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+        
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        
+        // Empty query should not show results
+        search.query = "".to_string();
+        search.execute_search(test_file.to_str().unwrap());
+        assert_eq!(search.results.len(), 0);
+        
+        // Query with content should show results
+        search.query = "Test".to_string();
+        search.execute_search(test_file.to_str().unwrap());
+        assert_eq!(search.results.len(), 1);
+        
+        // Clear query should clear results
+        search.query = "".to_string();
+        search.execute_search(test_file.to_str().unwrap());
+        assert_eq!(search.results.len(), 0);
+    }
+
+    #[test]
     fn test_cache_functionality() {
         let temp_dir = tempdir().unwrap();
         let test_file = temp_dir.path().join("test.jsonl");
@@ -1164,23 +1191,35 @@ mod tests {
         
         // Simulate typing
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        
+        // Test immediate search execution on input
         let m_key = KeyEvent::new(KeyCode::Char('M'), KeyModifiers::empty());
         search.handle_search_input(m_key, test_file.to_str().unwrap()).unwrap();
+        assert_eq!(search.query, "M");
+        assert_eq!(search.results.len(), 10); // All messages match "M"
         
-        // Should have pending query
-        assert_eq!(search.pending_query, Some("M".to_string()));
-        assert!(search.last_input_time.is_some());
-        assert!(search.results.is_empty()); // Not searched yet
-        
-        // Simulate more typing
+        // Test that each character triggers immediate search
         let e_key = KeyEvent::new(KeyCode::Char('e'), KeyModifiers::empty());
         search.handle_search_input(e_key, test_file.to_str().unwrap()).unwrap();
+        assert_eq!(search.query, "Me");
+        assert_eq!(search.results.len(), 10); // All messages still match "Me"
         
-        assert_eq!(search.pending_query, Some("Me".to_string()));
-        assert!(search.results.is_empty()); // Still not searched
+        // Test backspace also triggers immediate search
+        let backspace = KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty());
+        search.handle_search_input(backspace, test_file.to_str().unwrap()).unwrap();
+        assert_eq!(search.query, "M");
+        assert_eq!(search.results.len(), 10); // Back to "M"
         
-        // After debounce delay, search should be executed in run_app loop
-        // (Can't test the actual loop here, but the mechanism is in place)
+        // Clear query
+        search.handle_search_input(backspace, test_file.to_str().unwrap()).unwrap();
+        assert_eq!(search.query, "");
+        assert_eq!(search.results.len(), 0); // Empty query returns no results
+        
+        // Test searching for a specific message
+        let zero_key = KeyEvent::new(KeyCode::Char('0'), KeyModifiers::empty());
+        search.handle_search_input(zero_key, test_file.to_str().unwrap()).unwrap();
+        assert_eq!(search.query, "0");
+        assert_eq!(search.results.len(), 1); // Only "Message 0" contains "0"
     }
 
     #[test]

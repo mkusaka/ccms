@@ -18,7 +18,7 @@ use ratatui::{
 use std::io::{self, Stdout};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, Duration, Instant};
+use std::time::{SystemTime, Duration};
 
 use crate::{SearchOptions, SearchResult, parse_query, SessionMessage};
 
@@ -129,9 +129,7 @@ pub struct InteractiveSearch {
     scroll_offset: usize,  // Scroll offset for search results list
     
     // For search performance
-    last_input_time: Option<Instant>,
     is_searching: bool,
-    pending_query: Option<String>,
 }
 
 impl InteractiveSearch {
@@ -153,9 +151,7 @@ impl InteractiveSearch {
             selected_result: None,
             detail_scroll_offset: 0,
             scroll_offset: 0,
-            last_input_time: None,
             is_searching: false,
-            pending_query: None,
         }
     }
 
@@ -188,18 +184,7 @@ impl InteractiveSearch {
         loop {
             terminal.draw(|f| self.draw(f))?;
 
-            // Check if there's a pending search after debounce delay
-            if let Some(pending) = self.pending_query.clone() {
-                if let Some(last_input) = self.last_input_time {
-                    if last_input.elapsed() > Duration::from_millis(300) && !self.is_searching {
-                        self.is_searching = true;
-                        self.pending_query = None;
-                        self.query = pending;
-                        self.execute_search(pattern);
-                        self.is_searching = false;
-                    }
-                }
-            }
+            // No debouncing - search executes immediately on input
 
             // Non-blocking event polling with 50ms timeout
             if poll(Duration::from_millis(50))? {
@@ -253,18 +238,16 @@ impl InteractiveSearch {
             .block(Block::default().borders(Borders::BOTTOM));
         f.render_widget(header, chunks[0]);
 
-        // Search input - show pending query if available
-        let display_query = self.pending_query.as_ref().unwrap_or(&self.query);
+        // Search input
+        let display_query = &self.query;
         let search_label = if let Some(ref role) = self.role_filter {
-            format!("Search [{}]: {}", role, display_query)
+            format!("Search [{role}]: {display_query}")
         } else {
-            format!("Search: {}", display_query)
+            format!("Search: {display_query}")
         };
         
         let title = if self.is_searching {
             "Query (searching...)"
-        } else if self.pending_query.is_some() {
-            "Query (typing...)"
         } else {
             "Query"
         };
@@ -320,10 +303,13 @@ impl InteractiveSearch {
         f.render_widget(results_block, area);
 
         if self.results.is_empty() {
-            let no_results = Paragraph::new("No results found")
-                .style(Style::default().fg(Color::Yellow))
-                .alignment(Alignment::Center);
-            f.render_widget(no_results, inner);
+            // Don't show "No results found" for empty query
+            if !self.query.is_empty() {
+                let no_results = Paragraph::new("No results found")
+                    .style(Style::default().fg(Color::Yellow))
+                    .alignment(Alignment::Center);
+                f.render_widget(no_results, inner);
+            }
             return;
         }
 
@@ -784,24 +770,18 @@ impl InteractiveSearch {
                 self.message = None;  // Clear any message when changing role filter
             }
             KeyCode::Char(c) => {
-                if self.pending_query.is_none() {
-                    self.pending_query = Some(self.query.clone());
-                }
-                if let Some(ref mut pending) = self.pending_query {
-                    pending.push(c);
-                }
-                self.last_input_time = Some(Instant::now());
+                self.query.push(c);
+                self.is_searching = true;
+                self.execute_search(pattern);
+                self.is_searching = false;
                 self.selected_index = 0;
                 self.scroll_offset = 0;
             }
             KeyCode::Backspace => {
-                if self.pending_query.is_none() {
-                    self.pending_query = Some(self.query.clone());
-                }
-                if let Some(ref mut pending) = self.pending_query {
-                    pending.pop();
-                }
-                self.last_input_time = Some(Instant::now());
+                self.query.pop();
+                self.is_searching = true;
+                self.execute_search(pattern);
+                self.is_searching = false;
                 self.selected_index = 0;
                 self.scroll_offset = 0;
             }
