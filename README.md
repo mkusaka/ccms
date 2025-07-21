@@ -71,7 +71,7 @@ ccms --project "$(pwd)" "TODO"
 
 ### Interactive Mode (TUI)
 
-Launch an interactive search interface similar to fzf:
+Launch an interactive search interface similar to fzf. All filtering options work in interactive mode:
 
 ```bash
 # Interactive search in default location
@@ -79,6 +79,17 @@ ccms -i
 
 # Interactive search in specific directory
 ccms -i -p "~/my-project/*.jsonl"
+
+# Interactive search with filters
+ccms -i --project $(pwd)                    # Current project only
+ccms -i --since "1 day ago"                  # Recent messages only
+ccms -i -r user                              # Pre-filter by role
+ccms -i --project $(pwd) --since "2 hours ago"  # Combine filters
+
+# All standard filters are supported
+ccms -i -s "session-id"                      # Filter by session
+ccms -i --after "2024-01-01T00:00:00Z"       # Time range filters
+ccms -i -n 100                               # Adjust result limit
 ```
 
 **Interactive Mode Controls:**
@@ -87,6 +98,12 @@ ccms -i -p "~/my-project/*.jsonl"
 - `Enter` - View full message
 - `Tab` - Cycle role filters (all → user → assistant → system → summary)
 - `Esc/Ctrl+C` - Exit
+
+**Note on Filters in Interactive Mode:**
+- All command-line filters (`--project`, `--since`, `--after`, `--before`, `-s`, etc.) are applied as base filters
+- The `-r` flag sets the initial role filter, but you can still cycle through roles with Tab
+- Filters persist throughout the interactive session
+- Results are limited by the `-n` flag (default: 50, but 20x more are loaded for scrolling)
 
 **Result Actions:**
 - `S` - View full session
