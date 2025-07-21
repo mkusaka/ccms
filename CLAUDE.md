@@ -23,21 +23,29 @@ cargo build --release --all-features
 
 ## Test Commands
 
+This project uses [cargo-nextest](https://nexte.st/) for running tests, which provides better test output and performance.
+
 ```bash
-# Run all tests
-cargo test
+# Run all tests (using nextest)
+cargo nextest run
 
 # Run tests with output
-cargo test -- --nocapture
+cargo nextest run --no-capture
 
 # Run specific test
-cargo test test_name
+cargo nextest run test_name
 
 # Run tests for a specific module
-cargo test query::
+cargo nextest run query::
 
 # Run with verbose output
-cargo test -- --test-threads=1 --nocapture
+cargo nextest run --no-capture
+
+# Fallback to standard cargo test if nextest is not installed
+cargo test
+
+# Fallback with output
+cargo test -- --nocapture
 ```
 
 ## Benchmarking
