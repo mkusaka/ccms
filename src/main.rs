@@ -4,7 +4,8 @@ use ccms::{
     interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
 use chrono::{DateTime, Local, Utc};
-use clap::{Parser, ValueEnum};
+use clap::{CommandFactory, Parser, ValueEnum};
+use clap_complete::{Shell, generate};
 use parse_datetime::parse_datetime_at_date;
 use std::io::{self, Write};
 
@@ -17,7 +18,7 @@ use std::io::{self, Write};
 )]
 struct Cli {
     /// Search query (supports literal, regex, AND/OR/NOT operators)
-    #[arg(required_unless_present = "interactive")]
+    #[arg(required_unless_present_any = ["interactive", "completion"])]
     query: Option<String>,
 
     /// File pattern to search (default: ~/.claude/projects/**/*.jsonl)
@@ -88,6 +89,10 @@ struct Cli {
     #[cfg(not(feature = "profiling"))]
     #[arg(long, hide = true)]
     profile: Option<String>,
+
+    /// Generate shell completion script
+    #[arg(long, value_enum)]
+    completion: Option<Shell>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -102,6 +107,13 @@ fn main() -> Result<()> {
 
     // Initialize tracing
     profiling::init_tracing();
+
+    // Handle shell completion generation
+    if let Some(shell) = cli.completion {
+        let mut cmd = Cli::command();
+        generate(shell, &mut cmd, "ccms", &mut io::stdout());
+        return Ok(());
+    }
 
     if cli.help_query {
         print_query_help();
