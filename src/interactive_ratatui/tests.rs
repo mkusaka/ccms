@@ -1985,7 +1985,7 @@ fn test_session_viewer_case_insensitive_search() {
         
         // Write some valid lines and some empty lines
         writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Valid"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test"}}"#).unwrap();
-        writeln!(file, "").unwrap(); // Empty line
+        writeln!(file).unwrap(); // Empty line
         writeln!(file, "   ").unwrap(); // Whitespace only
         writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Also valid"}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test"}}"#).unwrap();
         
@@ -2056,8 +2056,7 @@ fn test_session_viewer_case_insensitive_search() {
         let mut messages = vec![];
         for i in 0..20 {
             messages.push(format!(
-                r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"test-session"}}"#,
-                i, i, i
+                r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{i:02}Z","sessionId":"test-session"}}"#
             ));
         }
         search.session_messages = messages;
