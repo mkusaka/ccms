@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod integration_tests;
 
 use anyhow::{Context, Result};
 use crossterm::{

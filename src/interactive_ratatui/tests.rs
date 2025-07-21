@@ -362,9 +362,9 @@ fn test_cursor_position_with_role_filter() {
     terminal.draw(|f| search.draw(f)).unwrap();
 
     // The cursor should be positioned after the query text in the input field
-    let (cursor_x, _cursor_y) = terminal.get_cursor().unwrap();
+    let cursor_pos = terminal.get_cursor_position().unwrap();
     // Expected position: starting position + query length
-    assert!(cursor_x > 0);
+    assert!(cursor_pos.x > 0);
 }
 
 #[test]
@@ -1490,4 +1490,172 @@ fn test_message_truncation() {
     let truncated = search.truncate_message(japanese, 8);
     assert!(truncated.ends_with("..."));
     assert!(truncated.chars().count() <= 8);
+}
+
+#[test]
+fn test_format_timestamp() {
+    // format_timestamp is a static method
+    
+    // Valid RFC3339 timestamp
+    assert_eq!(InteractiveSearch::format_timestamp("2024-01-15T14:30:00Z"), "01/15 14:30");
+    assert_eq!(InteractiveSearch::format_timestamp("2024-12-31T23:59:59Z"), "12/31 23:59");
+    
+    // Invalid timestamp
+    assert_eq!(InteractiveSearch::format_timestamp("invalid"), "invalid");
+    assert_eq!(InteractiveSearch::format_timestamp(""), "");
+    assert_eq!(InteractiveSearch::format_timestamp("2024-01-15"), "2024-01-15");
+}
+
+#[test]
+fn test_format_timestamp_long() {
+    // format_timestamp_long is a static method
+    
+    // Valid RFC3339 timestamp
+    assert_eq!(InteractiveSearch::format_timestamp_long("2024-01-15T14:30:00Z"), "2024-01-15 14:30:00");
+    assert_eq!(InteractiveSearch::format_timestamp_long("2024-12-31T23:59:59.999Z"), "2024-12-31 23:59:59");
+    
+    // Invalid timestamp
+    assert_eq!(InteractiveSearch::format_timestamp_long("invalid"), "invalid");
+    assert_eq!(InteractiveSearch::format_timestamp_long(""), "");
+}
+
+#[test]
+fn test_calculate_visible_range() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // No results
+    search.results = vec![];
+    assert_eq!(search.calculate_visible_range(10), (0, 0));
+    
+    // Results fit in view
+    search.results = vec![create_test_result("user", "test1", "2024-01-01T00:00:00Z")];
+    search.scroll_offset = 0;
+    assert_eq!(search.calculate_visible_range(10), (0, 1));
+    
+    // Results exceed view, no scroll (reserves 1 line for scroll indicator)
+    search.results = (0..20).map(|i| create_test_result("user", &format!("test{}", i), "2024-01-01T00:00:00Z")).collect();
+    search.scroll_offset = 0;
+    assert_eq!(search.calculate_visible_range(10), (0, 9));
+    
+    // Results exceed view, with scroll (reserves 1 line for scroll indicator)
+    search.scroll_offset = 5;
+    assert_eq!(search.calculate_visible_range(10), (5, 14));
+    
+    // Scroll offset exceeds results
+    search.scroll_offset = 25;
+    assert_eq!(search.calculate_visible_range(10), (25, 20));
+}
+
+#[test]
+fn test_extract_project_path() {
+    use std::path::Path;
+    
+    // Standard project path (note: - is decoded to /)
+    let path = Path::new("/home/user/.claude/projects/my-cool-project/session123.jsonl");
+    assert_eq!(InteractiveSearch::extract_project_path(path), "my/cool/project");
+    
+    // Project path with encoded slashes
+    let path = Path::new("/home/user/.claude/projects/github.com-myuser-myrepo/session123.jsonl");
+    assert_eq!(InteractiveSearch::extract_project_path(path), "github.com/myuser/myrepo");
+    
+    // No parent directory
+    assert_eq!(InteractiveSearch::extract_project_path(Path::new("session.jsonl")), "");
+    
+    // Root path
+    assert_eq!(InteractiveSearch::extract_project_path(Path::new("/session.jsonl")), "");
+    
+    // Empty path
+    assert_eq!(InteractiveSearch::extract_project_path(Path::new("")), "");
+    
+    // Path without .claude structure
+    let path = Path::new("/some/other/path/file.jsonl");
+    assert_eq!(InteractiveSearch::extract_project_path(path), "path");
+}
+
+#[test]
+fn test_pop_screen() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Initial state - only Search mode
+    assert_eq!(search.screen_stack.len(), 1);
+    assert!(matches!(search.current_mode(), Mode::Search));
+    
+    // Pop with only one screen - should not remove it
+    search.pop_screen();
+    assert_eq!(search.screen_stack.len(), 1);
+    assert!(matches!(search.current_mode(), Mode::Search));
+    
+    // Push a new screen and pop
+    search.push_screen(Mode::Help);
+    assert_eq!(search.screen_stack.len(), 2);
+    assert!(matches!(search.current_mode(), Mode::Help));
+    
+    search.pop_screen();
+    assert_eq!(search.screen_stack.len(), 1);
+    assert!(matches!(search.current_mode(), Mode::Search));
+}
+
+#[test]
+fn test_adjust_scroll_offset_edge_cases() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // No results
+    search.results = vec![];
+    search.selected_index = 0;
+    search.scroll_offset = 0;
+    search.adjust_scroll_offset(10);
+    assert_eq!(search.scroll_offset, 0);
+    
+    // Single result
+    search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
+    search.selected_index = 0;
+    search.scroll_offset = 0;
+    search.adjust_scroll_offset(10);
+    assert_eq!(search.scroll_offset, 0);
+    
+    // Selected index at boundary
+    search.results = (0..20).map(|i| create_test_result("user", &format!("test{}", i), "2024-01-01T00:00:00Z")).collect();
+    search.selected_index = 9;
+    search.scroll_offset = 0;
+    search.adjust_scroll_offset(10);
+    assert_eq!(search.scroll_offset, 0);
+    
+    // Selected index requires scroll
+    search.selected_index = 15;
+    search.adjust_scroll_offset(10);
+    assert_eq!(search.scroll_offset, 6);
+}
+
+#[test]
+fn test_truncate_message_edge_cases() {
+    let search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Empty string
+    assert_eq!(search.truncate_message("", 10), "");
+    
+    // Single character
+    assert_eq!(search.truncate_message("a", 10), "a");
+    
+    // Exact length
+    assert_eq!(search.truncate_message("1234567890", 10), "1234567890");
+    
+    // One over limit
+    assert_eq!(search.truncate_message("12345678901", 10), "1234567...");
+    
+    // Width less than 3 (ellipsis length)
+    assert_eq!(search.truncate_message("hello", 2), "he");
+    assert_eq!(search.truncate_message("hello", 3), "...");
+    
+    // Multibyte characters
+    assert_eq!(search.truncate_message("こんにちは世界", 10), "こんにち...");
+    assert_eq!(search.truncate_message("👋🌍🎉🎊🎈", 8), "👋🌍...");
+}
+
+#[test]
+fn test_copy_to_clipboard_empty_text() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Test empty text
+    let _ = search.copy_to_clipboard("");
+    assert_eq!(search.message, Some("Nothing to copy".to_string()));
 }
