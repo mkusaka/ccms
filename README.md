@@ -17,12 +17,22 @@ High-performance CLI for searching Claude session JSONL files with an interactiv
 
 ## Installation
 
+### From GitHub (Recommended)
+
+```bash
+# Install directly from GitHub
+cargo install --git https://github.com/mkusaka/ccms
+
+# Or install a specific version/tag
+cargo install --git https://github.com/mkusaka/ccms --tag v0.0.1
+```
+
 ### From Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/mkusaka/ccmeta.git
-cd ccmeta/schema/ccms
+git clone https://github.com/mkusaka/ccms.git
+cd ccms
 
 # Build and install
 cargo install --path .
