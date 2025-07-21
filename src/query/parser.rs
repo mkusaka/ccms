@@ -540,7 +540,7 @@ mod tests {
     fn test_unmatched_parentheses() {
         let result = parse_query("(hello AND world");
         assert!(result.is_err());
-        
+
         let result2 = parse_query("hello AND world)");
         assert!(result2.is_err());
     }
@@ -563,7 +563,7 @@ mod tests {
         // Should fail on consecutive operators
         let result = parse_query("hello AND AND world");
         assert!(result.is_err());
-        
+
         let result2 = parse_query("hello OR OR world");
         assert!(result2.is_err());
     }

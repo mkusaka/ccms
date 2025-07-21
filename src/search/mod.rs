@@ -6,4 +6,6 @@ pub mod file_discovery;
 #[cfg(feature = "async")]
 pub use async_engine::{AsyncSearchEngine, AsyncSearchOptions, AsyncSearchResult};
 pub use engine::{SearchEngine, format_search_result};
-pub use file_discovery::{default_claude_pattern, discover_claude_files, discover_claude_files_with_filter, expand_tilde};
+pub use file_discovery::{
+    default_claude_pattern, discover_claude_files, discover_claude_files_with_filter, expand_tilde,
+};

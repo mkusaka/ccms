@@ -254,6 +254,16 @@ cargo clippy -- -D warnings
 
 ### Running Tests
 
+**Note on Clipboard Tests:** Some tests that verify clipboard functionality are marked with `#[ignore]` as they require clipboard utilities (`pbcopy` on macOS, `xclip`/`xsel` on Linux) that may not be available in CI environments. To run these tests locally:
+
+```bash
+# Run all tests including ignored ones
+cargo test -- --ignored
+
+# Run only the clipboard tests
+cargo test clipboard -- --ignored
+```
+
 ```bash
 # Run all tests with cargo-nextest
 cargo nextest run

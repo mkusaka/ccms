@@ -1,4 +1,4 @@
-pub mod interactive;
+pub mod interactive_ratatui;
 pub mod profiling;
 pub mod query;
 pub mod schemas;

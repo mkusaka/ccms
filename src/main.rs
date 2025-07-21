@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ccms::{
     SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
-    interactive::InteractiveSearch, parse_query, profiling,
+    interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
 use chrono::{DateTime, Local, Utc};
 use clap::{Parser, ValueEnum};
@@ -143,7 +143,7 @@ fn main() -> Result<()> {
     // Interactive mode
     if cli.interactive {
         let options = SearchOptions {
-            max_results: Some(cli.max_results * 20), // Load more for interactive
+            max_results: Some(cli.max_results), // Use the CLI value directly
             role: cli.role,
             session_id: cli.session_id,
             before: cli.before,

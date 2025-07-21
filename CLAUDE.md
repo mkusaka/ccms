@@ -100,8 +100,8 @@ The codebase is organized into five main modules:
    - `file_discovery.rs`: File pattern matching and discovery
    - `async_engine.rs`: Optional async implementation using tokio
    
-4. **interactive** - Interactive fzf-like search interface
-   - Terminal UI using console/dialoguer crates
+4. **interactive_ratatui** - Interactive fzf-like search interface
+   - Terminal UI using ratatui crate with crossterm backend
    - Real-time search with keyboard navigation
    
 5. **profiling** - Performance profiling utilities
@@ -126,9 +126,10 @@ The codebase is organized into five main modules:
 7. Format and display results
 
 **Interactive Mode Architecture**:
-- Uses `console` crate for terminal control
+- Uses `ratatui` crate with crossterm backend for terminal control
+- Non-blocking input handling with event polling
 - Maintains search state and cursor position
-- Executes search on each keystroke
+- Executes search with debouncing (300ms)
 - Supports role filtering via Tab key
 - Implements session viewer and clipboard operations
 
@@ -137,7 +138,7 @@ The codebase is organized into five main modules:
 - `src/main.rs` - CLI entry point and argument parsing
 - `src/search/engine.rs` - Core search implementation
 - `src/query/parser.rs` - Query syntax parser
-- `src/interactive.rs` - Interactive search UI
+- `src/interactive_ratatui/mod.rs` - Interactive search UI
 
 ### Feature Flags
 
@@ -172,3 +173,35 @@ When optimizing performance:
 3. Make changes
 4. Compare benchmark results
 5. Generate new flamegraph to verify improvements
+
+### Development Methodology
+
+**Version Control Practices**:
+- Commit frequently after completing small, logical units of work
+- Each commit should represent a single, coherent change
+- Write clear commit messages that explain the "why" not just the "what"
+- When asked to make changes, implement → test → commit before moving to next task
+
+**Test-Driven Development (TDD)**:
+The interactive UI was developed using TDD methodology:
+1. Write specifications first (see `spec.md`)
+2. Create comprehensive tests before implementation
+3. Implement features to make tests pass
+4. Refactor while maintaining test coverage
+
+**Non-blocking UI Implementation**:
+The interactive mode uses non-blocking input handling to prevent UI freezing:
+- Uses `crossterm::event::poll()` with 50ms timeout
+- Implements debouncing (300ms) for search queries
+- Provides visual feedback ("typing...", "searching...")
+- Maintains separate search state to prevent race conditions
+
+**Multibyte Character Safety**:
+- All string operations use character-based indexing, not byte-based
+- Prevents Unicode boundary errors with Japanese text and emojis
+- Dynamic text truncation respects character boundaries
+
+**State Management**:
+- Clear separation between UI modes (Search, ResultDetail, SessionViewer, Help)
+- Automatic cleanup on mode transitions (clear messages, reset scroll)
+- Comprehensive caching system to minimize file I/O
