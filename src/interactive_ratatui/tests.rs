@@ -1,1818 +1,1483 @@
 #[cfg(test)]
-mod tests {
-    use super::super::*;
-    use crate::{QueryCondition, SearchOptions, SearchResult};
-    use ratatui::{
-        Terminal,
-        backend::TestBackend,
-        buffer::Buffer,
-        style::{Color, Modifier},
+use super::{InteractiveSearch, MessageCache, Mode, SessionOrder};
+use crate::{QueryCondition, SearchOptions, SearchResult};
+use ratatui::{
+    Terminal,
+    backend::TestBackend,
+    buffer::Buffer,
+    style::{Color, Modifier},
+};
+use std::fs::File;
+use std::io::Write;
+use std::thread;
+use std::time::Duration;
+use tempfile::tempdir;
+
+fn create_test_result(role: &str, text: &str, timestamp: &str) -> SearchResult {
+    SearchResult {
+        file: "test.jsonl".to_string(),
+        uuid: "test-uuid-123".to_string(),
+        timestamp: timestamp.to_string(),
+        session_id: "test-session".to_string(),
+        role: role.to_string(),
+        text: text.to_string(),
+        has_tools: false,
+        has_thinking: false,
+        message_type: role.to_string(),
+        query: QueryCondition::Literal {
+            pattern: "test".to_string(),
+            case_sensitive: false,
+        },
+        project_path: "/test/project".to_string(),
+        raw_json: Some(r#"{"type":"user","content":"test"}"#.to_string()),
+    }
+}
+
+fn create_test_terminal() -> Terminal<TestBackend> {
+    let backend = TestBackend::new(80, 24);
+    Terminal::new(backend).unwrap()
+}
+
+#[test]
+fn test_interactive_search_creation() {
+    let options = SearchOptions {
+        max_results: Some(20),
+        role: None,
+        session_id: None,
+        before: None,
+        after: None,
+        verbose: false,
+        project_path: None,
     };
-    use std::fs::File;
-    use std::io::Write;
-    use std::thread;
-    use std::time::Duration;
-    use tempfile::tempdir;
 
-    fn create_test_result(role: &str, text: &str, timestamp: &str) -> SearchResult {
-        SearchResult {
-            file: "test.jsonl".to_string(),
-            uuid: "test-uuid-123".to_string(),
-            timestamp: timestamp.to_string(),
-            session_id: "test-session".to_string(),
-            role: role.to_string(),
-            text: text.to_string(),
-            has_tools: false,
-            has_thinking: false,
-            message_type: role.to_string(),
-            query: QueryCondition::Literal {
-                pattern: "test".to_string(),
-                case_sensitive: false,
-            },
-            project_path: "/test/project".to_string(),
-            raw_json: Some(r#"{"type":"user","content":"test"}"#.to_string()),
-        }
-    }
-
-    fn create_test_terminal() -> Terminal<TestBackend> {
-        let backend = TestBackend::new(80, 24);
-        Terminal::new(backend).unwrap()
-    }
-
-    #[test]
-    fn test_interactive_search_creation() {
-        let options = SearchOptions {
-            max_results: Some(20),
-            role: None,
-            session_id: None,
-            before: None,
-            after: None,
-            verbose: false,
-            project_path: None,
-        };
-
-        let search = InteractiveSearch::new(options);
-        assert_eq!(search.max_results, 20);
-        assert_eq!(search.current_mode(), Mode::Search);
-        assert!(search.query.is_empty());
-        assert_eq!(search.selected_index, 0);
-        assert!(search.results.is_empty());
-        assert!(search.role_filter.is_none());
-    }
-
-    #[test]
-    fn test_mode_transitions() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Start in Search mode
-        assert_eq!(search.current_mode(), Mode::Search);
-
-        // Transition to Help
-        search.set_mode(Mode::Help);
-        assert_eq!(search.current_mode(), Mode::Help);
-
-        // Transition to ResultDetail
-        search.set_mode(Mode::ResultDetail);
-        assert_eq!(search.current_mode(), Mode::ResultDetail);
-
-        // Transition to SessionViewer
-        search.set_mode(Mode::SessionViewer);
-        assert_eq!(search.current_mode(), Mode::SessionViewer);
-    }
-
-    #[test]
-    fn test_role_filter_cycling() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Initial state
-        assert!(search.role_filter.is_none());
-
-        // Cycle through filters
-        search.role_filter = Some("user".to_string());
-        assert_eq!(search.role_filter, Some("user".to_string()));
-
-        search.role_filter = Some("assistant".to_string());
-        assert_eq!(search.role_filter, Some("assistant".to_string()));
-
-        search.role_filter = Some("system".to_string());
-        assert_eq!(search.role_filter, Some("system".to_string()));
-
-        search.role_filter = Some("summary".to_string());
-        assert_eq!(search.role_filter, Some("summary".to_string()));
-
-        search.role_filter = None;
-        assert!(search.role_filter.is_none());
-    }
-
-    #[test]
-    fn test_timestamp_formatting() {
-        // Test short format
-        let timestamp = "2024-01-15T14:30:00Z";
-        let formatted = InteractiveSearch::format_timestamp(timestamp);
-        assert_eq!(formatted, "01/15 14:30");
-
-        // Test long format
-        let formatted_long = InteractiveSearch::format_timestamp_long(timestamp);
-        assert_eq!(formatted_long, "2024-01-15 14:30:00");
-
-        // Test invalid timestamp
-        let invalid = "invalid-timestamp";
-        let formatted_invalid = InteractiveSearch::format_timestamp(invalid);
-        assert_eq!(formatted_invalid, "invalid-timestam");
-    }
-
-    #[test]
-    fn test_centered_rect_calculation() {
-        let search = InteractiveSearch::new(SearchOptions::default());
-        let area = ratatui::layout::Rect {
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 50,
-        };
-
-        let centered = search.centered_rect(60, 80, area);
-
-        // Check that the rect is centered
-        assert_eq!(centered.width, 60);
-        assert_eq!(centered.height, 40);
-        assert_eq!(centered.x, 20);
-        assert_eq!(centered.y, 5);
-    }
-
-    #[test]
-    fn test_search_ui_rendering() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        let mut terminal = create_test_terminal();
-
-        // Test empty search
-        terminal.draw(|f| search.draw_search(f)).unwrap();
-
-        // Test with query
-        search.query = "test query".to_string();
-        terminal.draw(|f| search.draw_search(f)).unwrap();
-
-        // Test with results
-        search.results = vec![
-            create_test_result("user", "Hello world", "2024-01-01T00:00:00Z"),
-            create_test_result("assistant", "Hi there!", "2024-01-01T00:00:01Z"),
-        ];
-        terminal.draw(|f| search.draw_search(f)).unwrap();
-
-        // Test with role filter
-        search.role_filter = Some("user".to_string());
-        terminal.draw(|f| search.draw_search(f)).unwrap();
-    }
-
-    #[test]
-    fn test_result_detail_rendering() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        let mut terminal = create_test_terminal();
-
-        search.selected_result = Some(create_test_result(
-            "user",
-            "This is a test message with some content",
-            "2024-01-01T12:00:00Z",
-        ));
-
-        terminal.draw(|f| search.draw_result_detail(f)).unwrap();
-    }
-
-    #[test]
-    fn test_session_viewer_rendering() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        let mut terminal = create_test_terminal();
-
-        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-
-        // Test order selection prompt
-        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-
-        // Test with messages
-        search.session_order = Some(SessionOrder::Ascending);
-        search.session_messages = vec![
-            r#"{"type":"user","content":"Message 1","timestamp":"2024-01-01T00:00:00Z"}"#
-                .to_string(),
-            r#"{"type":"assistant","content":"Message 2","timestamp":"2024-01-01T00:00:01Z"}"#
-                .to_string(),
-        ];
-        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    }
-
-    #[test]
-    fn test_help_screen_rendering() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        let mut terminal = create_test_terminal();
-
-        search.set_mode(Mode::Help);
-        terminal.draw(|f| search.draw_help(f)).unwrap();
-    }
-
-    #[test]
-    fn test_empty_query_shows_initial_screen() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create test file
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Test message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Empty query should not show results
-        search.query = "".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 0);
-
-        // Query with content should show results
-        search.query = "Test".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 1);
-
-        // Clear query should clear results
-        search.query = "".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 0);
-    }
-
-    #[test]
-    fn test_cache_functionality() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create test JSONL file
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Hello world"}},"uuid":"123","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut cache = MessageCache::new();
-
-        // First access - should load from file
-        let cached = cache.get_messages(&test_file).unwrap();
-        assert_eq!(cached.messages.len(), 1);
-        assert_eq!(cached.raw_lines.len(), 1);
-
-        // Second access - should use cache
-        let cached2 = cache.get_messages(&test_file).unwrap();
-        assert_eq!(cached2.messages.len(), 1);
-
-        // Clear cache
-        cache.clear();
-        assert!(cache.files.is_empty());
-    }
-
-    #[test]
-    fn test_file_change_detection() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create initial file
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Original"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        drop(file);
-
-        let mut cache = MessageCache::new();
-
-        // Load original
-        let cached = cache.get_messages(&test_file).unwrap();
-        assert_eq!(cached.messages[0].get_content_text(), "Original");
-
-        // Sleep to ensure timestamp changes
-        thread::sleep(Duration::from_millis(10));
-
-        // Modify file
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Updated"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        drop(file);
-
-        // Should detect change and reload
-        let cached2 = cache.get_messages(&test_file).unwrap();
-        assert_eq!(cached2.messages[0].get_content_text(), "Updated");
-    }
-
-    #[test]
-    fn test_execute_search_with_filters() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create test file with multiple messages
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"User message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        writeln!(file, r#"{{"type":"assistant","message":{{"id":"msg1","type":"message","role":"assistant","model":"claude","content":[{{"type":"text","text":"Assistant message"}}],"stop_reason":"end_turn","stop_sequence":null,"usage":{{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"s1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Test with role filter
-        search.query = "message".to_string();
-        search.role_filter = Some("user".to_string());
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 1);
-        assert_eq!(search.results[0].role, "user");
-
-        // Test without filter
-        search.role_filter = None;
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 2);
-    }
-
-    #[test]
-    fn test_timestamp_filtering() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create test file with different timestamps
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Early"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Middle"}},"uuid":"2","timestamp":"2024-01-02T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Late"}},"uuid":"3","timestamp":"2024-01-03T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut options = SearchOptions::default();
-        options.after = Some("2024-01-01T12:00:00Z".to_string());
-        options.before = Some("2024-01-02T12:00:00Z".to_string());
-
-        let mut search = InteractiveSearch::new(options);
-        search.query = "Middle".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-
-        assert_eq!(search.results.len(), 1);
-        assert!(search.results[0].text.contains("Middle"));
-    }
-
-    #[test]
-    fn test_project_path_extraction() {
-        use std::path::PathBuf;
-
-        // Test standard Claude path format
-        let path = PathBuf::from("/home/user/.claude/projects/path-to-project/session.jsonl");
-        let project_path = InteractiveSearch::extract_project_path(&path);
-        assert_eq!(project_path, "path/to/project");
-
-        // Test path without project structure
-        let path2 = PathBuf::from("/tmp/test.jsonl");
-        let project_path2 = InteractiveSearch::extract_project_path(&path2);
-        assert_eq!(project_path2, "tmp");
-    }
-
-    #[test]
-    fn test_invalid_json_handling() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("invalid.jsonl");
-
-        // Create file with mixed valid/invalid JSON
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, "This is not JSON").unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Valid message"}},"uuid":"123","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        writeln!(file, "Another invalid line").unwrap();
-
-        let mut cache = MessageCache::new();
-        let cached = cache.get_messages(&test_file).unwrap();
-
-        // Should only load valid messages
-        assert_eq!(cached.messages.len(), 1);
-        assert_eq!(cached.messages[0].get_content_text(), "Valid message");
-        // But should keep all raw lines (non-empty ones)
-        assert_eq!(cached.raw_lines.len(), 3);
-    }
-
-    #[test]
-    fn test_empty_file_handling() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("empty.jsonl");
-
-        // Create empty file
-        File::create(&test_file).unwrap();
-
-        let mut cache = MessageCache::new();
-        let cached = cache.get_messages(&test_file).unwrap();
-
-        assert_eq!(cached.messages.len(), 0);
-        assert_eq!(cached.raw_lines.len(), 0);
-    }
-
-    #[test]
-    fn test_message_limit() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("many.jsonl");
-
-        // Create file with many messages
-        let mut file = File::create(&test_file).unwrap();
-        for i in 0..100 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, format!("{:02}", i)).unwrap();
-        }
-
-        let mut options = SearchOptions::default();
-        options.max_results = Some(10);
-
-        let mut search = InteractiveSearch::new(options);
-        search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-
-        assert_eq!(search.results.len(), 10);
-    }
-
-    #[test]
-    fn test_session_message_loading() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("session.jsonl");
-
-        // Create session file
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","content":"Message 1"}}"#).unwrap();
-        writeln!(file, r#"{{"type":"assistant","content":"Message 2"}}"#).unwrap();
-        writeln!(file, "").unwrap(); // Empty line should be skipped
-        writeln!(file, r#"{{"type":"system","content":"Message 3"}}"#).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search
-            .load_session_messages(test_file.to_str().unwrap())
-            .unwrap();
-
-        assert_eq!(search.session_messages.len(), 3);
-    }
-
-    #[test]
-    fn test_query_parsing_integration() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Hello world"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Goodbye world"}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Test AND query
-        search.query = "Hello AND world".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 1);
-
-        // Test OR query
-        search.query = "Hello OR Goodbye".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 2);
-
-        // Test NOT query
-        search.query = "world AND NOT Hello".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 1);
-        assert!(search.results[0].text.contains("Goodbye"));
-
-        // Test invalid query
-        search.query = "/invalid(regex".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 0);
-    }
-
-    #[test]
-    fn test_result_sorting() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Old message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"New message"}},"uuid":"2","timestamp":"2024-01-02T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Middle message"}},"uuid":"3","timestamp":"2024-01-01T12:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.query = "message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-
-        // Results should be sorted by timestamp (newest first)
-        assert_eq!(search.results.len(), 3);
-        assert!(search.results[0].text.contains("New"));
-        assert!(search.results[1].text.contains("Middle"));
-        assert!(search.results[2].text.contains("Old"));
-    }
-
-    #[test]
-    fn test_detail_scroll_functionality() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Create a result with multi-line text
-        let long_text = (0..50)
-            .map(|i| format!("Line {}", i))
-            .collect::<Vec<_>>()
-            .join("\n");
-        search.selected_result = Some(create_test_result(
-            "user",
-            &long_text,
-            "2024-01-01T00:00:00Z",
-        ));
-
-        // Initial scroll offset should be 0
-        assert_eq!(search.detail_scroll_offset, 0);
-
-        // Simulate scrolling down
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
-        search.handle_result_detail_input(down_key).unwrap();
-        assert_eq!(search.detail_scroll_offset, 1);
-
-        // Simulate scrolling with 'j'
-        let j_key = KeyEvent::new(KeyCode::Char('j'), KeyModifiers::empty());
-        search.handle_result_detail_input(j_key).unwrap();
-        assert_eq!(search.detail_scroll_offset, 2);
-
-        // Simulate scrolling up
-        let up_key = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
-        search.handle_result_detail_input(up_key).unwrap();
-        assert_eq!(search.detail_scroll_offset, 1);
-
-        // Simulate page down
-        let page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty());
-        search.handle_result_detail_input(page_down).unwrap();
-        assert_eq!(search.detail_scroll_offset, 11);
-
-        // Test reset on escape
-        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
-        search.handle_result_detail_input(esc_key).unwrap();
-        assert_eq!(search.detail_scroll_offset, 0);
-        assert_eq!(search.current_mode(), Mode::Search);
-    }
-
-    #[test]
-    fn test_message_clearing_on_mode_change() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Set a message
-        search.message = Some("Test message".to_string());
-
-        // Message should be cleared when returning from detail to search
-        search.push_screen(Mode::ResultDetail);
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
-        search.handle_result_detail_input(esc_key).unwrap();
-
-        assert!(search.message.is_none());
-        assert_eq!(search.current_mode(), Mode::Search);
-    }
-
-    #[test]
-    fn test_role_filter_message_clearing() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Test"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.query = "Test".to_string();
-        search.message = Some("Previous message".to_string());
-
-        // Simulate Tab key to change role filter
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let tab_key = KeyEvent::new(KeyCode::Tab, KeyModifiers::empty());
-        search
-            .handle_search_input(tab_key, test_file.to_str().unwrap())
-            .unwrap();
-
-        // Message should be cleared
-        assert!(search.message.is_none());
-        assert_eq!(search.role_filter, Some("user".to_string()));
-    }
-
-    #[test]
-    fn test_preview_text_multibyte_safety() {
-        // Test that preview doesn't cut in the middle of multibyte characters
-        let japanese_text = "これは日本語のテキストです。長い文章になると切り詰められます。もっと長い文章を追加して40文字以上にします。";
-        let result = create_test_result("user", japanese_text, "2024-01-01T00:00:00Z");
-
-        // The preview logic in draw_results should handle multibyte chars correctly
-        let preview = result
-            .text
-            .replace('\n', " ")
-            .chars()
-            .take(40)
-            .collect::<String>();
-
-        // Should take exactly 40 characters, not bytes
-        assert_eq!(preview.chars().count(), 40);
-        // Ensure it doesn't cut in the middle of a character
-        assert!(japanese_text.starts_with(&preview));
-
-        // Test with emoji - ensure we have more than 40 chars
-        let emoji_text = "Hello 😀 World 🌍 Test 🎉 Message 📝 Long text here with more content to ensure we have over 40 characters";
-        let emoji_result = create_test_result("user", emoji_text, "2024-01-01T00:00:00Z");
-        let emoji_preview = emoji_result
-            .text
-            .replace('\n', " ")
-            .chars()
-            .take(40)
-            .collect::<String>();
-
-        assert_eq!(emoji_preview.chars().count(), 40);
-
-        // Test actual preview logic used in the app
-        let short_text = "Short text";
-        let short_preview = short_text
-            .replace('\n', " ")
-            .chars()
-            .take(40)
-            .collect::<String>();
-
-        // Short text should be returned as-is
-        assert_eq!(short_preview, "Short text");
-        assert!(short_preview.chars().count() <= 40);
-    }
-
-    #[test]
-    fn test_max_results_limit() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create file with many messages
-        let mut file = File::create(&test_file).unwrap();
-        for i in 0..100 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, format!("{:02}", i % 60)).unwrap();
-        }
-
-        // Test with custom max_results
-        let options = SearchOptions {
-            max_results: Some(25),
-            ..Default::default()
-        };
-        let mut search = InteractiveSearch::new(options);
-        assert_eq!(search.max_results, 25);
-
-        search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-
-        // Should be limited to 25 results
-        assert_eq!(search.results.len(), 25);
-    }
-
-    #[test]
-    fn test_session_viewer_message_parsing() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("session.jsonl");
-
-        // Create session file with different message structures
-        let mut file = File::create(&test_file).unwrap();
-        // Direct content
-        writeln!(file, r#"{{"type":"user","content":"Direct content message","timestamp":"2024-01-01T00:00:00Z"}}"#).unwrap();
-        // Nested message.content
-        writeln!(file, r#"{{"type":"assistant","message":{{"content":"Nested content message"}},"timestamp":"2024-01-01T00:00:01Z"}}"#).unwrap();
-        // Array content
-        writeln!(file, r#"{{"type":"assistant","message":{{"content":[{{"type":"text","text":"Part 1"}},{{"type":"text","text":"Part 2"}}]}},"timestamp":"2024-01-01T00:00:02Z"}}"#).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search
-            .load_session_messages(test_file.to_str().unwrap())
-            .unwrap();
-
-        assert_eq!(search.session_messages.len(), 3);
-
-        // Verify each message can be parsed
-        for (i, msg_str) in search.session_messages.iter().enumerate() {
-            let msg: serde_json::Value = serde_json::from_str(msg_str).unwrap();
-            assert!(msg.get("type").is_some(), "Message {} missing type", i);
-        }
-    }
-
-    #[test]
-    fn test_copy_feedback_messages() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-        search.set_mode(Mode::ResultDetail);
-
-        // Test file copy feedback
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let f_key = KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty());
-        let _ = search.handle_result_detail_input(f_key); // Ignore clipboard error in tests
-
-        assert!(search.message.is_some());
-        assert!(search.message.as_ref().unwrap().contains("✓"));
-        assert!(search.message.as_ref().unwrap().contains("File path"));
-
-        // Should stay in detail mode
-        assert_eq!(search.current_mode(), Mode::ResultDetail);
-    }
-
-    #[test]
-    fn test_initial_results_loading() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        let mut file = File::create(&test_file).unwrap();
-        for i in 0..10 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
-        }
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.load_initial_results(test_file.to_str().unwrap());
-
-        // Should have loaded results without any query
-        assert!(!search.results.is_empty());
-        // Should be sorted by timestamp (newest first)
-        assert!(search.results[0].text.contains("Message 9"));
-    }
-
-    #[test]
-    fn test_ctrl_r_cache_reload() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create initial file
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Original"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        drop(file);
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.query = "Original".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 1);
-
-        // Modify file
-        thread::sleep(Duration::from_millis(10));
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Updated"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        drop(file);
-
-        // Simulate Ctrl+R
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let ctrl_r = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL);
-        search
-            .handle_search_input(ctrl_r, test_file.to_str().unwrap())
-            .unwrap();
-
-        // Cache should be cleared and search re-executed
-        search.query = "Updated".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 1);
-        assert!(search.results[0].text.contains("Updated"));
-    }
-
-    #[test]
-    fn test_search_navigation_keys() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        let mut file = File::create(&test_file).unwrap();
-        for i in 0..20 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
-        }
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-
-        // Test down arrow
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
-        search
-            .handle_search_input(down_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.selected_index, 1);
-
-        // Test up arrow
-        let up_key = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
-        search
-            .handle_search_input(up_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.selected_index, 0);
-
-        // Test bounds - shouldn't go below 0
-        search
-            .handle_search_input(up_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.selected_index, 0);
-
-        // Test bounds - shouldn't exceed visible results
-        for _ in 0..15 {
-            search
-                .handle_search_input(down_key, test_file.to_str().unwrap())
-                .unwrap();
-        }
-        // Should be limited to visible results count
-        assert!(search.selected_index < search.results.len());
-    }
-
-    #[test]
-    fn test_more_results_display() {
-        let mut terminal = create_test_terminal();
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Create many results
-        let mut results = Vec::new();
-        for i in 0..25 {
-            results.push(create_test_result(
-                "user",
-                &format!("Message {}", i),
-                "2024-01-01T00:00:00Z",
-            ));
-        }
-        search.results = results;
-
-        // Draw and check that "more results" message would be shown
-        terminal.draw(|f| search.draw_search(f)).unwrap();
-
-        // The actual display depends on terminal height, but we can verify the logic
-        // With 24 line terminal, accounting for header lines, we'd have limited visible results
-        let terminal_height = 24;
-        let header_lines = 7; // Approximate header/footer lines
-        let visible_count = (terminal_height - header_lines).min(search.results.len());
-        assert!(visible_count < 25);
-        assert!(search.results.len() > visible_count);
-    }
-
-    #[test]
-    fn test_session_viewer_pagination() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("session.jsonl");
-
-        // Create session with many messages
-        let mut file = File::create(&test_file).unwrap();
-        for i in 0..10 {
-            writeln!(file, r#"{{"type":"user","content":"Message {}"}}"#, i).unwrap();
-        }
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search
-            .load_session_messages(test_file.to_str().unwrap())
-            .unwrap();
-
-        // Set up session viewer
-        search.session_order = Some(SessionOrder::Ascending);
-        search.set_mode(Mode::SessionViewer);
-
-        // Test that we have multiple messages
-        assert_eq!(search.session_messages.len(), 10);
-
-        // The actual pagination display is handled in draw_session_viewer
-        // We can test that messages are loaded correctly for pagination
-        let mut terminal = create_test_terminal();
-        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    }
-
-    #[test]
-    fn test_help_mode_key_binding() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-        File::create(&test_file).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Test ? key to enter help mode
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let help_key = KeyEvent::new(KeyCode::Char('?'), KeyModifiers::empty());
-        let continue_running = search
-            .handle_search_input(help_key, test_file.to_str().unwrap())
-            .unwrap();
-
-        assert!(continue_running); // Should continue running
-        assert_eq!(search.current_mode(), Mode::Help);
-
-        // In help mode, any key returns to search (handled in run loop)
-        // We can simulate this by setting mode back
-        search.set_mode(Mode::Search);
-        assert_eq!(search.current_mode(), Mode::Search);
-    }
-
-    #[test]
-    fn test_result_limit_indicator() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create more messages than the limit
-        let mut file = File::create(&test_file).unwrap();
-        for i in 0..60 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
-        }
-
-        let mut options = SearchOptions::default();
-        options.max_results = Some(50);
-        let mut search = InteractiveSearch::new(options);
-
-        search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-
-        // Should be limited to max_results
-        assert_eq!(search.results.len(), 50);
-
-        // Test that UI would show limit reached indicator
-        let mut terminal = create_test_terminal();
-        terminal.draw(|f| search.draw_search(f)).unwrap();
-    }
-
-    #[test]
-    fn test_clipboard_error_handling() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-        search.set_mode(Mode::ResultDetail);
-
-        // Test clipboard operation that will fail in test environment
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let copy_key = KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty());
-        let result = search.handle_result_detail_input(copy_key);
-
-        // Should handle error gracefully
-        assert!(result.is_ok());
-        assert!(search.message.is_some());
-        // Error message should contain warning symbol
-        if let Some(msg) = &search.message {
-            assert!(msg.contains("⚠") || msg.contains("✓"));
-        }
-    }
-
-    #[test]
-    fn test_cursor_position_with_role_filter() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-        File::create(&test_file).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.role_filter = Some("user".to_string());
-        search.query = "test query".to_string();
-
-        // The cursor position calculation is done in draw_search
-        // We can verify the state is correct for proper cursor positioning
-        assert_eq!(search.role_filter, Some("user".to_string()));
-        assert_eq!(search.query, "test query");
-
-        // Draw to test cursor positioning logic
-        let mut terminal = create_test_terminal();
-        terminal.draw(|f| search.draw_search(f)).unwrap();
-    }
-
-    #[test]
-    fn test_search_results_scrolling() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create many results to test scrolling
-        let mut file = File::create(&test_file).unwrap();
-        for i in 0..100 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
-        }
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-
-        // We should have many results
-        assert!(search.results.len() > 20);
-
-        // Test basic navigation
-        assert_eq!(search.selected_index, 0);
-        assert_eq!(search.scroll_offset, 0);
-
-        // Navigate down within visible range (no scrolling yet)
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
-        for _ in 0..10 {
-            search
-                .handle_search_input(down_key, test_file.to_str().unwrap())
-                .unwrap();
-        }
-        assert_eq!(search.selected_index, 10);
-        assert_eq!(search.scroll_offset, 0); // Should not scroll yet
-
-        // Continue navigating down to trigger scrolling
-        // Assuming visible items is around 15-20, scrolling should start
-        for _ in 0..15 {
-            search
-                .handle_search_input(down_key, test_file.to_str().unwrap())
-                .unwrap();
-        }
-        assert_eq!(search.selected_index, 25);
-        assert!(search.scroll_offset > 0); // Should have scrolled
-
-        // Test scrolling up
-        let up_key = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
-        for _ in 0..20 {
-            search
-                .handle_search_input(up_key, test_file.to_str().unwrap())
-                .unwrap();
-        }
-        assert_eq!(search.selected_index, 5);
-        // When selected_index is 5 and visible count is ~17 (24-7), scroll_offset should be 0
-        assert!(search.scroll_offset <= 5); // Should scroll to show the selected item
-
-        // Test Page Down
-        let page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty());
-        search
-            .handle_search_input(page_down, test_file.to_str().unwrap())
-            .unwrap();
-        assert!(search.selected_index > 10);
-        assert!(search.scroll_offset > 0);
-
-        // Test Page Up
-        let page_up = KeyEvent::new(KeyCode::PageUp, KeyModifiers::empty());
-        search
-            .handle_search_input(page_up, test_file.to_str().unwrap())
-            .unwrap();
-        // After page down then page up, should be back at lower index
-        assert!(search.selected_index < 20);
-        assert!(search.scroll_offset < 10);
-
-        // Test Home key
-        search.selected_index = 50;
-        search.scroll_offset = 30;
-        let home_key = KeyEvent::new(KeyCode::Home, KeyModifiers::empty());
-        search
-            .handle_search_input(home_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.selected_index, 0);
-        assert_eq!(search.scroll_offset, 0);
-
-        // Test End key
-        let end_key = KeyEvent::new(KeyCode::End, KeyModifiers::empty());
-        search
-            .handle_search_input(end_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.selected_index, search.results.len() - 1);
-        assert!(search.scroll_offset > 0); // Should scroll to show last item
-    }
-
-    #[test]
-    fn test_visible_range_calculation() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Create test results
-        let mut results = Vec::new();
-        for i in 0..50 {
-            results.push(create_test_result(
-                "user",
-                &format!("Message {}", i),
-                "2024-01-01T00:00:00Z",
-            ));
-        }
-        search.results = results;
-
-        // Test visible range calculation with different terminal heights
-        // Available height 20 means 19 items visible (1 line for scroll indicator)
-        let (start, end) = search.calculate_visible_range(20);
-        assert_eq!(start, 0);
-        assert!(end > 0 && end <= 19);
-
-        // With scrolling
-        search.scroll_offset = 10;
-        let (start, end) = search.calculate_visible_range(20);
-        assert_eq!(start, 10);
-        assert!(end > 10);
-
-        // Ensure selected item is visible
-        search.selected_index = 35;
-        // With available height 20, visible count is 19
-        search.adjust_scroll_offset(20);
-        let (start, end) = search.calculate_visible_range(20);
-        assert!(start <= 35 && 35 < end);
-    }
-
-    #[test]
-    fn test_actual_scrolling_behavior() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create exactly 30 results
-        let mut file = File::create(&test_file).unwrap();
-        for i in 0..30 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
-        }
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-
-        assert_eq!(search.results.len(), 30);
-
-        // With terminal height 20, we can show 19 items (1 for indicator)
-        // Start at index 0, scroll_offset 0
-        assert_eq!(search.selected_index, 0);
-        assert_eq!(search.scroll_offset, 0);
-
-        // Move down to index 18 (still visible without scrolling)
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
-
-        // Move down a few times and check scroll behavior
-        for i in 0..18 {
-            search
-                .handle_search_input(down_key, test_file.to_str().unwrap())
-                .unwrap();
-            println!(
-                "After {} down: selected_index={}, scroll_offset={}",
-                i + 1,
-                search.selected_index,
-                search.scroll_offset
-            );
-
-            // With terminal height 24, available height is 17 (24-7)
-            // With scroll indicator, visible items is 16 (17-1)
-            // So items 0-15 should be visible without scrolling
-            if i < 15 {
-                assert_eq!(
-                    search.scroll_offset,
-                    0,
-                    "Should not scroll yet at index {}",
-                    i + 1
-                );
-            }
-        }
-        assert_eq!(search.selected_index, 18);
-
-        // Move one more down to index 19 - this should trigger scrolling
-        search
-            .handle_search_input(down_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.selected_index, 19);
-        assert!(search.scroll_offset > 0); // Should have scrolled
-
-        // Move to the end
-        let end_key = KeyEvent::new(KeyCode::End, KeyModifiers::empty());
-        search
-            .handle_search_input(end_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.selected_index, 29); // Last item
-        assert!(search.scroll_offset > 10); // Should have scrolled significantly
-
-        // Move back to the beginning
-        let home_key = KeyEvent::new(KeyCode::Home, KeyModifiers::empty());
-        search
-            .handle_search_input(home_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.selected_index, 0);
-        assert_eq!(search.scroll_offset, 0);
-    }
-
-    #[test]
-    fn test_scrolling_with_ratatui_terminal() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create 50 results
-        let mut file = File::create(&test_file).unwrap();
-        for i in 0..50 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
-        }
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-
-        // Create test terminal
-        let backend = TestBackend::new(80, 24);
-        let mut terminal = Terminal::new(backend).unwrap();
-
-        // Draw initial state
-        terminal.draw(|f| search.draw_search(f)).unwrap();
-
-        // Verify that scroll indicator appears
-        let buffer = terminal.backend().buffer();
-        let content = buffer
-            .content
-            .iter()
-            .map(|cell| cell.symbol().to_string())
-            .collect::<String>();
-
-        // Should show scroll indicator
-        assert!(content.contains("Showing 1-") || content.contains("of 50 results"));
-
-        // Move to end
-        search.selected_index = 49;
-        search.adjust_scroll_offset(17); // Simulating terminal with height 24 -> available 17
-
-        // Draw again
-        terminal.draw(|f| search.draw_search(f)).unwrap();
-
-        // The last item should be visible
-        let buffer = terminal.backend().buffer();
-        let _content = buffer
-            .content
-            .iter()
-            .map(|cell| cell.symbol().to_string())
-            .collect::<String>();
-
-        // Should show different range now
-        // The exact content depends on terminal width and message truncation
-        // Just verify that we're showing a different range
-        assert!(search.scroll_offset > 30); // Should have scrolled significantly
-    }
-
-    #[test]
-    fn test_dynamic_message_truncation() {
-        let search = InteractiveSearch::new(SearchOptions::default());
-
-        // Test various terminal widths and message lengths
-        let test_cases = vec![
-            // (terminal_width, message, expected_preview_contains)
-            (80, "Short message", "Short message"),
-            (
-                80,
-                "This is a very long message that should be truncated with ellipsis at the end because it's too long to fit",
-                "...",
-            ),
-            (60, "Medium length message that needs truncation", "..."),
-            (
-                120,
-                "Even with a wide terminal, extremely long messages should still be truncated to maintain readability and consistency in the UI",
-                "...",
-            ),
-        ];
-
-        for (width, message, expected) in test_cases {
-            let width = width as usize;
-            let result = create_test_result("user", message, "2024-01-01T00:00:00Z");
-
-            // Calculate available width for message
-            // Format: "NN. [ROLE     ] MM/DD HH:MM <message>"
-            // Approximate fixed width: 2 + 2 + 13 + 1 + 11 + 1 = 30 characters
-            let fixed_width = 30;
-            let available_width = width.saturating_sub(fixed_width);
-
-            let truncated = search.truncate_message(&result.text, available_width);
-
-            if message.len() > available_width {
-                assert!(
-                    truncated.contains(expected),
-                    "Width {}: Message '{}' should contain '{}' but got '{}'",
-                    width,
-                    message,
-                    expected,
-                    truncated
-                );
-                assert!(
-                    truncated.ends_with("..."),
-                    "Width {}: Long message should end with ellipsis",
-                    width
-                );
-            } else {
-                assert_eq!(
-                    truncated, message,
-                    "Width {}: Short message should not be truncated",
-                    width
-                );
+    let search = InteractiveSearch::new(options);
+    assert_eq!(search.max_results, 20);
+    assert_eq!(search.current_mode(), Mode::Search);
+    assert!(search.query.is_empty());
+    assert_eq!(search.selected_index, 0);
+    assert!(search.results.is_empty());
+    assert!(search.role_filter.is_none());
+}
+
+#[test]
+fn test_mode_transitions() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Start in Search mode
+    assert_eq!(search.current_mode(), Mode::Search);
+
+    // Transition to Help
+    search.set_mode(Mode::Help);
+    assert_eq!(search.current_mode(), Mode::Help);
+
+    // Transition to ResultDetail
+    search.set_mode(Mode::ResultDetail);
+    assert_eq!(search.current_mode(), Mode::ResultDetail);
+
+    // Transition to SessionViewer
+    search.set_mode(Mode::SessionViewer);
+    assert_eq!(search.current_mode(), Mode::SessionViewer);
+}
+
+#[test]
+fn test_default_values() {
+    let options = SearchOptions::default();
+    let search = InteractiveSearch::new(options);
+
+    // Default max results should be 50
+    assert_eq!(search.max_results, 50);
+    assert_eq!(search.current_mode(), Mode::Search);
+    assert!(search.query.is_empty());
+    assert!(search.results.is_empty());
+    assert!(search.role_filter.is_none());
+    assert!(search.message.is_none());
+    assert_eq!(search.selected_index, 0);
+    assert_eq!(search.detail_scroll_offset, 0);
+    assert_eq!(search.scroll_offset, 0);
+}
+
+#[test]
+fn test_cache_functionality() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(
+        file,
+        r#"{{"type":"user","content":"Test message"}}"#
+    )
+    .unwrap();
+
+    let mut cache = MessageCache::new();
+
+    // First load
+    let cached = cache.get_messages(&test_file).unwrap();
+    assert_eq!(cached.messages.len(), 1);
+    assert_eq!(cached.raw_lines.len(), 1);
+
+    // Load again - should use cache
+    let cached2 = cache.get_messages(&test_file).unwrap();
+    assert_eq!(cached2.messages.len(), 1);
+
+    // Modify file
+    thread::sleep(Duration::from_millis(10));
+    writeln!(
+        file,
+        r#"{{"type":"assistant","content":"Response"}}"#
+    )
+    .unwrap();
+
+    // Should reload due to modification time change
+    let cached3 = cache.get_messages(&test_file).unwrap();
+    assert_eq!(cached3.messages.len(), 2);
+
+    // Test cache clear
+    cache.clear();
+    assert!(cache.files.is_empty());
+}
+
+#[test]
+fn test_file_change_detection() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(
+        file,
+        r#"{{"type":"user","content":"Message 1"}}"#
+    )
+    .unwrap();
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.query = "Message".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+
+    // Add another message
+    thread::sleep(Duration::from_millis(10));
+    writeln!(
+        file,
+        r#"{{"type":"user","content":"Message 2"}}"#
+    )
+    .unwrap();
+
+    search.execute_search(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 2);
+}
+
+#[test]
+fn test_help_screen_rendering() {
+    let mut terminal = create_test_terminal();
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.set_mode(Mode::Help);
+
+    terminal.draw(|f| search.draw(f)).unwrap();
+    let buffer = terminal.backend().buffer();
+
+    // Check that help title is present
+    let help_title = "Help";
+    let mut found = false;
+    for y in 0..buffer.area.height {
+        for x in 0..buffer.area.width {
+            let cell = &buffer[(x, y)];
+            if cell.symbol.starts_with('H') {
+                let mut title = String::new();
+                for i in 0..help_title.len() {
+                    if x + i as u16 >= buffer.area.width {
+                        break;
+                    }
+                    title.push_str(&buffer[(x + i as u16, y)].symbol);
+                }
+                if title == help_title {
+                    found = true;
+                    break;
+                }
             }
         }
     }
+    assert!(found, "Help title not found in buffer");
+}
 
-    #[test]
-    fn test_message_truncation_with_multibyte() {
-        let search = InteractiveSearch::new(SearchOptions::default());
+#[test]
+fn test_result_detail_rendering() {
+    let mut terminal = create_test_terminal();
+    let mut search = InteractiveSearch::new(SearchOptions::default());
 
-        // Test multibyte character handling
-        let japanese = "これは日本語のテキストです。とても長い文章なので画面幅に収まりません。";
-        let emoji = "Hello 👋 World 🌍 This is a test message with emojis 🎉🎊🎈";
+    // Set up a result detail view
+    let result = create_test_result("user", "Test message content", "2024-01-01T00:00:00Z");
+    search.selected_result = Some(result);
+    search.set_mode(Mode::ResultDetail);
 
-        // Test truncation doesn't break multibyte characters
-        for width in [20, 30, 40, 50] {
-            let truncated_jp = search.truncate_message(japanese, width);
-            let truncated_emoji = search.truncate_message(emoji, width);
+    terminal.draw(|f| search.draw(f)).unwrap();
+    let buffer = terminal.backend().buffer();
 
-            // Verify the truncated strings are valid UTF-8
-            assert!(truncated_jp.is_char_boundary(truncated_jp.len()));
-            assert!(truncated_emoji.is_char_boundary(truncated_emoji.len()));
+    // Check that result detail title is present
+    let detail_title = "Result Detail";
+    let mut found = false;
+    for y in 0..buffer.area.height {
+        for x in 0..buffer.area.width {
+            let cell = &buffer[(x, y)];
+            if cell.symbol.starts_with('R') {
+                let mut title = String::new();
+                for i in 0..detail_title.len() {
+                    if x + i as u16 >= buffer.area.width {
+                        break;
+                    }
+                    title.push_str(&buffer[(x + i as u16, y)].symbol);
+                }
+                if title == detail_title {
+                    found = true;
+                    break;
+                }
+            }
+        }
+    }
+    assert!(found, "Result Detail title not found in buffer");
+}
 
-            // Verify length constraints
-            assert!(truncated_jp.chars().count() <= width);
-            assert!(truncated_emoji.chars().count() <= width);
+#[test]
+fn test_role_filter_cycling() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Initial state
+    assert!(search.role_filter.is_none());
+
+    // Simulate Tab key presses
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let tab_key = KeyEvent::new(KeyCode::Tab, KeyModifiers::empty());
+
+    // Cycle through filters
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+    File::create(&test_file).unwrap();
+
+    search.handle_search_input(tab_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.role_filter, Some("user".to_string()));
+
+    search.handle_search_input(tab_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.role_filter, Some("assistant".to_string()));
+
+    search.handle_search_input(tab_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.role_filter, Some("system".to_string()));
+
+    search.handle_search_input(tab_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.role_filter, Some("summary".to_string()));
+
+    search.handle_search_input(tab_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.role_filter, None);
+}
+
+#[test]
+fn test_query_parsing_integration() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, r#"{{"type":"user","content":"Hello world"}}"#).unwrap();
+    writeln!(file, r#"{{"type":"assistant","content":"Goodbye world"}}"#).unwrap();
+    writeln!(file, r#"{{"type":"system","content":"System message"}}"#).unwrap();
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test AND query
+    search.query = "Hello AND world".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+    assert_eq!(search.results[0].text, "Hello world");
+
+    // Test OR query
+    search.query = "Hello OR Goodbye".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 2);
+
+    // Test NOT query
+    search.query = "world NOT Hello".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+    assert_eq!(search.results[0].text, "Goodbye world");
+}
+
+#[test]
+fn test_execute_search_with_filters() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"User message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+    writeln!(file, r#"{{"type":"assistant","message":{{"id":"msg1","type":"message","role":"assistant","model":"claude","content":[{{"type":"text","text":"Assistant response"}}],"stop_reason":"end_turn","stop_sequence":null,"usage":{{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"s1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+    writeln!(file, r#"{{"type":"system","content":"System message"}}"#).unwrap();
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test role filter
+    search.query = "message".to_string();
+    search.role_filter = Some("user".to_string());
+    search.execute_search(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+    assert_eq!(search.results[0].role, "user");
+
+    // Test assistant filter
+    search.role_filter = Some("assistant".to_string());
+    search.execute_search(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+    assert_eq!(search.results[0].role, "assistant");
+
+    // Test system filter
+    search.role_filter = Some("system".to_string());
+    search.execute_search(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+    assert_eq!(search.results[0].role, "system");
+}
+
+#[test]
+fn test_result_sorting() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message 1"}},"uuid":"1","timestamp":"2024-01-01T00:00:02Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+    writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message 2"}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+    writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message 3"}},"uuid":"3","timestamp":"2024-01-01T00:00:03Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.query = "Message".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+
+    // Results should be sorted by timestamp in descending order
+    assert_eq!(search.results.len(), 3);
+    assert_eq!(search.results[0].text, "Message 3");
+    assert_eq!(search.results[1].text, "Message 1");
+    assert_eq!(search.results[2].text, "Message 2");
+}
+
+#[test]
+fn test_cursor_position_with_role_filter() {
+    let mut terminal = create_test_terminal();
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    search.query = "test query".to_string();
+    search.role_filter = Some("user".to_string());
+
+    terminal.draw(|f| search.draw(f)).unwrap();
+
+    // The cursor should be positioned after the query text in the input field
+    let (cursor_x, _cursor_y) = terminal.get_cursor().unwrap();
+    // Expected position: starting position + query length
+    assert!(cursor_x > 0);
+}
+
+#[test]
+fn test_message_limit() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test various messages
+    search.message = Some("Short message".to_string());
+    terminal::enable_raw_mode().ok();
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw(f)).unwrap();
+    terminal::disable_raw_mode().ok();
+
+    // Message should be displayed
+    let buffer = terminal.backend().buffer();
+    let buffer_content = buffer_to_string(buffer);
+    assert!(buffer_content.contains("Short message"));
+
+    // Test long message (should be truncated in actual display)
+    search.message = Some("A".repeat(200));
+    terminal.draw(|f| search.draw(f)).unwrap();
+    // The actual truncation happens in the UI rendering
+}
+
+fn buffer_to_string(buffer: &Buffer) -> String {
+    let mut result = String::new();
+    for y in 0..buffer.area.height {
+        for x in 0..buffer.area.width {
+            result.push_str(&buffer[(x, y)].symbol);
+        }
+        result.push('\n');
+    }
+    result
+}
+
+#[test]
+fn test_message_clearing_on_mode_change() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Set a message in search mode
+    search.message = Some("Test message".to_string());
+
+    // Message should be cleared when returning from detail to search
+    search.push_screen(Mode::ResultDetail);
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
+    search.handle_result_detail_input(esc_key).unwrap();
+
+    assert!(search.message.is_none());
+    assert_eq!(search.current_mode(), Mode::Search);
+}
+
+#[test]
+fn test_detail_scroll_functionality() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Create a long result text
+    let long_text = (0..100).map(|i| format!("Line {}", i)).collect::<Vec<_>>().join("\n");
+    let result = create_test_result("user", &long_text, "2024-01-01T00:00:00Z");
+    search.selected_result = Some(result);
+    search.set_mode(Mode::ResultDetail);
+
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    // Test scrolling down
+    let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
+    search.handle_result_detail_input(down_key).unwrap();
+    assert_eq!(search.detail_scroll_offset, 1);
+
+    // Test scrolling up
+    let up_key = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
+    search.handle_result_detail_input(up_key).unwrap();
+    assert_eq!(search.detail_scroll_offset, 0);
+
+    // Test page down
+    search.detail_scroll_offset = 0;
+    let page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty());
+    search.handle_result_detail_input(page_down).unwrap();
+    assert!(search.detail_scroll_offset > 0);
+
+    // Test page up
+    let page_up = KeyEvent::new(KeyCode::PageUp, KeyModifiers::empty());
+    search.handle_result_detail_input(page_up).unwrap();
+    assert_eq!(search.detail_scroll_offset, 0);
+
+    // Test Esc resets offset
+    search.detail_scroll_offset = 5;
+    let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
+    search.handle_result_detail_input(esc_key).unwrap();
+    assert_eq!(search.detail_scroll_offset, 0);
+}
+
+#[test]
+fn test_ctrl_r_cache_reload() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, r#"{{"type":"user","content":"Message 1"}}"#).unwrap();
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.query = "Message".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+
+    // Add another message
+    thread::sleep(Duration::from_millis(10));
+    writeln!(file, r#"{{"type":"user","content":"Message 2"}}"#).unwrap();
+
+    // Ctrl+R should reload
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let ctrl_r = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL);
+    search.handle_search_input(ctrl_r, test_file.to_str().unwrap()).unwrap();
+
+    // Should show reload message
+    assert!(search.message.is_some());
+    assert!(search.message.as_ref().unwrap().contains("Cache cleared"));
+    
+    // Results should be updated
+    assert_eq!(search.results.len(), 2);
+}
+
+#[test]
+fn test_project_path_extraction() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test with valid project path
+    let result = create_test_result("user", "Test", "2024-01-01T00:00:00Z");
+    let project = search.extract_project_path(&result);
+    assert_eq!(project, Some("/test/project".to_string()));
+
+    // Test with different project paths
+    let mut result2 = result.clone();
+    result2.project_path = "/another/project".to_string();
+    let project2 = search.extract_project_path(&result2);
+    assert_eq!(project2, Some("/another/project".to_string()));
+}
+
+#[test]
+fn test_session_viewer_order_selection() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("session.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, r#"{{"type":"user","content":"Message 1"}}"#).unwrap();
+    writeln!(file, r#"{{"type":"assistant","content":"Message 2"}}"#).unwrap();
+    writeln!(file, r#"{{"type":"user","content":"Message 3"}}"#).unwrap();
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.load_session_messages(test_file.to_str().unwrap()).unwrap();
+
+    // Set up session viewer  
+    search.session_order = Some(SessionOrder::Ascending);
+    search.set_mode(Mode::SessionViewer);
+
+    // Initially not ordered
+    assert!(search.session_order.is_some());
+
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    // Test ascending order
+    let a_key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty());
+    search.handle_session_viewer_input(a_key).unwrap();
+    assert_eq!(search.session_order, Some(SessionOrder::Ascending));
+
+    // Test descending order
+    let d_key = KeyEvent::new(KeyCode::Char('d'), KeyModifiers::empty());
+    search.handle_session_viewer_input(d_key).unwrap();
+    assert_eq!(search.session_order, Some(SessionOrder::Descending));
+}
+
+#[test]
+fn test_role_filter_message_clearing() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+    File::create(&test_file).unwrap();
+
+    // Set a message
+    search.message = Some("Previous message".to_string());
+
+    // Change role filter
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let tab_key = KeyEvent::new(KeyCode::Tab, KeyModifiers::empty());
+    search.handle_search_input(tab_key, test_file.to_str().unwrap()).unwrap();
+
+    // Message should be cleared
+    assert!(search.message.is_none());
+    assert_eq!(search.role_filter, Some("user".to_string()));
+}
+
+#[test]
+fn test_preview_text_multibyte_safety() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test with emoji and Japanese characters
+    let text_with_emoji = "Hello 😀 World 🌍 こんにちは";
+    let result = create_test_result("user", text_with_emoji, "2024-01-01T00:00:00Z");
+    let preview = search.get_preview_text(&result, 15);
+    
+    // Should truncate at character boundary, not byte boundary
+    assert!(preview.chars().count() <= 18); // 15 + "..."
+    assert!(preview.ends_with("..."));
+
+    // Test with very short text
+    let short_text = "Hi";
+    let short_result = create_test_result("user", short_text, "2024-01-01T00:00:00Z");
+    let short_preview = search.get_preview_text(&short_result, 20);
+    assert_eq!(short_preview, "Hi");
+    assert!(!short_preview.contains("..."));
+}
+
+#[test]
+fn test_empty_file_handling() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("empty.jsonl");
+
+    // Create empty file
+    File::create(&test_file).unwrap();
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.load_initial_results(test_file.to_str().unwrap());
+
+    // Should handle empty file gracefully
+    assert!(search.results.is_empty());
+    assert_eq!(search.selected_index, 0);
+
+    // Test empty query behavior
+    search.query = "".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+    assert!(search.results.is_empty());
+}
+
+#[test]
+fn test_invalid_json_handling() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("invalid.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, "Not valid JSON").unwrap();
+    writeln!(file, r#"{{"type":"user","content":"Valid message"}}"#).unwrap();
+    writeln!(file, "Another invalid line").unwrap();
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.query = "Valid".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+
+    // Should only find the valid message
+    assert_eq!(search.results.len(), 1);
+    assert_eq!(search.results[0].text, "Valid message");
+}
+
+#[test]
+fn test_max_results_limit() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("many.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    for i in 0..100 {
+        writeln!(file, r#"{{"type":"user","content":"Message {}"}}"#, i).unwrap();
+    }
+
+    let options = SearchOptions {
+        max_results: Some(25),
+        ..Default::default()
+    };
+    let mut search = InteractiveSearch::new(options);
+    assert_eq!(search.max_results, 25);
+
+    search.query = "Message".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+
+    // Should only return max_results
+    assert_eq!(search.results.len(), 25);
+}
+
+#[test]
+fn test_initial_results_loading() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("initial.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    for i in 0..10 {
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
+    }
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.load_initial_results(test_file.to_str().unwrap());
+
+    // Should have loaded results without any query
+    assert!(!search.results.is_empty());
+    // Should be sorted by timestamp (newest first)
+    assert!(search.results[0].timestamp > search.results[1].timestamp);
+}
+
+#[test]
+fn test_session_viewer_pagination() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("session.jsonl");
+
+    // Create session with many messages
+    let mut file = File::create(&test_file).unwrap();
+    for i in 0..10 {
+        writeln!(file, r#"{{"type":"user","content":"Message {}"}}"#, i).unwrap();
+    }
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.load_session_messages(test_file.to_str().unwrap()).unwrap();
+
+    // Set up session viewer
+    search.session_order = Some(SessionOrder::Ascending);
+    search.set_mode(Mode::SessionViewer);
+
+    // Test that we have multiple messages
+    assert_eq!(search.session_messages.len(), 10);
+
+    // Test page navigation
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    
+    // Test down navigation
+    let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
+    search.handle_session_viewer_input(down_key).unwrap();
+    assert_eq!(search.session_index, 1);
+
+    // Test up navigation
+    let up_key = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
+    search.handle_session_viewer_input(up_key).unwrap();
+    assert_eq!(search.session_index, 0);
+
+    // Test page down
+    let page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty());
+    search.handle_session_viewer_input(page_down).unwrap();
+    assert!(search.session_index > 1);
+
+    // Test page up
+    let page_up = KeyEvent::new(KeyCode::PageUp, KeyModifiers::empty());
+    search.handle_session_viewer_input(page_up).unwrap();
+    assert_eq!(search.session_index, 0);
+}
+
+#[test]
+fn test_result_limit_indicator() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("many.jsonl");
+
+    // Create more messages than the limit
+    let mut file = File::create(&test_file).unwrap();
+    for i in 0..60 {
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
+    }
+
+    let options = SearchOptions {
+        max_results: Some(50),
+        ..Default::default()
+    };
+    let mut search = InteractiveSearch::new(options);
+    search.query = "Message".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+
+    assert_eq!(search.results.len(), 50);
+
+    // Draw and check for limit indicator
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw(f)).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    let buffer_content = buffer_to_string(buffer);
+    
+    // Should show the limit indicator
+    assert!(buffer_content.contains("50 results") || buffer_content.contains("limited"));
+}
+
+#[test]
+fn test_more_results_display() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("many.jsonl");
+
+    // Create exactly max_results + 1 messages
+    let mut file = File::create(&test_file).unwrap();
+    for i in 0..51 {
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
+    }
+
+    let options = SearchOptions {
+        max_results: Some(50),
+        ..Default::default()
+    };
+    let mut search = InteractiveSearch::new(options);
+    search.query = "Message".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+
+    assert_eq!(search.results.len(), 50);
+
+    // Draw and check for "more results" message
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw(f)).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    let buffer_content = buffer_to_string(buffer);
+    
+    // Should indicate there are more results
+    assert!(buffer_content.contains("50") && (buffer_content.contains("more") || buffer_content.contains("limited")));
+}
+
+#[test]
+fn test_search_navigation_keys() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("nav.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    for i in 0..30 {
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
+    }
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.query = "Message".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+
+    // Test basic navigation
+    assert_eq!(search.selected_index, 0);
+    assert_eq!(search.scroll_offset, 0);
+
+    // Navigate down within visible range (no scrolling yet)
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
+    for _ in 0..10 {
+        search.handle_search_input(down_key, test_file.to_str().unwrap()).unwrap();
+    }
+    assert_eq!(search.selected_index, 10);
+    assert_eq!(search.scroll_offset, 0); // Should not scroll yet
+
+    // Continue navigating to trigger scroll
+    for _ in 0..8 {
+        search.handle_search_input(down_key, test_file.to_str().unwrap()).unwrap();
+    }
+    assert_eq!(search.selected_index, 18);
+
+    // Navigate back up
+    let up_key = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
+    for _ in 0..5 {
+        search.handle_search_input(up_key, test_file.to_str().unwrap()).unwrap();
+    }
+    assert_eq!(search.selected_index, 13);
+
+    // Test Home key
+    let home_key = KeyEvent::new(KeyCode::Home, KeyModifiers::empty());
+    search.handle_search_input(home_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.selected_index, 0);
+    assert_eq!(search.scroll_offset, 0);
+
+    // Test End key
+    let end_key = KeyEvent::new(KeyCode::End, KeyModifiers::empty());
+    search.handle_search_input(end_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.selected_index, 29);
+    assert!(search.scroll_offset > 0);
+}
+
+#[test]
+fn test_empty_query_shows_initial_screen() {
+    let mut terminal = create_test_terminal();
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // With empty query, should show initial screen
+    assert!(search.query.is_empty());
+    terminal.draw(|f| search.draw(f)).unwrap();
+
+    let buffer = terminal.backend().buffer();
+    let buffer_content = buffer_to_string(buffer);
+
+    // Should show the welcome message or instructions
+    assert!(buffer_content.contains("Type to search") || buffer_content.contains("Enter query"));
+}
+
+#[test]
+fn test_search_results_scrolling() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("scroll.jsonl");
+
+    let mut file = File::create(&test_file).unwrap();
+    for i in 0..50 {
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
+    }
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.query = "Message".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+
+    // Navigate to trigger scrolling
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
+
+    // Navigate down past visible area
+    for i in 0..20 {
+        search.handle_search_input(down_key, test_file.to_str().unwrap()).unwrap();
+        
+        // With terminal height 24, available height is 17 (24-7)
+        // With scroll indicator, visible items is 16 (17-1)
+        // So items 0-15 should be visible without scrolling
+        if i < 15 {
+            assert_eq!(search.scroll_offset, 0, "Should not scroll yet at index {}", i + 1);
         }
     }
 
-    #[test]
-    fn test_non_blocking_input() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
+    // Now should be scrolling
+    assert!(search.scroll_offset > 0);
 
-        // Create test data
-        let mut file = File::create(&test_file).unwrap();
-        for i in 0..10 {
-            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
-        }
+    // Test page down
+    let page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty());
+    let prev_offset = search.scroll_offset;
+    let prev_index = search.selected_index;
+    search.handle_search_input(page_down, test_file.to_str().unwrap()).unwrap();
+    assert!(search.selected_index > prev_index);
+    assert!(search.scroll_offset >= prev_offset);
 
-        let mut search = InteractiveSearch::new(SearchOptions::default());
+    // Test page up
+    let page_up = KeyEvent::new(KeyCode::PageUp, KeyModifiers::empty());
+    search.handle_search_input(page_up, test_file.to_str().unwrap()).unwrap();
+    assert!(search.selected_index < 20);
+}
 
-        // Simulate typing
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+#[test]
+fn test_actual_scrolling_behavior() {
+    let mut terminal = create_test_terminal();
+    let mut search = InteractiveSearch::new(SearchOptions::default());
 
-        // Test immediate search execution on input
-        let m_key = KeyEvent::new(KeyCode::Char('M'), KeyModifiers::empty());
-        search
-            .handle_search_input(m_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.query, "M");
-        assert_eq!(search.results.len(), 10); // All messages match "M"
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("many_results.jsonl");
 
-        // Test that each character triggers immediate search
-        let e_key = KeyEvent::new(KeyCode::Char('e'), KeyModifiers::empty());
-        search
-            .handle_search_input(e_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.query, "Me");
-        assert_eq!(search.results.len(), 10); // All messages still match "Me"
-
-        // Test backspace also triggers immediate search
-        let backspace = KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty());
-        search
-            .handle_search_input(backspace, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.query, "M");
-        assert_eq!(search.results.len(), 10); // Back to "M"
-
-        // Clear query
-        search
-            .handle_search_input(backspace, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.query, "");
-        assert_eq!(search.results.len(), 0); // Empty query returns no results
-
-        // Test searching for a specific message
-        let zero_key = KeyEvent::new(KeyCode::Char('0'), KeyModifiers::empty());
-        search
-            .handle_search_input(zero_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.query, "0");
-        assert_eq!(search.results.len(), 1); // Only "Message 0" contains "0"
+    // Create many results to test scrolling
+    let mut file = File::create(&test_file).unwrap();
+    for i in 0..30 {
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
     }
 
-    #[test]
-    fn test_escape_key_behaviors() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.query = "Message".to_string();
+    search.execute_search(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 30);
 
-        // Test Esc in different modes
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
+    // Draw initial state
+    terminal.draw(|f| search.draw(f)).unwrap();
 
-        // Test plain Esc exits from search mode
-        search.set_mode(Mode::Search);
-        let temp_dir = tempdir().unwrap();
-        let temp_file = temp_dir.path().join("test.jsonl");
-        File::create(&temp_file).unwrap();
-        let continue_running = search
-            .handle_search_input(esc_key, temp_file.to_str().unwrap())
-            .unwrap();
-        assert!(!continue_running); // false means exit
+    // Test scrolling behavior with actual terminal
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
 
-        // Test Ctrl+C also exits
-        let ctrl_c = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
-        let continue_running = search
-            .handle_search_input(ctrl_c, temp_file.to_str().unwrap())
-            .unwrap();
-        assert!(!continue_running); // false means exit
-
-        // From detail mode - Esc should return to search
-        search.push_screen(Mode::ResultDetail);
-        search.detail_scroll_offset = 10;
-        search.message = Some("Test message".to_string());
-        search.handle_result_detail_input(esc_key).unwrap();
-        assert_eq!(search.current_mode(), Mode::Search);
-        assert_eq!(search.detail_scroll_offset, 0);
-        assert!(search.message.is_none());
+    // Navigate down and verify UI updates
+    for i in 0..20 {
+        search.handle_search_input(down_key, test_file.to_str().unwrap()).unwrap();
+        terminal.draw(|f| search.draw(f)).unwrap();
+        
+        // The terminal should show the selected item
+        assert_eq!(search.selected_index, i + 1);
     }
 
-    #[test]
-    fn test_file_discovery_logic() {
-        let temp_dir = tempdir().unwrap();
+    // Verify scrolling happened
+    assert!(search.scroll_offset > 0);
+}
 
-        // Create test files
-        let file1 = temp_dir.path().join("session1.jsonl");
-        let file2 = temp_dir.path().join("session2.jsonl");
-        let subdir = temp_dir.path().join("subdir");
-        std::fs::create_dir(&subdir).unwrap();
-        let file3 = subdir.join("session3.jsonl");
+#[test]
+fn test_non_blocking_input() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
 
-        // Create files with content
-        let mut f1 = File::create(&file1).unwrap();
-        writeln!(f1, r#"{{"type":"user","message":{{"role":"user","content":"Test 1"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut f2 = File::create(&file2).unwrap();
-        writeln!(f2, r#"{{"type":"user","message":{{"role":"user","content":"Test 2"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s2","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut f3 = File::create(&file3).unwrap();
-        writeln!(f3, r#"{{"type":"user","message":{{"role":"user","content":"Test 3"}},"uuid":"3","timestamp":"2024-01-01T00:00:00Z","sessionId":"s3","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Test single file discovery
-        search.query = "Test".to_string();
-        search.execute_search(file1.to_str().unwrap());
-        assert_eq!(search.results.len(), 1);
-        assert_eq!(search.results[0].text, "Test 1");
-
-        // Test directory pattern discovery - use glob pattern
-        search.query = "Test".to_string();
-        let pattern = format!("{}/*.jsonl", temp_dir.path().to_str().unwrap());
-        search.execute_search(&pattern);
-        // Should find at least the two files in root dir
-        assert!(search.results.len() >= 2);
-
-        // Test that results come from multiple files
-        let file_names: Vec<String> = search.results.iter().map(|r| r.file.clone()).collect();
-        assert!(file_names.contains(&"session1.jsonl".to_string()));
-        assert!(file_names.contains(&"session2.jsonl".to_string()));
+    let mut file = File::create(&test_file).unwrap();
+    for i in 0..10 {
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
     }
 
-    #[test]
-    fn test_clipboard_operations() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
+    let mut search = InteractiveSearch::new(SearchOptions::default());
 
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Clipboard test"}},"uuid":"clip-123","timestamp":"2024-01-01T00:00:00Z","sessionId":"session-456","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test/project","version":"1.0"}}"#).unwrap();
+    // Simulate typing
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.query = "Clipboard".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 1);
+    // Test immediate search execution on input
+    let m_key = KeyEvent::new(KeyCode::Char('M'), KeyModifiers::empty());
+    search.handle_search_input(m_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.query, "M");
+    assert_eq!(search.results.len(), 10); // All messages match "M"
 
-        // Enter detail view
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let enter_key = KeyEvent::new(KeyCode::Enter, KeyModifiers::empty());
-        search
-            .handle_search_input(enter_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.current_mode(), Mode::ResultDetail);
+    // Test that each character triggers immediate search
+    let e_key = KeyEvent::new(KeyCode::Char('e'), KeyModifiers::empty());
+    search.handle_search_input(e_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.query, "Me");
+    assert_eq!(search.results.len(), 10); // All messages still match "Me"
 
-        // Test various copy operations
-        // Note: We can't test actual clipboard functionality in tests, but we can test the flow
+    // Test backspace also triggers immediate search
+    let backspace = KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty());
+    search.handle_search_input(backspace, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.query, "M");
+    assert_eq!(search.results.len(), 10); // Back to "M"
 
-        // Test F - Copy file path
-        let f_key = KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty());
-        search.handle_result_detail_input(f_key).unwrap();
-        assert!(search.message.is_some());
-        assert!(
-            search
-                .message
-                .as_ref()
-                .unwrap()
-                .contains("File path copied")
-        );
+    // Clear query
+    search.handle_search_input(backspace, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.query, "");
+    // Empty query shows initial results
+    assert!(!search.results.is_empty());
+}
 
-        // Test I - Copy session ID
-        search.message = None;
-        let i_key = KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty());
-        search.handle_result_detail_input(i_key).unwrap();
-        assert!(search.message.is_some());
-        assert!(
-            search
-                .message
-                .as_ref()
-                .unwrap()
-                .contains("Session ID copied")
-        );
+#[test]
+fn test_message_truncation_with_multibyte() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
 
-        // Test P - Copy project path
-        search.message = None;
-        let p_key = KeyEvent::new(KeyCode::Char('p'), KeyModifiers::empty());
-        search.handle_result_detail_input(p_key).unwrap();
-        assert!(search.message.is_some());
-        assert!(
-            search
-                .message
-                .as_ref()
-                .unwrap()
-                .contains("Project path copied")
-        );
+    // Set a long message with multibyte characters
+    let long_message = format!("これは非常に長いメッセージです。{}", "あ".repeat(100));
+    search.message = Some(long_message);
 
-        // Test M - Copy message text
-        search.message = None;
-        let m_key = KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty());
-        search.handle_result_detail_input(m_key).unwrap();
-        assert!(search.message.is_some());
-        assert!(
-            search
-                .message
-                .as_ref()
-                .unwrap()
-                .contains("Message text copied")
-        );
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw(f)).unwrap();
 
-        // Test R - Copy raw JSON
-        search.message = None;
-        let r_key = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::empty());
-        search.handle_result_detail_input(r_key).unwrap();
-        assert!(search.message.is_some());
-        assert!(search.message.as_ref().unwrap().contains("Raw JSON copied"));
+    // Should not panic with multibyte truncation
+    let buffer = terminal.backend().buffer();
+    let buffer_content = buffer_to_string(buffer);
+    
+    // Message should be displayed (truncated if necessary)
+    assert!(buffer_content.contains("これは"));
+}
+
+#[test]
+fn test_dynamic_message_truncation() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Test short message
+    search.message = Some("Short".to_string());
+    assert_eq!(search.truncate_message("Short", 10), "Short");
+
+    // Test exact length
+    search.message = Some("Exact fit!".to_string());
+    assert_eq!(search.truncate_message("Exact fit!", 10), "Exact fit!");
+
+    // Test truncation
+    search.message = Some("This is a very long message".to_string());
+    let truncated = search.truncate_message("This is a very long message", 10);
+    assert_eq!(truncated, "This is...");
+    assert_eq!(truncated.chars().count(), 10);
+
+    // Test with emoji
+    let emoji_msg = "Hello 😀 World 🌍";
+    let truncated_emoji = search.truncate_message(emoji_msg, 10);
+    assert!(truncated_emoji.ends_with("..."));
+    assert!(truncated_emoji.chars().count() <= 10);
+}
+
+#[test]
+fn test_exit_goodbye_message() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let q_key = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty());
+
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+    File::create(&test_file).unwrap();
+
+    let continue_running = search.handle_search_input(q_key, test_file.to_str().unwrap()).unwrap();
+    assert!(!continue_running);
+
+    // Should show goodbye message
+    assert!(search.message.is_some());
+    assert!(search.message.as_ref().unwrap().contains("Goodbye") || 
+            search.message.as_ref().unwrap().contains("goodbye"));
+}
+
+#[test]
+fn test_centered_rect_calculation() {
+    let search = InteractiveSearch::new(SearchOptions::default());
+
+    let area = ratatui::layout::Rect {
+        x: 0,
+        y: 0,
+        width: 80,
+        height: 24,
+    };
+
+    let centered = search.centered_rect(50, 50, area);
+    
+    // Should be centered
+    assert_eq!(centered.width, 40); // 50% of 80
+    assert_eq!(centered.height, 12); // 50% of 24
+    assert_eq!(centered.x, 20); // (80 - 40) / 2
+    assert_eq!(centered.y, 6); // (24 - 12) / 2
+}
+
+#[test]
+fn test_escape_key_behaviors() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
+
+    // Test plain Esc exits from search mode
+    search.set_mode(Mode::Search);
+    let temp_dir = tempdir().unwrap();
+    let temp_file = temp_dir.path().join("test.jsonl");
+    File::create(&temp_file).unwrap();
+    let continue_running = search.handle_search_input(esc_key, temp_file.to_str().unwrap()).unwrap();
+    assert!(!continue_running); // false means exit
+
+    // From detail mode - Esc should return to search
+    search.push_screen(Mode::ResultDetail);
+    search.detail_scroll_offset = 10;
+    search.message = Some("Test message".to_string());
+    search.handle_result_detail_input(esc_key).unwrap();
+    assert_eq!(search.current_mode(), Mode::Search);
+    assert_eq!(search.detail_scroll_offset, 0);
+    assert!(search.message.is_none());
+}
+
+#[test]
+fn test_copy_feedback_messages() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    let result = create_test_result("user", "Test message", "2024-01-01T00:00:00Z");
+    search.selected_result = Some(result);
+    search.set_mode(Mode::ResultDetail);
+
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    // Test F - Copy file path
+    search.message = None;
+    let f_key = KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty());
+    search.handle_result_detail_input(f_key).unwrap();
+    assert!(search.message.is_some());
+    assert!(search.message.as_ref().unwrap().contains("File path copied"));
+
+    // Test I - Copy session ID
+    search.message = None;
+    let i_key = KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty());
+    search.handle_result_detail_input(i_key).unwrap();
+    assert!(search.message.is_some());
+    assert!(search.message.as_ref().unwrap().contains("Session ID copied"));
+
+    // Test P - Copy project path
+    search.message = None;
+    let p_key = KeyEvent::new(KeyCode::Char('p'), KeyModifiers::empty());
+    search.handle_result_detail_input(p_key).unwrap();
+    assert!(search.message.is_some());
+    assert!(search.message.as_ref().unwrap().contains("Project path copied"));
+
+    // Test M - Copy message text
+    search.message = None;
+    let m_key = KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty());
+    search.handle_result_detail_input(m_key).unwrap();
+    assert!(search.message.is_some());
+    assert!(search.message.as_ref().unwrap().contains("Message copied"));
+
+    // Test J - Copy JSON
+    search.message = None;
+    let j_key = KeyEvent::new(KeyCode::Char('j'), KeyModifiers::empty());
+    search.handle_result_detail_input(j_key).unwrap();
+    assert!(search.message.is_some());
+    assert!(search.message.as_ref().unwrap().contains("JSON copied"));
+}
+
+#[test]
+fn test_clipboard_error_handling() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Create result without raw_json
+    let mut result = create_test_result("user", "Test", "2024-01-01T00:00:00Z");
+    result.raw_json = None;
+    search.selected_result = Some(result);
+    search.set_mode(Mode::ResultDetail);
+
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    // Test J - Should show error when no JSON available
+    let j_key = KeyEvent::new(KeyCode::Char('j'), KeyModifiers::empty());
+    search.handle_result_detail_input(j_key).unwrap();
+    assert!(search.message.is_some());
+    assert!(search.message.as_ref().unwrap().contains("No JSON"));
+}
+
+#[test]
+fn test_scrolling_with_ratatui_terminal() {
+    let backend = TestBackend::new(80, 24);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+
+    // Create test data
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("scroll_test.jsonl");
+    let mut file = File::create(&test_file).unwrap();
+    
+    for i in 0..30 {
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
     }
 
-    #[test]
-    fn test_searching_indicator() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
+    search.query = "Message".to_string();
+    search.execute_search(test_file.to_str().unwrap());
 
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Test"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+    // Initial draw
+    terminal.draw(|f| search.draw(f)).unwrap();
 
-        let mut search = InteractiveSearch::new(SearchOptions::default());
+    // Navigate and redraw
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
 
-        // Check is_searching state during search
-        assert!(!search.is_searching);
-
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let t_key = KeyEvent::new(KeyCode::Char('T'), KeyModifiers::empty());
-
-        // The is_searching flag is set during handle_search_input
-        // We can't directly test the intermediate state, but we can verify it's false after
-        search
-            .handle_search_input(t_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert!(!search.is_searching); // Should be false after search completes
-        assert_eq!(search.query, "T");
-        assert_eq!(search.results.len(), 1);
+    for _ in 0..20 {
+        search.handle_search_input(down_key, test_file.to_str().unwrap()).unwrap();
+        terminal.draw(|f| search.draw(f)).unwrap();
     }
 
-    #[test]
-    fn test_session_viewer_quit() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        // Simulate navigating from Search to SessionViewer
-        search.push_screen(Mode::SessionViewer);
-        search.session_order = Some(SessionOrder::Ascending);
-        search.session_messages = vec!["msg1".to_string(), "msg2".to_string()];
-        search.session_index = 0;
+    // Check final state
+    assert_eq!(search.selected_index, 20);
+    assert!(search.scroll_offset > 0);
+}
 
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+#[test]
+fn test_help_mode_key_binding() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
 
-        // Test Q key quits session viewer back to Search
-        let q_key = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty());
-        search.handle_session_viewer_input(q_key).unwrap();
-        assert_eq!(search.current_mode(), Mode::Search);
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-        // Test uppercase Q also works
-        search.push_screen(Mode::SessionViewer);
-        let q_upper = KeyEvent::new(KeyCode::Char('Q'), KeyModifiers::empty());
-        search.handle_session_viewer_input(q_upper).unwrap();
-        assert_eq!(search.current_mode(), Mode::Search);
+    // Test '?' key opens help
+    let question_key = KeyEvent::new(KeyCode::Char('?'), KeyModifiers::empty());
+    
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+    File::create(&test_file).unwrap();
 
-        // Test Esc also quits
-        search.push_screen(Mode::SessionViewer);
-        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
-        search.handle_session_viewer_input(esc_key).unwrap();
-        assert_eq!(search.current_mode(), Mode::Search);
-    }
+    search.handle_search_input(question_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.current_mode(), Mode::Help);
 
-    #[test]
-    fn test_navigation_stack_behavior() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Test"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+    // Any key should return from help
+    let any_key = KeyEvent::new(KeyCode::Char('x'), KeyModifiers::empty());
+    search.handle_search_input(any_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.current_mode(), Mode::Search);
+}
 
-        let mut search = InteractiveSearch::new(SearchOptions::default());
+#[test]
+fn test_session_detail_navigation() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
 
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Test message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
 
-        // Start in Search mode
-        assert_eq!(search.current_mode(), Mode::Search);
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.query = "Test".to_string();
+    search.execute_search(test_file.to_str().unwrap());
 
-        // Navigate to ResultDetail
-        search.push_screen(Mode::ResultDetail);
-        assert_eq!(search.current_mode(), Mode::ResultDetail);
+    // Navigate to result detail
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let enter_key = KeyEvent::new(KeyCode::Enter, KeyModifiers::empty());
+    search.handle_search_input(enter_key, test_file.to_str().unwrap()).unwrap();
+    assert_eq!(search.current_mode(), Mode::ResultDetail);
+    assert!(search.selected_result.is_some());
 
-        // Navigate to SessionViewer from ResultDetail
-        search.base_options.session_id = Some("s1".to_string());
-        search.session_messages = vec![r#"{"type":"user","message":{"role":"user","content":"Test"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string()];
-        search.push_screen(Mode::SessionViewer);
-        assert_eq!(search.current_mode(), Mode::SessionViewer);
+    // Test 's' key opens session viewer
+    let s_key = KeyEvent::new(KeyCode::Char('s'), KeyModifiers::empty());
+    search.handle_result_detail_input(s_key).unwrap();
+    
+    // Should show message about loading session
+    assert!(search.message.is_some());
+}
 
-        // Press ESC in SessionViewer should return to ResultDetail
-        search.handle_session_viewer_input(esc_key).unwrap();
-        assert_eq!(search.current_mode(), Mode::ResultDetail);
+#[test]
+fn test_session_viewer_quit() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Simulate navigating from Search to SessionViewer
+    search.push_screen(Mode::SessionViewer);
+    
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    
+    // Test 'q' returns to previous screen
+    let q_key = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty());
+    search.handle_session_viewer_input(q_key).unwrap();
+    assert_eq!(search.current_mode(), Mode::Search);
+    
+    // Test 'Q' also works
+    search.push_screen(Mode::SessionViewer);
+    let big_q_key = KeyEvent::new(KeyCode::Char('Q'), KeyModifiers::empty());
+    search.handle_session_viewer_input(big_q_key).unwrap();
+    assert_eq!(search.current_mode(), Mode::Search);
+    
+    // Test Esc also works
+    search.push_screen(Mode::SessionViewer);
+    let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
+    search.handle_session_viewer_input(esc_key).unwrap();
+    assert_eq!(search.current_mode(), Mode::Search);
+}
 
-        // Press ESC in ResultDetail should return to Search
-        search.handle_result_detail_input(esc_key).unwrap();
-        assert_eq!(search.current_mode(), Mode::Search);
-    }
+#[test]
+fn test_navigation_stack_behavior() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Start in Search
+    assert_eq!(search.current_mode(), Mode::Search);
+    
+    // Navigate to ResultDetail
+    search.push_screen(Mode::ResultDetail);
+    assert_eq!(search.current_mode(), Mode::ResultDetail);
+    
+    // Navigate to SessionViewer
+    search.push_screen(Mode::SessionViewer);
+    assert_eq!(search.current_mode(), Mode::SessionViewer);
+    
+    // Pop back to ResultDetail
+    search.pop_screen();
+    assert_eq!(search.current_mode(), Mode::ResultDetail);
+    
+    // Pop back to Search
+    search.pop_screen();
+    assert_eq!(search.current_mode(), Mode::Search);
+    
+    // Popping from Search should stay in Search
+    search.pop_screen();
+    assert_eq!(search.current_mode(), Mode::Search);
+}
 
-    #[test]
-    fn test_exit_goodbye_message() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-        File::create(&test_file).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let esc_key = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
-
-        // When we exit, the handle_search_input returns false
-        let should_continue = search
-            .handle_search_input(esc_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert!(!should_continue); // This triggers the exit flow
-
-        // The actual "Goodbye!" message is printed in run_app after the loop exits
-        // We can't test the actual print, but we've verified the exit condition
-    }
-
-    #[test]
-    fn test_tilde_expansion() {
-        // Test that tilde paths are handled correctly
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Create a test file in temp dir
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Tilde test"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        // Test with actual path (not tilde)
-        search.query = "Tilde".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert_eq!(search.results.len(), 1);
-
-        // Note: We can't easily test actual tilde expansion without modifying HOME env var
-        // The expand_tilde function is tested in the search module tests
-    }
-
-    #[test]
-    fn test_session_viewer_full_flow() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.jsonl");
-
-        // Create multiple messages in same session
-        let mut file = File::create(&test_file).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"First message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        writeln!(file, r#"{{"type":"assistant","message":{{"id":"msg1","type":"message","role":"assistant","model":"claude","content":[{{"type":"text","text":"Response"}}],"stop_reason":"end_turn","stop_sequence":null,"usage":{{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Second message"}},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session","parentUuid":"2","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-        writeln!(file, r#"{{"type":"assistant","message":{{"id":"msg2","type":"message","role":"assistant","model":"claude","content":[{{"type":"text","text":"Another response"}}],"stop_reason":"end_turn","stop_sequence":null,"usage":{{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}}},"uuid":"4","timestamp":"2024-01-01T00:00:03Z","sessionId":"test-session","parentUuid":"3","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
-
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-
-        // Search and enter detail view
-        search.query = "message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
-        assert!(search.results.len() > 0);
-
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
-        // Select the first result by pressing Enter
-        let enter_key = KeyEvent::new(KeyCode::Enter, KeyModifiers::empty());
-        search
-            .handle_search_input(enter_key, test_file.to_str().unwrap())
-            .unwrap();
-        assert_eq!(search.current_mode(), Mode::ResultDetail);
-        assert!(search.selected_result.is_some());
-
-        // Skip the S key test since it requires complex file discovery
-        // Directly set up session viewer mode with loaded messages
-        search.session_messages = vec![
-            r#"{"type":"user","message":{"role":"user","content":"First message"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-            r#"{"type":"assistant","message":{"id":"msg1","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"Response"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-            r#"{"type":"user","message":{"role":"user","content":"Second message"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session","parentUuid":"2","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-            r#"{"type":"assistant","message":{"id":"msg2","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"Another response"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}},"uuid":"4","timestamp":"2024-01-01T00:00:03Z","sessionId":"test-session","parentUuid":"3","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-        ];
-        search.session_index = 0;
-        search.session_order = None;
-        search.set_mode(Mode::SessionViewer);
-        assert!(search.session_order.is_none()); // Not selected yet
-
-        // Select ascending order
-        let a_key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty());
-        search.handle_session_viewer_input(a_key).unwrap();
-        assert_eq!(search.session_order, Some(SessionOrder::Ascending));
-        assert!(search.session_messages.len() >= 4); // Should have loaded all messages
-
-        // Test navigation
-        let initial_index = search.session_index;
-        let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
-        search.handle_session_viewer_input(down_key).unwrap();
-        assert_eq!(search.session_index, initial_index + 1);
-
-        // Test page down
-        let page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty());
-        search.handle_session_viewer_input(page_down).unwrap();
-        assert!(search.session_index >= initial_index + 3);
-    }
-
-    #[test]
-    fn test_color_and_formatting() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        let mut terminal = create_test_terminal();
-
-        // Create test data with results
-        let results = vec![
-            create_test_result("user", "Test message", "2024-01-01T00:00:00Z"),
-            create_test_result("assistant", "Response", "2024-01-01T00:00:01Z"),
-        ];
-        search.results = results;
-        search.selected_index = 0; // First item selected
-
-        // Draw the search interface
-        terminal.draw(|f| search.draw_search(f)).unwrap();
-
-        let buffer = terminal.backend().buffer();
-
-        // Test header color (should be cyan)
-        let header_text = "Interactive Claude Search";
-        if let Some(pos) = find_text_in_buffer(buffer, header_text) {
-            let cell = &buffer[(pos.0, pos.1)];
-            assert_eq!(cell.fg, Color::Cyan);
-        } else {
-            panic!("Header text not found in buffer");
-        }
-
-        // Test selected item style (should have bold modifier and cyan color for ">")
-        let selected_indicator = ">";
-        if let Some(pos) = find_text_in_buffer(buffer, selected_indicator) {
-            let cell = &buffer[(pos.0, pos.1)];
-            assert_eq!(cell.fg, Color::Cyan);
-            assert!(cell.modifier.contains(Modifier::BOLD));
-        }
-
-        // Test role color (should be yellow)
-        let role_text = "[USER"; // Partial match since it's formatted
-        if let Some(pos) = find_text_in_buffer(buffer, role_text) {
-            let cell = &buffer[(pos.0 + 1, pos.1)]; // Skip the "["
-            assert_eq!(cell.fg, Color::Yellow);
+#[test]
+fn test_error_message_color() {
+    let mut terminal = create_test_terminal();
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Set an error message
+    search.message = Some("⚠ Error: Something went wrong".to_string());
+    
+    terminal.draw(|f| search.draw(f)).unwrap();
+    let buffer = terminal.backend().buffer();
+    
+    // Find the error message in the buffer
+    let error_marker = "⚠";
+    for y in 0..buffer.area.height {
+        for x in 0..buffer.area.width {
+            let cell = &buffer[(x, y)];
+            if cell.symbol == error_marker {
+                // Error messages should be displayed in red
+                assert_eq!(cell.fg, Color::Red);
+                break;
+            }
         }
     }
+}
 
-    #[test]
-    fn test_help_screen_colors() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.set_mode(Mode::Help);
-        let mut terminal = create_test_terminal();
+#[test]
+fn test_session_order_display() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Create test session messages
+    search.session_messages = vec![
+        r#"{"type":"user","message":{"role":"user","content":"First message"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
+        r#"{"type":"assistant","message":{"id":"msg1","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"Response"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
+        r#"{"type":"user","message":{"role":"user","content":"Second message"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session","parentUuid":"2","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
+        r#"{"type":"assistant","message":{"id":"msg2","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"Another response"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}},"uuid":"4","timestamp":"2024-01-01T00:00:03Z","sessionId":"test-session","parentUuid":"3","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
+    ];
+    search.session_index = 0;
+    search.session_order = None;
+    search.set_mode(Mode::SessionViewer);
+    assert!(search.session_order.is_none()); // Not selected yet
 
-        terminal.draw(|f| search.draw_help(f)).unwrap();
+    // Select ascending order
+    let a_key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty());
+    search.handle_session_viewer_input(a_key).unwrap();
+    assert_eq!(search.session_order, Some(SessionOrder::Ascending));
 
-        let buffer = terminal.backend().buffer();
+    // Test descending order
+    let d_key = KeyEvent::new(KeyCode::Char('d'), KeyModifiers::empty());
+    search.handle_session_viewer_input(d_key).unwrap();
+    assert_eq!(search.session_order, Some(SessionOrder::Descending));
 
-        // Test help title color
-        let help_title = "CCMS Help";
-        if let Some(pos) = find_text_in_buffer(buffer, help_title) {
-            let cell = &buffer[(pos.0, pos.1)];
-            assert_eq!(cell.fg, Color::Cyan);
-            assert!(cell.modifier.contains(Modifier::BOLD));
-        }
+    // Messages should be reversed
+    assert!(search.session_messages[0].contains("Another response"));
+    assert!(search.session_messages[3].contains("First message"));
+}
 
-        // Test section headers (should be yellow)
-        let section = "Search Mode:";
-        if let Some(pos) = find_text_in_buffer(buffer, section) {
-            let cell = &buffer[(pos.0, pos.1)];
-            assert_eq!(cell.fg, Color::Yellow);
-        }
-    }
+#[test]
+fn test_color_and_formatting() {
+    let mut terminal = create_test_terminal();
+    let mut search = InteractiveSearch::new(SearchOptions::default());
 
-    #[test]
-    fn test_error_message_color() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.set_mode(Mode::ResultDetail);
-        search.message = Some("⚠ Error occurred".to_string());
-        let mut terminal = create_test_terminal();
+    // Create a test result with specific role
+    let result = create_test_result("user", "Test message content", "2024-01-01T12:34:56Z");
+    search.results = vec![result];
+    search.query = "test".to_string();
 
-        // Need a selected result for detail view
-        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-
-        terminal.draw(|f| search.draw_result_detail(f)).unwrap();
-
-        let buffer = terminal.backend().buffer();
-
-        // Test warning symbol color
-        let warning = "⚠";
-        if let Some(pos) = find_text_in_buffer(buffer, warning) {
-            let cell = &buffer[(pos.0, pos.1)];
-            assert_eq!(cell.fg, Color::Yellow);
-        }
-    }
-
-    #[test]
-    fn test_success_message_color() {
-        let mut search = InteractiveSearch::new(SearchOptions::default());
-        search.set_mode(Mode::ResultDetail);
-        search.message = Some("✓ Success!".to_string());
-        let mut terminal = create_test_terminal();
-
-        // Need a selected result for detail view
-        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-
-        terminal.draw(|f| search.draw_result_detail(f)).unwrap();
-
-        let buffer = terminal.backend().buffer();
-
-        // Test success symbol color
-        let success = "✓";
-        if let Some(pos) = find_text_in_buffer(buffer, success) {
-            let cell = &buffer[(pos.0, pos.1)];
-            assert_eq!(cell.fg, Color::Green);
-        }
-    }
+    terminal.draw(|f| search.draw(f)).unwrap();
+    let buffer = terminal.backend().buffer();
 
     // Helper function to find text in buffer
     fn find_text_in_buffer(buffer: &Buffer, text: &str) -> Option<(u16, u16)> {
         for y in 0..buffer.area.height {
             for x in 0..buffer.area.width {
-                let start_x = x as usize;
-                // Check if text matches at this position
-                let mut matches = true;
-                for (i, ch) in text.chars().enumerate() {
-                    let pos_x = start_x + i;
-                    if pos_x >= buffer.area.width as usize {
-                        matches = false;
-                        break;
+                if x + text.len() as u16 <= buffer.area.width {
+                    let mut found = true;
+                    for (i, ch) in text.chars().enumerate() {
+                        if buffer[(x + i as u16, y)].symbol != ch.to_string() {
+                            found = false;
+                            break;
+                        }
                     }
-
-                    let cell = &buffer[(pos_x as u16, y as u16)];
-                    if cell.symbol() != ch.to_string() {
-                        matches = false;
-                        break;
+                    if found {
+                        return Some((x, y));
                     }
-                }
-
-                if matches {
-                    return Some((x, y));
                 }
             }
         }
         None
     }
+
+    // Test title color (should be cyan and bold)
+    let title_text = "Claude Session Search";
+    if let Some(pos) = find_text_in_buffer(buffer, title_text) {
+        let cell = &buffer[(pos.0, pos.1)];
+        assert_eq!(cell.fg, Color::Cyan);
+        assert!(cell.modifier.contains(Modifier::BOLD));
+    }
+
+    // Test role color (should be yellow)
+    let role_text = "[USER"; // Partial match since it's formatted
+    if let Some(pos) = find_text_in_buffer(buffer, role_text) {
+        let cell = &buffer[(pos.0 + 1, pos.1)]; // Skip the "["
+        assert_eq!(cell.fg, Color::Yellow);
+    }
+}
+
+#[test]
+fn test_help_screen_colors() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.set_mode(Mode::Help);
+    let mut terminal = create_test_terminal();
+
+    terminal.draw(|f| search.draw(f)).unwrap();
+    let buffer = terminal.backend().buffer();
+
+    // Check for help title styling
+    let help_title = "Help";
+    let mut found_title = false;
+    
+    for y in 0..buffer.area.height {
+        for x in 0..buffer.area.width {
+            if x + help_title.len() as u16 <= buffer.area.width {
+                let mut is_title = true;
+                for (i, ch) in help_title.chars().enumerate() {
+                    if buffer[(x + i as u16, y)].symbol != ch.to_string() {
+                        is_title = false;
+                        break;
+                    }
+                }
+                if is_title {
+                    // Check that the title has proper styling
+                    let cell = &buffer[(x, y)];
+                    assert_eq!(cell.fg, Color::Cyan);
+                    assert!(cell.modifier.contains(Modifier::BOLD));
+                    found_title = true;
+                    break;
+                }
+            }
+        }
+        if found_title {
+            break;
+        }
+    }
+    
+    assert!(found_title, "Help title not found with proper styling");
+
+    // Check for keyboard shortcut highlighting
+    // Look for patterns like "q" or "Esc" that should be highlighted
+    let mut found_shortcut = false;
+    for y in 0..buffer.area.height {
+        for x in 0..buffer.area.width {
+            let cell = &buffer[(x, y)];
+            // Single letter shortcuts like 'q', 'j', 'k' should be highlighted
+            if cell.symbol.len() == 1 && cell.symbol.chars().all(|c| c.is_alphabetic() || c == '?') {
+                // Check if it's styled as a shortcut (usually different color)
+                if cell.fg == Color::Green || cell.fg == Color::Yellow {
+                    found_shortcut = true;
+                    break;
+                }
+            }
+        }
+        if found_shortcut {
+            break;
+        }
+    }
+    
+    assert!(found_shortcut, "No highlighted keyboard shortcuts found");
+}
+
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+#[test]
+fn test_help_page() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    assert_eq!(search.current_mode(), Mode::Search);
+    
+    // Open help
+    search.push_screen(Mode::Help);
+    assert_eq!(search.current_mode(), Mode::Help);
+    
+    // Close help should return to Search
+    search.pop_screen();
+    assert_eq!(search.current_mode(), Mode::Search);
+}
+
+#[test]
+fn test_message_truncation() {
+    let search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Test short message
+    assert_eq!(search.truncate_message("Hello", 10), "Hello");
+    
+    // Test exact length
+    assert_eq!(search.truncate_message("1234567890", 10), "1234567890");
+    
+    // Test truncation
+    assert_eq!(search.truncate_message("Hello World!", 10), "Hello W...");
+    
+    // Test with multibyte characters
+    let japanese = "こんにちは世界です";
+    let truncated = search.truncate_message(japanese, 8);
+    assert!(truncated.ends_with("..."));
+    assert!(truncated.chars().count() <= 8);
 }
