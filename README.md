@@ -127,6 +127,14 @@ ccms -s "session-123" "query"
 ccms --after "2024-01-01T00:00:00Z" "recent"
 ccms --before "2024-12-31T23:59:59Z" "old"
 
+# Filter using relative time or Unix timestamp
+ccms --since "1 day ago" "recent activity"
+ccms --since "2 hours ago" "latest changes"
+ccms --since "yesterday" "yesterday's work"
+ccms --since "last week" "weekly review"
+ccms --since "3 days ago" "recent work"
+ccms --since 1720000000 "since Unix timestamp"
+
 # Filter by project path
 ccms --project "/Users/me/project" "bug"
 

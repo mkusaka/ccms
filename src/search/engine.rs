@@ -642,6 +642,57 @@ mod tests {
     }
 
     #[test]
+    fn test_timestamp_filtering_with_since() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("test.jsonl");
+
+        // Create test data with different timestamps
+        let mut file = File::create(&test_file)?;
+
+        // Use current time and relative times for more realistic test
+        let now = chrono::Utc::now();
+        let two_days_ago = now - chrono::Duration::days(2);
+        let one_day_ago = now - chrono::Duration::days(1);
+        let one_hour_ago = now - chrono::Duration::hours(1);
+
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Old message"}},"uuid":"1","timestamp":"{}","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#,
+            two_days_ago.to_rfc3339()
+        )?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Yesterday message"}},"uuid":"2","timestamp":"{}","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#,
+            one_day_ago.to_rfc3339()
+        )?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Recent message"}},"uuid":"3","timestamp":"{}","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#,
+            one_hour_ago.to_rfc3339()
+        )?;
+
+        // Test filtering with a timestamp that's 1.5 days ago
+        // Should only find the messages from yesterday and recent
+        let since_time = (now - chrono::Duration::hours(36)).to_rfc3339();
+        let options = SearchOptions {
+            after: Some(since_time),
+            ..Default::default()
+        };
+
+        let engine = SearchEngine::new(options);
+        let query = parse_query("message")?;
+        let (results, _, _) = engine.search(test_file.to_str().unwrap(), query)?;
+
+        assert_eq!(results.len(), 2);
+
+        // Results should be sorted by timestamp (newest first)
+        assert!(results[0].text.contains("Recent message"));
+        assert!(results[1].text.contains("Yesterday message"));
+
+        Ok(())
+    }
+
+    #[test]
     fn test_session_id_filter() -> Result<()> {
         let temp_dir = tempdir()?;
         let test_file = temp_dir.path().join("test.jsonl");

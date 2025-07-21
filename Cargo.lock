@@ -232,6 +232,7 @@ dependencies = [
  "indicatif",
  "memmap2",
  "nom",
+ "parse_datetime",
  "pprof",
  "rayon",
  "regex",
@@ -1215,6 +1216,17 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "parse_datetime"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8720474e3dd4af20cea8716703498b9f3b690f318fa9d9d9e2e38eaf44b96d0"
+dependencies = [
+ "chrono",
+ "nom",
+ "regex",
 ]
 
 [[package]]

@@ -3,7 +3,9 @@ use ccms::{
     SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
     interactive::InteractiveSearch, parse_query, profiling,
 };
+use chrono::{DateTime, Local, Utc};
 use clap::{Parser, ValueEnum};
+use parse_datetime::parse_datetime_at_date;
 use std::io::{self, Write};
 
 #[derive(Parser)]
@@ -41,6 +43,10 @@ struct Cli {
     /// Filter messages after this timestamp (RFC3339 format)
     #[arg(long)]
     after: Option<String>,
+
+    /// Filter messages since this time (Unix timestamp or relative time like "1 day ago")
+    #[arg(long)]
+    since: Option<String>,
 
     /// Output format
     #[arg(short = 'f', long, value_enum, default_value = "text")]
@@ -113,6 +119,19 @@ fn main() -> Result<()> {
         );
     }
 
+    // Parse --since flag if provided
+    let parsed_after = if let Some(since) = &cli.since {
+        match parse_since_time(since) {
+            Ok(dt) => Some(dt),
+            Err(e) => {
+                eprintln!("Error parsing --since: {e}");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        cli.after.clone()
+    };
+
     // Get pattern
     let default_pattern = default_claude_pattern();
     let pattern = cli.pattern.as_deref().unwrap_or(&default_pattern);
@@ -124,7 +143,7 @@ fn main() -> Result<()> {
             role: cli.role,
             session_id: cli.session_id,
             before: cli.before,
-            after: cli.after,
+            after: parsed_after.clone(),
             verbose: cli.verbose,
             project_path: cli.project_path.clone(),
         };
@@ -154,7 +173,7 @@ fn main() -> Result<()> {
         role: cli.role,
         session_id: cli.session_id,
         before: cli.before,
-        after: cli.after,
+        after: parsed_after,
         verbose: cli.verbose,
         project_path: cli.project_path,
     };
@@ -248,6 +267,27 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn parse_since_time(input: &str) -> Result<String> {
+    use anyhow::Context;
+
+    // First, try to parse as Unix timestamp
+    if let Ok(timestamp) = input.parse::<i64>() {
+        let dt = DateTime::<Utc>::from_timestamp(timestamp, 0).context("Invalid Unix timestamp")?;
+        return Ok(dt.to_rfc3339());
+    }
+
+    // Try to parse as relative time using parse_datetime
+    let now = Local::now();
+    match parse_datetime_at_date(now, input) {
+        Ok(dt) => Ok(dt.to_rfc3339()),
+        Err(e) => Err(anyhow::anyhow!(
+            "Failed to parse time '{}': {}. Expected Unix timestamp or relative time like '1 day ago'",
+            input,
+            e
+        )),
+    }
+}
+
 fn print_query_help() {
     println!(
         r#"Claude Search Query Syntax Help
@@ -284,4 +324,33 @@ TIPS:
   - Regular expressions must be enclosed in forward slashes
   - AND has higher precedence than OR"#
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_unix_timestamp() {
+        // Test Unix timestamp parsing
+        let result = parse_since_time("1704067200"); // 2024-01-01 00:00:00 UTC
+        assert!(result.is_ok());
+        let dt = result.unwrap();
+        assert!(dt.starts_with("2024-01-01"));
+    }
+
+    #[test]
+    fn test_parse_relative_time() {
+        // Test relative time parsing
+        let result = parse_since_time("1 hour ago");
+        assert!(result.is_ok());
+        // Just check it parses correctly - exact time depends on when test runs
+    }
+
+    #[test]
+    fn test_parse_invalid_time() {
+        // Test invalid input
+        let result = parse_since_time("invalid time");
+        assert!(result.is_err());
+    }
 }
