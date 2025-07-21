@@ -52,8 +52,13 @@ Search [role]: [query]
 | Any character | Append to search query and execute search |
 | Backspace | Remove last character from query and re-search |
 | ↑ (Arrow Up) | Move selection up (with bounds checking) |
-| ↓ (Arrow Down) | Move selection down (limited to visible results, max 10) |
+| ↓ (Arrow Down) | Move selection down (with scrolling support) |
 | Enter | View full details of selected result |
+| Home | Jump to first result |
+| End | Jump to last result |
+| PageUp | Scroll up by visible height |
+| PageDown | Scroll down by visible height |
+| ? | Show help screen |
 | Tab | Cycle through role filters: None → user → assistant → system → summary → None |
 | Ctrl+R | Clear cache and reload all files |
 | Esc or Ctrl+C | Exit interactive mode |
@@ -145,7 +150,10 @@ Press any key to continue, Q to quit... [shown every 3 messages]
 - Index: 1-based numbering
 - Role: Uppercase, displayed in yellow
 - Timestamp: Formatted as MM/DD HH:MM
-- Preview: First 40 characters with newlines replaced by spaces
+- Preview: Dynamically truncated to fit terminal width with ellipsis (...) when needed
+  - Calculates available width based on terminal size
+  - Preserves multibyte character boundaries
+  - Newlines replaced by spaces
 
 #### Timestamp Handling
 
@@ -205,13 +213,14 @@ Applied before other filters in the search pipeline.
 5. Sort by timestamp (newest first)
 6. Limit to max_results
 
-## Query Consistency
+## Search Behavior
 
-To prevent issues with keyboard buffering during search:
+### Immediate Search Execution
 
-1. `execute_search` returns both results and the query string used
-2. Results are only updated if the current query matches the search query
-3. This prevents stale results when users type quickly
+- Search executes immediately on every keystroke (no debouncing)
+- Empty queries show empty results area (no "No results found" message)
+- Each character input or backspace triggers a new search
+- Search state indicator shows "searching..." during execution
 
 ## Clipboard Operations
 
@@ -242,6 +251,12 @@ To prevent issues with keyboard buffering during search:
 
 - Default max_results: 50 (configurable via CLI)
 - Maximum visible results in list view: dynamically calculated based on terminal height
+- Results list supports scrolling with:
+  - ↑/↓: Move selection one item
+  - Home: Jump to first result
+  - End: Jump to last result
+  - PageUp: Move up by visible height
+  - PageDown: Move down by visible height
 - Total result count displayed
 - Indication when more results exist beyond display limit
 - Indication when max_results limit is reached
@@ -250,10 +265,11 @@ To prevent issues with keyboard buffering during search:
 
 - Preview text truncation respects character boundaries
 - Uses character-based operations (not byte-based) for:
-  - Preview generation (40 characters max)
+  - Preview generation (dynamic width based on terminal)
   - Cursor positioning with role filters
   - Text display in all views
 - Prevents crashes with Unicode text (Japanese, emoji, etc.)
+- Dynamic ellipsis placement based on available terminal width
 
 ### Session Viewer
 
@@ -339,8 +355,11 @@ struct InteractiveSearch {
     selected_result: Option<SearchResult>, // Detail view result
     session_messages: Vec<String>,  // Session viewer messages
     session_order: Option<SessionOrder>, // Session display order
+    session_index: usize,           // Current position in session viewer
     detail_scroll_offset: usize,    // Scroll position in detail view
     message: Option<String>,        // Feedback message
+    scroll_offset: usize,           // Scroll offset for results list
+    is_searching: bool,             // Search in progress indicator
 }
 ```
 
