@@ -896,8 +896,7 @@ mod tests {
         let mut file = File::create(&test_file)?;
         writeln!(
             file,
-            r#"{{"type":"user","message":{{"role":"user","content":"{}"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#,
-            long_text
+            r#"{{"type":"user","message":{{"role":"user","content":"{long_text}"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
         )?;
 
         // Search should handle long lines
@@ -1010,12 +1009,11 @@ mod tests {
 
         // Create multiple files
         for i in 0..3 {
-            let file_path = projects_dir.join(format!("session{}.jsonl", i));
+            let file_path = projects_dir.join(format!("session{i}.jsonl"));
             let mut file = File::create(&file_path)?;
             writeln!(
                 file,
-                r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:0{}Z","sessionId":"s{}","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#,
-                i, i, i, i
+                r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:0{i}Z","sessionId":"s{i}","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
             )?;
         }
 

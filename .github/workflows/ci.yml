@@ -84,6 +84,9 @@ jobs:
       
       - name: Run tests with cargo-nextest
         run: cargo nextest run --all-features
+        # Note: Some clipboard-related tests are marked with #[ignore] as they require
+        # clipboard utilities (pbcopy/xclip) not available in CI. Run locally with:
+        # cargo test -- --ignored
       
       - name: Run doc tests
         run: cargo test --doc --all-features
@@ -123,3 +126,40 @@ jobs:
       
       - name: Check formatting
         run: cargo fmt -- --check
+
+  cargo-shear:
+    name: Check unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.1
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+      
+      - name: Cache cargo registry
+        uses: actions/cache@v4.2.3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Cache cargo index
+        uses: actions/cache@v4.2.3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Cache cargo build
+        uses: actions/cache@v4.2.3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Install cargo-shear
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-shear
+      
+      - name: Check for unused dependencies
+        run: cargo shear
