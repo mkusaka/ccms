@@ -20,6 +20,10 @@ use ratatui::{
 use std::collections::HashMap;
 use std::io::{self, Stdout};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread;
 use std::time::{Duration, SystemTime};
 
 use crate::{SearchOptions, SearchResult, SessionMessage, parse_query};
@@ -106,6 +110,20 @@ enum SessionOrder {
     Descending,
 }
 
+// Search request and response for async communication
+#[derive(Clone)]
+struct SearchRequest {
+    id: u64,
+    query: String,
+    role_filter: Option<String>,
+    pattern: String,
+}
+
+struct SearchResponse {
+    id: u64,
+    results: Vec<SearchResult>,
+}
+
 pub struct InteractiveSearch {
     base_options: SearchOptions,
     max_results: usize,
@@ -133,6 +151,12 @@ pub struct InteractiveSearch {
 
     // For search performance
     is_searching: bool,
+
+    // Async search support
+    search_sender: Option<Sender<SearchRequest>>,
+    search_receiver: Option<Receiver<SearchResponse>>,
+    current_search_id: Arc<AtomicU64>,
+    last_processed_search_id: u64,
 }
 
 impl InteractiveSearch {
@@ -155,6 +179,10 @@ impl InteractiveSearch {
             detail_scroll_offset: 0,
             scroll_offset: 0,
             is_searching: false,
+            search_sender: None,
+            search_receiver: None,
+            current_search_id: Arc::new(AtomicU64::new(0)),
+            last_processed_search_id: 0,
         }
     }
 
@@ -178,6 +206,15 @@ impl InteractiveSearch {
     }
 
     pub fn run(&mut self, pattern: &str) -> Result<()> {
+        // Initialize async search channel
+        let (sender, receiver) = mpsc::channel::<SearchRequest>();
+        let (response_sender, response_receiver) = mpsc::channel::<SearchResponse>();
+        self.search_sender = Some(sender);
+        self.search_receiver = Some(response_receiver);
+
+        // Start search worker thread
+        let search_worker_handle = self.start_search_worker(receiver, response_sender, pattern);
+
         // Load initial results
         self.load_initial_results(pattern);
 
@@ -189,10 +226,15 @@ impl InteractiveSearch {
         let mut terminal = Terminal::new(backend)?;
 
         let result = self.run_app(&mut terminal, pattern);
-
         disable_raw_mode()?;
         execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
         terminal.show_cursor()?;
+
+        // Cleanup: drop sender to signal worker to stop
+        drop(self.search_sender.take());
+
+        // Wait for worker thread to finish
+        let _ = search_worker_handle.join();
 
         if let Err(e) = result {
             eprintln!("Error: {e}");
@@ -208,6 +250,36 @@ impl InteractiveSearch {
         pattern: &str,
     ) -> Result<()> {
         loop {
+            // Check for search results
+            let mut need_scroll_adjust = false;
+            if let Some(receiver) = self.search_receiver.as_ref() {
+                // Try to receive without blocking
+                while let Ok(response) = receiver.try_recv() {
+                    // Only process if this is the latest search
+                    if response.id > self.last_processed_search_id {
+                        self.last_processed_search_id = response.id;
+                        self.results = response.results;
+                        self.is_searching = false;
+
+                        // Maintain selected index if possible
+                        if !self.results.is_empty() {
+                            self.selected_index = self.selected_index.min(self.results.len() - 1);
+                            need_scroll_adjust = true;
+                        } else {
+                            self.selected_index = 0;
+                            self.scroll_offset = 0;
+                        }
+                    }
+                }
+            }
+
+            // Adjust scroll offset if needed (outside of the borrow scope)
+            if need_scroll_adjust {
+                let (_, height) = crossterm::terminal::size().unwrap_or((80, 24));
+                let available_height = height.saturating_sub(7);
+                self.adjust_scroll_offset(available_height);
+            }
+
             terminal.draw(|f| self.draw(f))?;
 
             // No debouncing - search executes immediately on input
@@ -752,10 +824,17 @@ impl InteractiveSearch {
     }
 
     fn truncate_message(&self, text: &str, max_width: usize) -> String {
+        if max_width == 0 {
+            return String::new();
+        }
+
         let cleaned = text.replace('\n', " ");
 
         if cleaned.chars().count() <= max_width {
             cleaned
+        } else if max_width <= 3 {
+            // Not enough room for ellipsis
+            cleaned.chars().take(max_width).collect()
         } else {
             // Leave room for "..."
             let truncate_at = max_width.saturating_sub(3);
@@ -794,7 +873,7 @@ impl InteractiveSearch {
         }
         // If selected index is below the visible range, scroll down
         else if self.selected_index >= self.scroll_offset + visible_count {
-            self.scroll_offset = self.selected_index.saturating_sub(visible_count - 1);
+            self.scroll_offset = self.selected_index.saturating_sub(visible_count.saturating_sub(1));
         }
     }
 
@@ -830,19 +909,13 @@ impl InteractiveSearch {
             }
             KeyCode::Char(c) => {
                 self.query.push(c);
-                self.is_searching = true;
                 self.execute_search(pattern);
-                self.is_searching = false;
-                self.selected_index = 0;
-                self.scroll_offset = 0;
+                // Don't reset selection - it will be adjusted when results arrive
             }
             KeyCode::Backspace => {
                 self.query.pop();
-                self.is_searching = true;
                 self.execute_search(pattern);
-                self.is_searching = false;
-                self.selected_index = 0;
-                self.scroll_offset = 0;
+                // Don't reset selection - it will be adjusted when results arrive
             }
             KeyCode::Up => {
                 if self.selected_index > 0 {
@@ -913,7 +986,7 @@ impl InteractiveSearch {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.detail_scroll_offset = self.detail_scroll_offset.saturating_sub(1);
             }
-            KeyCode::Down | KeyCode::Char('j') => {
+            KeyCode::Down => {
                 if let Some(ref result) = self.selected_result {
                     let total_lines = 9 + result.text.lines().count(); // 9 header lines
                     self.detail_scroll_offset = self
@@ -932,6 +1005,34 @@ impl InteractiveSearch {
                         .detail_scroll_offset
                         .saturating_add(10)
                         .min(total_lines.saturating_sub(10));
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if let Some(ref result) = self.selected_result {
+                    match self.copy_to_clipboard(&result.text) {
+                        Ok(_) => {
+                            self.message = Some("Copied message to clipboard!".to_string());
+                        }
+                        Err(e) => {
+                            self.message = Some(format!("Failed to copy: {}", e));
+                        }
+                    }
+                }
+            }
+            KeyCode::Char('j') | KeyCode::Char('J') => {
+                if let Some(ref result) = self.selected_result {
+                    if let Some(ref json) = result.raw_json {
+                        match self.copy_to_clipboard(json) {
+                            Ok(_) => {
+                                self.message = Some("Copied JSON to clipboard!".to_string());
+                            }
+                            Err(e) => {
+                                self.message = Some(format!("Failed to copy: {}", e));
+                            }
+                        }
+                    } else {
+                        self.message = Some("No JSON data available for this message".to_string());
+                    }
                 }
             }
             KeyCode::Char('s') | KeyCode::Char('S') => {
@@ -1060,21 +1161,29 @@ impl InteractiveSearch {
     fn execute_search(&mut self, pattern: &str) {
         if self.query.is_empty() {
             self.results.clear();
+            self.is_searching = false;
             return;
         }
 
-        let Ok(parsed_query) = parse_query(&self.query) else {
-            self.results.clear();
-            return;
-        };
+        // Send search request to worker thread
+        if let Some(ref sender) = self.search_sender {
+            let search_id = self.current_search_id.fetch_add(1, Ordering::SeqCst);
+            let request = SearchRequest {
+                id: search_id,
+                query: self.query.clone(),
+                role_filter: self.role_filter.clone(),
+                pattern: pattern.to_string(),
+            };
 
-        let role_filter = self.role_filter.clone();
-        match self.execute_cached_search(pattern, &parsed_query, &role_filter) {
-            Ok(results) => self.results = results,
-            Err(_) => self.results.clear(),
+            // Mark as searching before sending request
+            self.is_searching = true;
+
+            // Send request, ignore if channel is disconnected
+            let _ = sender.send(request);
         }
     }
 
+    #[allow(dead_code)]
     fn execute_cached_search(
         &mut self,
         pattern: &str,
@@ -1146,14 +1255,22 @@ impl InteractiveSearch {
     }
 
     fn extract_project_path(file_path: &Path) -> String {
-        if let Some(parent) = file_path.parent() {
-            if let Some(project_name) = parent.file_name() {
-                if let Some(project_str) = project_name.to_str() {
-                    return project_str.replace('-', "/");
-                }
+        // Try to extract project path from ~/.claude/projects/encoded-path/session.jsonl
+        let path_str = file_path.to_string_lossy();
+        if let Some(projects_idx) = path_str.find("/.claude/projects/") {
+            let after_projects = &path_str[projects_idx + "/.claude/projects/".len()..];
+            if let Some(slash_idx) = after_projects.find('/') {
+                let encoded_path = &after_projects[..slash_idx];
+                return encoded_path.replace('-', "/");
             }
         }
-        String::new()
+
+        // Fallback to parent directory
+        if let Some(parent) = file_path.parent() {
+            parent.to_string_lossy().to_string()
+        } else {
+            file_path.to_string_lossy().to_string()
+        }
     }
 
     fn apply_filters(&self, results: &mut Vec<SearchResult>) -> Result<()> {
@@ -1369,6 +1486,186 @@ impl InteractiveSearch {
             }
 
             child.wait()?;
+        }
+
+        Ok(())
+    }
+
+    // Synchronous search method for testing
+    #[cfg(test)]
+    pub fn execute_search_sync(&mut self, pattern: &str) {
+        if self.query.is_empty() {
+            self.results.clear();
+            return;
+        }
+
+        let Ok(parsed_query) = parse_query(&self.query) else {
+            self.results.clear();
+            return;
+        };
+
+        let role_filter = self.role_filter.clone();
+        match self.execute_cached_search(pattern, &parsed_query, &role_filter) {
+            Ok(results) => self.results = results,
+            Err(_) => self.results.clear(),
+        }
+    }
+
+    fn start_search_worker(
+        &self,
+        receiver: Receiver<SearchRequest>,
+        sender: Sender<SearchResponse>,
+        pattern: &str,
+    ) -> thread::JoinHandle<()> {
+        let base_options = self.base_options.clone();
+        let max_results = self.max_results;
+        let _pattern_owned = pattern.to_string();
+
+        thread::spawn(move || {
+            let mut cache = MessageCache::new();
+
+            loop {
+                // Use recv_timeout to avoid blocking forever
+                match receiver.recv_timeout(Duration::from_millis(100)) {
+                    Ok(request) => {
+                        // Execute search in worker thread
+                        let results = match parse_query(&request.query) {
+                            Ok(parsed_query) => Self::execute_cached_search_static(
+                                &mut cache,
+                                &request.pattern,
+                                &parsed_query,
+                                &request.role_filter,
+                                &base_options,
+                                max_results,
+                            )
+                            .unwrap_or_else(|_| Vec::new()),
+                            Err(_) => Vec::new(),
+                        };
+
+                        let response = SearchResponse {
+                            id: request.id,
+                            results,
+                        };
+
+                        // Send response back, stop worker if channel is disconnected
+                        if sender.send(response).is_err() {
+                            break;
+                        }
+                    }
+                    Err(mpsc::RecvTimeoutError::Timeout) => {
+                        // Continue checking
+                        continue;
+                    }
+                    Err(mpsc::RecvTimeoutError::Disconnected) => {
+                        // Sender was dropped, exit worker
+                        break;
+                    }
+                }
+            }
+        })
+    }
+
+    // Static version of execute_cached_search for use in worker thread
+    fn execute_cached_search_static(
+        cache: &mut MessageCache,
+        pattern: &str,
+        query: &crate::query::QueryCondition,
+        role_filter: &Option<String>,
+        base_options: &SearchOptions,
+        max_results: usize,
+    ) -> Result<Vec<SearchResult>> {
+        use crate::search::{discover_claude_files, expand_tilde};
+
+        let expanded_pattern = expand_tilde(pattern);
+        let files = if expanded_pattern.is_file() {
+            vec![expanded_pattern]
+        } else {
+            discover_claude_files(Some(pattern))?
+        };
+
+        let mut results = Vec::new();
+
+        for file_path in &files {
+            let cached_file = cache.get_messages(file_path)?;
+            let file_name = file_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+
+            for (idx, message) in cached_file.messages.iter().enumerate() {
+                let text = message.get_content_text();
+
+                if let Ok(matches) = query.evaluate(&text) {
+                    if matches {
+                        if let Some(role) = role_filter {
+                            if message.get_type() != role {
+                                continue;
+                            }
+                        }
+
+                        if let Some(session_id) = &base_options.session_id {
+                            if message.get_session_id() != Some(session_id) {
+                                continue;
+                            }
+                        }
+
+                        let timestamp = message.get_timestamp().unwrap_or("").to_string();
+
+                        results.push(SearchResult {
+                            file: file_name.clone(),
+                            uuid: message.get_uuid().unwrap_or("").to_string(),
+                            timestamp,
+                            session_id: message.get_session_id().unwrap_or("").to_string(),
+                            role: message.get_type().to_string(),
+                            text: text.clone(),
+                            has_tools: message.has_tool_use(),
+                            has_thinking: message.has_thinking(),
+                            message_type: message.get_type().to_string(),
+                            query: query.clone(),
+                            project_path: InteractiveSearch::extract_project_path(file_path),
+                            raw_json: Some(cached_file.raw_lines[idx].clone()),
+                        });
+                    }
+                }
+            }
+        }
+
+        Self::apply_filters_static(&mut results, base_options)?;
+        results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        results.truncate(max_results);
+
+        Ok(results)
+    }
+
+    fn apply_filters_static(
+        results: &mut Vec<SearchResult>,
+        options: &SearchOptions,
+    ) -> Result<()> {
+        use chrono::DateTime;
+
+        if let Some(before) = &options.before {
+            let before_time =
+                DateTime::parse_from_rfc3339(before).context("Invalid 'before' timestamp")?;
+            results.retain(|r| {
+                if let Ok(time) = DateTime::parse_from_rfc3339(&r.timestamp) {
+                    time < before_time
+                } else {
+                    false
+                }
+            });
+        }
+
+        if let Some(after) = &options.after {
+            let after_time =
+                DateTime::parse_from_rfc3339(after).context("Invalid 'after' timestamp")?;
+            results.retain(|r| {
+                if let Ok(time) = DateTime::parse_from_rfc3339(&r.timestamp) {
+                    time > after_time
+                } else {
+                    false
+                }
+            });
         }
 
         Ok(())
