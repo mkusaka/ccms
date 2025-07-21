@@ -1,5 +1,5 @@
 #[cfg(test)]
-    use super::super::*;
+    use super::{InteractiveSearch, Mode, SessionOrder};
     use crate::{QueryCondition, SearchOptions, SearchResult};
     use ratatui::{
         Terminal,
