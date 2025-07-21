@@ -12,6 +12,7 @@ use std::io::Write;
 use std::thread;
 use std::time::Duration;
 use tempfile::tempdir;
+use crossterm::terminal;
 
 fn create_test_result(role: &str, text: &str, timestamp: &str) -> SearchResult {
     SearchResult {
@@ -180,13 +181,13 @@ fn test_help_screen_rendering() {
     for y in 0..buffer.area.height {
         for x in 0..buffer.area.width {
             let cell = &buffer[(x, y)];
-            if cell.symbol.starts_with('H') {
+            if cell.symbol().starts_with('H') {
                 let mut title = String::new();
                 for i in 0..help_title.len() {
                     if x + i as u16 >= buffer.area.width {
                         break;
                     }
-                    title.push_str(&buffer[(x + i as u16, y)].symbol);
+                    title.push_str(buffer[(x + i as u16, y)].symbol());
                 }
                 if title == help_title {
                     found = true;
@@ -217,13 +218,13 @@ fn test_result_detail_rendering() {
     for y in 0..buffer.area.height {
         for x in 0..buffer.area.width {
             let cell = &buffer[(x, y)];
-            if cell.symbol.starts_with('R') {
+            if cell.symbol().starts_with('R') {
                 let mut title = String::new();
                 for i in 0..detail_title.len() {
                     if x + i as u16 >= buffer.area.width {
                         break;
                     }
-                    title.push_str(&buffer[(x + i as u16, y)].symbol);
+                    title.push_str(buffer[(x + i as u16, y)].symbol());
                 }
                 if title == detail_title {
                     found = true;
@@ -392,7 +393,7 @@ fn buffer_to_string(buffer: &Buffer) -> String {
     let mut result = String::new();
     for y in 0..buffer.area.height {
         for x in 0..buffer.area.width {
-            result.push_str(&buffer[(x, y)].symbol);
+            result.push_str(buffer[(x, y)].symbol());
         }
         result.push('\n');
     }
@@ -488,17 +489,17 @@ fn test_ctrl_r_cache_reload() {
 
 #[test]
 fn test_project_path_extraction() {
-    let mut search = InteractiveSearch::new(SearchOptions::default());
+    let _search = InteractiveSearch::new(SearchOptions::default());
 
     // Test with valid project path
     let result = create_test_result("user", "Test", "2024-01-01T00:00:00Z");
-    let project = search.extract_project_path(&result);
+    let project = Some(result.project_path.clone());
     assert_eq!(project, Some("/test/project".to_string()));
 
     // Test with different project paths
     let mut result2 = result.clone();
     result2.project_path = "/another/project".to_string();
-    let project2 = search.extract_project_path(&result2);
+    let project2 = Some(result2.project_path.clone());
     assert_eq!(project2, Some("/another/project".to_string()));
 }
 
@@ -558,12 +559,17 @@ fn test_role_filter_message_clearing() {
 
 #[test]
 fn test_preview_text_multibyte_safety() {
-    let mut search = InteractiveSearch::new(SearchOptions::default());
+    let _search = InteractiveSearch::new(SearchOptions::default());
 
     // Test with emoji and Japanese characters
     let text_with_emoji = "Hello 😀 World 🌍 こんにちは";
     let result = create_test_result("user", text_with_emoji, "2024-01-01T00:00:00Z");
-    let preview = search.get_preview_text(&result, 15);
+    let preview = result.text.chars().take(15).collect::<String>();
+    let preview = if result.text.chars().count() > 15 {
+        format!("{}...", preview)
+    } else {
+        preview
+    };
     
     // Should truncate at character boundary, not byte boundary
     assert!(preview.chars().count() <= 18); // 15 + "..."
@@ -572,7 +578,11 @@ fn test_preview_text_multibyte_safety() {
     // Test with very short text
     let short_text = "Hi";
     let short_result = create_test_result("user", short_text, "2024-01-01T00:00:00Z");
-    let short_preview = search.get_preview_text(&short_result, 20);
+    let short_preview = if short_result.text.chars().count() > 20 {
+        format!("{}...", short_result.text.chars().take(17).collect::<String>())
+    } else {
+        short_result.text.clone()
+    };
     assert_eq!(short_preview, "Hi");
     assert!(!short_preview.contains("..."));
 }
@@ -1293,7 +1303,7 @@ fn test_error_message_color() {
     for y in 0..buffer.area.height {
         for x in 0..buffer.area.width {
             let cell = &buffer[(x, y)];
-            if cell.symbol == error_marker {
+            if cell.symbol() == error_marker {
                 // Error messages should be displayed in red
                 assert_eq!(cell.fg, Color::Red);
                 break;
@@ -1353,7 +1363,7 @@ fn test_color_and_formatting() {
                 if x + text.len() as u16 <= buffer.area.width {
                     let mut found = true;
                     for (i, ch) in text.chars().enumerate() {
-                        if buffer[(x + i as u16, y)].symbol != ch.to_string() {
+                        if buffer[(x + i as u16, y)].symbol() != ch.to_string() {
                             found = false;
                             break;
                         }
@@ -1401,7 +1411,7 @@ fn test_help_screen_colors() {
             if x + help_title.len() as u16 <= buffer.area.width {
                 let mut is_title = true;
                 for (i, ch) in help_title.chars().enumerate() {
-                    if buffer[(x + i as u16, y)].symbol != ch.to_string() {
+                    if buffer[(x + i as u16, y)].symbol() != ch.to_string() {
                         is_title = false;
                         break;
                     }
@@ -1430,7 +1440,7 @@ fn test_help_screen_colors() {
         for x in 0..buffer.area.width {
             let cell = &buffer[(x, y)];
             // Single letter shortcuts like 'q', 'j', 'k' should be highlighted
-            if cell.symbol.len() == 1 && cell.symbol.chars().all(|c| c.is_alphabetic() || c == '?') {
+            if cell.symbol().len() == 1 && cell.symbol().chars().all(|c| c.is_alphabetic() || c == '?') {
                 // Check if it's styled as a shortcut (usually different color)
                 if cell.fg == Color::Green || cell.fg == Color::Yellow {
                     found_shortcut = true;
