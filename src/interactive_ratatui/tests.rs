@@ -5,6 +5,8 @@ mod tests {
     use ratatui::{
         backend::TestBackend,
         Terminal,
+        style::{Color, Modifier},
+        buffer::Buffer,
     };
     use std::fs::File;
     use std::io::Write;
@@ -1499,5 +1501,147 @@ mod tests {
         let page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty());
         search.handle_session_viewer_input(page_down).unwrap();
         assert!(search.session_index >= initial_index + 3);
+    }
+
+    #[test]
+    fn test_color_and_formatting() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        let mut terminal = create_test_terminal();
+        
+        // Create test data with results
+        let results = vec![
+            create_test_result("user", "Test message", "2024-01-01T00:00:00Z"),
+            create_test_result("assistant", "Response", "2024-01-01T00:00:01Z"),
+        ];
+        search.results = results;
+        search.selected_index = 0; // First item selected
+        
+        // Draw the search interface
+        terminal.draw(|f| search.draw_search(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Test header color (should be cyan)
+        let header_text = "Interactive Claude Search";
+        if let Some(pos) = find_text_in_buffer(buffer, header_text) {
+            let cell = &buffer[(pos.0, pos.1)];
+            assert_eq!(cell.fg, Color::Cyan);
+        } else {
+            panic!("Header text not found in buffer");
+        }
+        
+        // Test selected item style (should have bold modifier and cyan color for ">")
+        let selected_indicator = ">";
+        if let Some(pos) = find_text_in_buffer(buffer, selected_indicator) {
+            let cell = &buffer[(pos.0, pos.1)];
+            assert_eq!(cell.fg, Color::Cyan);
+            assert!(cell.modifier.contains(Modifier::BOLD));
+        }
+        
+        // Test role color (should be yellow)
+        let role_text = "[USER";  // Partial match since it's formatted
+        if let Some(pos) = find_text_in_buffer(buffer, role_text) {
+            let cell = &buffer[(pos.0 + 1, pos.1)]; // Skip the "["
+            assert_eq!(cell.fg, Color::Yellow);
+        }
+    }
+
+    #[test]
+    fn test_help_screen_colors() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::Help;
+        let mut terminal = create_test_terminal();
+        
+        terminal.draw(|f| search.draw_help(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Test help title color
+        let help_title = "CCMS Help";
+        if let Some(pos) = find_text_in_buffer(buffer, help_title) {
+            let cell = &buffer[(pos.0, pos.1)];
+            assert_eq!(cell.fg, Color::Cyan);
+            assert!(cell.modifier.contains(Modifier::BOLD));
+        }
+        
+        // Test section headers (should be yellow)
+        let section = "Search Mode:";
+        if let Some(pos) = find_text_in_buffer(buffer, section) {
+            let cell = &buffer[(pos.0, pos.1)];
+            assert_eq!(cell.fg, Color::Yellow);
+        }
+    }
+
+    #[test]
+    fn test_error_message_color() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::ResultDetail;
+        search.message = Some("⚠ Error occurred".to_string());
+        let mut terminal = create_test_terminal();
+        
+        // Need a selected result for detail view
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        terminal.draw(|f| search.draw_result_detail(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Test warning symbol color
+        let warning = "⚠";
+        if let Some(pos) = find_text_in_buffer(buffer, warning) {
+            let cell = &buffer[(pos.0, pos.1)];
+            assert_eq!(cell.fg, Color::Yellow);
+        }
+    }
+
+    #[test]
+    fn test_success_message_color() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::ResultDetail;
+        search.message = Some("✓ Success!".to_string());
+        let mut terminal = create_test_terminal();
+        
+        // Need a selected result for detail view
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        terminal.draw(|f| search.draw_result_detail(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Test success symbol color
+        let success = "✓";
+        if let Some(pos) = find_text_in_buffer(buffer, success) {
+            let cell = &buffer[(pos.0, pos.1)];
+            assert_eq!(cell.fg, Color::Green);
+        }
+    }
+
+    // Helper function to find text in buffer
+    fn find_text_in_buffer(buffer: &Buffer, text: &str) -> Option<(u16, u16)> {
+        for y in 0..buffer.area.height {
+            for x in 0..buffer.area.width {
+                let start_x = x as usize;
+                // Check if text matches at this position
+                let mut matches = true;
+                for (i, ch) in text.chars().enumerate() {
+                    let pos_x = start_x + i;
+                    if pos_x >= buffer.area.width as usize {
+                        matches = false;
+                        break;
+                    }
+                    
+                    let cell = &buffer[(pos_x as u16, y as u16)];
+                    if cell.symbol() != ch.to_string() {
+                        matches = false;
+                        break;
+                    }
+                }
+                
+                if matches {
+                    return Some((x, y));
+                }
+            }
+        }
+        None
     }
 }
