@@ -726,13 +726,13 @@ impl InteractiveSearch {
                     // Format line
                     let index_str = format!("{:3}. ", actual_idx + 1);
                     let role_str = format!("[{:^9}]", role.to_uppercase());
-                    let fixed_part = format!("{}{} {} ", index_str, role_str, short_time);
+                    let fixed_part = format!("{index_str}{role_str} {short_time} ");
                     
                     // Calculate available width for preview
                     let available_width = inner.width.saturating_sub(fixed_part.len() as u16).saturating_sub(1);
                     let truncated_preview = self.truncate_message(&preview, available_width as usize);
                     
-                    let line_content = format!("{}{}", fixed_part, truncated_preview);
+                    let line_content = format!("{fixed_part}{truncated_preview}");
 
                     let style = if list_idx == self.session_selected_index {
                         Style::default()
@@ -1169,12 +1169,11 @@ impl InteractiveSearch {
                 self.session_scroll_offset = 0;
             }
             KeyCode::Up => {
-                if !self.session_filtered_indices.is_empty() {
-                    if self.session_selected_index > 0 {
+                if !self.session_filtered_indices.is_empty()
+                    && self.session_selected_index > 0 {
                         self.session_selected_index -= 1;
                         self.adjust_session_scroll_offset();
                     }
-                }
             }
             KeyCode::Down => {
                 if !self.session_filtered_indices.is_empty() {
