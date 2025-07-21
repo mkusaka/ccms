@@ -1795,7 +1795,7 @@ fn test_clipboard_keys_without_clipboard() {
     search.mode = Mode::ResultDetail;
 
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    
+
     // Test all clipboard keys - they should not panic even if clipboard fails
     let keys = vec![
         KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()), // file path
@@ -1804,15 +1804,15 @@ fn test_clipboard_keys_without_clipboard() {
         KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty()), // message text
         KeyEvent::new(KeyCode::Char('r'), KeyModifiers::empty()), // raw json
     ];
-    
+
     for key in keys {
         // Should not panic, regardless of clipboard availability
         let result = search.handle_result_detail_input(key);
-        
+
         // The operation might succeed or fail depending on environment
         // but it should always return a Result without panicking
         assert!(result.is_ok() || result.is_err());
-        
+
         // Should still be in detail mode
         assert_eq!(search.mode, Mode::ResultDetail);
     }
