@@ -223,17 +223,17 @@ mod tests {
         
         // Empty query should not show results
         search.query = "".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 0);
         
         // Query with content should show results
         search.query = "Test".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 1);
         
         // Clear query should clear results
         search.query = "".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 0);
     }
 
@@ -306,13 +306,13 @@ mod tests {
         // Test with role filter
         search.query = "message".to_string();
         search.role_filter = Some("user".to_string());
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 1);
         assert_eq!(search.results[0].role, "user");
         
         // Test without filter
         search.role_filter = None;
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 2);
     }
 
@@ -333,7 +333,7 @@ mod tests {
         
         let mut search = InteractiveSearch::new(options);
         search.query = "Middle".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         
         assert_eq!(search.results.len(), 1);
         assert!(search.results[0].text.contains("Middle"));
@@ -406,7 +406,7 @@ mod tests {
         
         let mut search = InteractiveSearch::new(options);
         search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         
         assert_eq!(search.results.len(), 10);
     }
@@ -442,23 +442,23 @@ mod tests {
         
         // Test AND query
         search.query = "Hello AND world".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 1);
         
         // Test OR query
         search.query = "Hello OR Goodbye".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 2);
         
         // Test NOT query
         search.query = "world AND NOT Hello".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 1);
         assert!(search.results[0].text.contains("Goodbye"));
         
         // Test invalid query
         search.query = "/invalid(regex".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 0);
     }
 
@@ -474,7 +474,7 @@ mod tests {
         
         let mut search = InteractiveSearch::new(SearchOptions::default());
         search.query = "message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         
         // Results should be sorted by timestamp (newest first)
         assert_eq!(search.results.len(), 3);
@@ -623,7 +623,7 @@ mod tests {
         assert_eq!(search.max_results, 25);
         
         search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         
         // Should be limited to 25 results
         assert_eq!(search.results.len(), 25);
@@ -705,7 +705,7 @@ mod tests {
         
         let mut search = InteractiveSearch::new(SearchOptions::default());
         search.query = "Original".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 1);
         
         // Modify file
@@ -721,7 +721,7 @@ mod tests {
         
         // Cache should be cleared and search re-executed
         search.query = "Updated".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 1);
         assert!(search.results[0].text.contains("Updated"));
     }
@@ -738,7 +738,7 @@ mod tests {
         
         let mut search = InteractiveSearch::new(SearchOptions::default());
         search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         
         // Test down arrow
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -852,7 +852,7 @@ mod tests {
         let mut search = InteractiveSearch::new(options);
         
         search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         
         // Should be limited to max_results
         assert_eq!(search.results.len(), 50);
@@ -915,7 +915,7 @@ mod tests {
         
         let mut search = InteractiveSearch::new(SearchOptions::default());
         search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         
         // We should have many results
         assert!(search.results.len() > 20);
@@ -1022,7 +1022,7 @@ mod tests {
         
         let mut search = InteractiveSearch::new(SearchOptions::default());
         search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         
         assert_eq!(search.results.len(), 30);
         
@@ -1080,7 +1080,7 @@ mod tests {
         
         let mut search = InteractiveSearch::new(SearchOptions::default());
         search.query = "Message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         
         // Create test terminal
         let backend = TestBackend::new(80, 24);
@@ -1198,18 +1198,22 @@ mod tests {
         let m_key = KeyEvent::new(KeyCode::Char('M'), KeyModifiers::empty());
         search.handle_search_input(m_key, test_file.to_str().unwrap()).unwrap();
         assert_eq!(search.query, "M");
+        // Use sync search for testing
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 10); // All messages match "M"
         
         // Test that each character triggers immediate search
         let e_key = KeyEvent::new(KeyCode::Char('e'), KeyModifiers::empty());
         search.handle_search_input(e_key, test_file.to_str().unwrap()).unwrap();
         assert_eq!(search.query, "Me");
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 10); // All messages still match "Me"
         
         // Test backspace also triggers immediate search
         let backspace = KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty());
         search.handle_search_input(backspace, test_file.to_str().unwrap()).unwrap();
         assert_eq!(search.query, "M");
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 10); // Back to "M"
         
         // Clear query
@@ -1221,6 +1225,7 @@ mod tests {
         let zero_key = KeyEvent::new(KeyCode::Char('0'), KeyModifiers::empty());
         search.handle_search_input(zero_key, test_file.to_str().unwrap()).unwrap();
         assert_eq!(search.query, "0");
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 1); // Only "Message 0" contains "0"
     }
 
@@ -1280,14 +1285,14 @@ mod tests {
         
         // Test single file discovery
         search.query = "Test".to_string();
-        search.execute_search(file1.to_str().unwrap());
+        search.execute_search_sync(file1.to_str().unwrap());
         assert_eq!(search.results.len(), 1);
         assert_eq!(search.results[0].text, "Test 1");
         
         // Test directory pattern discovery - use glob pattern
         search.query = "Test".to_string();
         let pattern = format!("{}/*.jsonl", temp_dir.path().to_str().unwrap());
-        search.execute_search(&pattern);
+        search.execute_search_sync(&pattern);
         // Should find at least the two files in root dir
         assert!(search.results.len() >= 2);
         
@@ -1307,7 +1312,7 @@ mod tests {
         
         let mut search = InteractiveSearch::new(SearchOptions::default());
         search.query = "Clipboard".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 1);
         
         // Enter detail view
@@ -1373,8 +1378,10 @@ mod tests {
         // The is_searching flag is set during handle_search_input
         // We can't directly test the intermediate state, but we can verify it's false after
         search.handle_search_input(t_key, test_file.to_str().unwrap()).unwrap();
-        assert!(!search.is_searching); // Should be false after search completes
+        // In async mode, is_searching is set to true, then async search happens
+        // For testing, we verify the query was updated and use sync search
         assert_eq!(search.query, "T");
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 1);
     }
 
@@ -1438,7 +1445,7 @@ mod tests {
         
         // Test with actual path (not tilde)
         search.query = "Tilde".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert_eq!(search.results.len(), 1);
         
         // Note: We can't easily test actual tilde expansion without modifying HOME env var
@@ -1461,7 +1468,7 @@ mod tests {
         
         // Search and enter detail view
         search.query = "message".to_string();
-        search.execute_search(test_file.to_str().unwrap());
+        search.execute_search_sync(test_file.to_str().unwrap());
         assert!(search.results.len() > 0);
         
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
