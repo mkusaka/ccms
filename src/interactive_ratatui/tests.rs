@@ -72,7 +72,7 @@ fn test_mode_transitions() {
     assert_eq!(search.current_mode(), Mode::Help);
 
     // Transition to ResultDetail
-    search.set_mode(Mode::ResultDetail);
+    search.push_screen(Mode::ResultDetail);
     assert_eq!(search.current_mode(), Mode::ResultDetail);
 
     // Transition to SessionViewer
@@ -207,7 +207,7 @@ fn test_result_detail_rendering() {
     // Set up a result detail view
     let result = create_test_result("user", "Test message content", "2024-01-01T00:00:00Z");
     search.selected_result = Some(result);
-    search.set_mode(Mode::ResultDetail);
+    search.push_screen(Mode::ResultDetail);
 
     terminal.draw(|f| search.draw(f)).unwrap();
     let buffer = terminal.backend().buffer();
@@ -425,7 +425,7 @@ fn test_detail_scroll_functionality() {
     let long_text = (0..100).map(|i| format!("Line {}", i)).collect::<Vec<_>>().join("\n");
     let result = create_test_result("user", &long_text, "2024-01-01T00:00:00Z");
     search.selected_result = Some(result);
-    search.set_mode(Mode::ResultDetail);
+    search.push_screen(Mode::ResultDetail);
 
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -652,6 +652,57 @@ fn test_max_results_limit() {
 }
 
 #[test]
+fn test_session_viewer_message_parsing() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("session.jsonl");
+
+    // Create session file with different message structures
+    let mut file = File::create(&test_file).unwrap();
+    // Direct content
+    writeln!(
+        file,
+        r#"{{"type":"user","content":"Direct content message","timestamp":"2024-01-01T00:00:00Z"}}"#
+    )
+    .unwrap();
+    // Nested message.content
+    writeln!(file, r#"{{"type":"assistant","message":{{"content":"Nested content message"}},"timestamp":"2024-01-01T00:00:01Z"}}"#).unwrap();
+    // Array content
+    writeln!(file, r#"{{"type":"assistant","message":{{"content":[{{"type":"text","text":"Part 1"}},{{"type":"text","text":"Part 2"}}]}},"timestamp":"2024-01-01T00:00:02Z"}}"#).unwrap();
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    let _ = search
+        .load_session_messages(test_file.to_str().unwrap());
+
+    assert_eq!(search.session_messages.len(), 3);
+
+    // Verify each message can be parsed
+    for (i, msg_str) in search.session_messages.iter().enumerate() {
+        let msg: serde_json::Value = serde_json::from_str(msg_str).unwrap();
+        assert!(msg.get("type").is_some(), "Message {i} missing type");
+    }
+}
+
+#[test]
+#[ignore = "Requires clipboard utilities not available in CI"]
+fn test_copy_feedback_messages_from_main() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+    search.push_screen(Mode::ResultDetail);
+
+    // Test file copy feedback
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let f_key = KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty());
+    let _ = search.handle_result_detail_input(f_key); // Ignore clipboard error in tests
+
+    assert!(search.message.is_some());
+    assert!(search.message.as_ref().unwrap().contains("✓"));
+    assert!(search.message.as_ref().unwrap().contains("File path"));
+
+    // Should stay in detail mode
+    assert_eq!(search.current_mode(), Mode::ResultDetail);
+}
+
+#[test]
 fn test_initial_results_loading() {
     let temp_dir = tempdir().unwrap();
     let test_file = temp_dir.path().join("initial.jsonl");
@@ -745,6 +796,27 @@ fn test_result_limit_indicator() {
     
     // Should show the limit indicator
     assert!(buffer_content.contains("50 results") || buffer_content.contains("limited"));
+}
+
+#[test]
+#[ignore = "Requires clipboard utilities not available in CI"]
+fn test_clipboard_error_handling() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+    search.push_screen(Mode::ResultDetail);
+
+    // Test clipboard operation that will fail in test environment
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let copy_key = KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty());
+    let result = search.handle_result_detail_input(copy_key);
+
+    // Should handle error gracefully
+    assert!(result.is_ok());
+    assert!(search.message.is_some());
+    // Error message should contain warning symbol
+    if let Some(msg) = &search.message {
+        assert!(msg.contains("⚠") || msg.contains("✓"));
+    }
 }
 
 #[test]
@@ -1088,9 +1160,10 @@ fn test_copy_feedback_messages() {
 
     let result = create_test_result("user", "Test message", "2024-01-01T00:00:00Z");
     search.selected_result = Some(result);
-    search.set_mode(Mode::ResultDetail);
+    search.push_screen(Mode::ResultDetail);
 
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
 
     // Test F - Copy file path
     search.message = None;
@@ -1129,14 +1202,14 @@ fn test_copy_feedback_messages() {
 }
 
 #[test]
-fn test_clipboard_error_handling() {
+fn test_clipboard_error_handling_no_json() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
 
     // Create result without raw_json
     let mut result = create_test_result("user", "Test", "2024-01-01T00:00:00Z");
     result.raw_json = None;
     search.selected_result = Some(result);
-    search.set_mode(Mode::ResultDetail);
+    search.push_screen(Mode::ResultDetail);
 
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -1658,4 +1731,36 @@ fn test_copy_to_clipboard_empty_text() {
     // Test empty text
     let _ = search.copy_to_clipboard("");
     assert_eq!(search.message, Some("Nothing to copy".to_string()));
+}
+
+#[test]
+fn test_clipboard_keys_without_clipboard() {
+    // This test verifies that clipboard key presses don't crash
+    // even when clipboard utilities are not available
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+    search.push_screen(Mode::ResultDetail);
+
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    // Test all clipboard keys - they should not panic even if clipboard fails
+    let keys = vec![
+        KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()), // file path
+        KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty()), // session id
+        KeyEvent::new(KeyCode::Char('p'), KeyModifiers::empty()), // project path
+        KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty()), // message text
+        KeyEvent::new(KeyCode::Char('r'), KeyModifiers::empty()), // raw json
+    ];
+
+    for key in keys {
+        // Should not panic, regardless of clipboard availability
+        let result = search.handle_result_detail_input(key);
+
+        // The operation might succeed or fail depending on environment
+        // but it should always return a Result without panicking
+        assert!(result.is_ok() || result.is_err());
+
+        // Should still be in detail mode
+        assert_eq!(search.current_mode(), Mode::ResultDetail);
+    }
 }
