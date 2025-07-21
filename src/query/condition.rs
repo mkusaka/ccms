@@ -39,19 +39,7 @@ impl QueryCondition {
                 }
             }
             QueryCondition::Regex { pattern, flags } => {
-                let mut regex_builder = regex::RegexBuilder::new(pattern);
-
-                if flags.contains('i') {
-                    regex_builder.case_insensitive(true);
-                }
-                if flags.contains('m') {
-                    regex_builder.multi_line(true);
-                }
-                if flags.contains('s') {
-                    regex_builder.dot_matches_new_line(true);
-                }
-
-                let regex = regex_builder.build()?;
+                let regex = super::regex_cache::get_or_compile_regex(pattern, flags)?;
                 Ok(regex.is_match(text))
             }
             QueryCondition::Not { condition } => Ok(!condition.evaluate(text)?),
@@ -91,19 +79,7 @@ impl QueryCondition {
                 }
             }
             QueryCondition::Regex { pattern, flags } => {
-                let mut regex_builder = regex::RegexBuilder::new(pattern);
-
-                if flags.contains('i') {
-                    regex_builder.case_insensitive(true);
-                }
-                if flags.contains('m') {
-                    regex_builder.multi_line(true);
-                }
-                if flags.contains('s') {
-                    regex_builder.dot_matches_new_line(true);
-                }
-
-                if let Ok(regex) = regex_builder.build() {
+                if let Ok(regex) = super::regex_cache::get_or_compile_regex(pattern, flags) {
                     regex.find(text).map(|m| (m.start(), m.len()))
                 } else {
                     None

@@ -25,10 +25,14 @@ dirs = "5.0"
 
 # Regex and string matching
 regex = "1.10"
+lru = "0.12"
 
 # Parallel processing
 rayon = "1.10"
 crossbeam = "0.8"
+
+# Caching
+lazy_static = "1.5"
 
 # Error handling
 anyhow = "1.0"
@@ -80,6 +84,14 @@ harness = false
 
 [[bench]]
 name = "async_benchmark"
+harness = false
+
+[[bench]]
+name = "large_file_benchmark"
+harness = false
+
+[[bench]]
+name = "realistic_benchmark"
 harness = false
 
 [profile.release]

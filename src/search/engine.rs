@@ -143,15 +143,20 @@ impl SearchEngine {
                 now
             });
 
-        let reader = BufReader::new(file);
         let file_name = file_path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown")
             .to_string();
 
-        // First pass: collect all lines
-        let lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
+        // Try to use memory-mapped I/O for better performance
+        let lines: Vec<String> = if let Ok(mmap_reader) = super::mmap_reader::MmapReader::new(file_path) {
+            mmap_reader.lines().map(|s| s.to_string()).collect()
+        } else {
+            // Fallback to regular buffered reader
+            let reader = BufReader::new(file);
+            reader.lines().collect::<Result<Vec<_>, _>>()?
+        };
 
         // Second pass: find first timestamp if first message is summary
         let mut first_timestamp: Option<String> = None;

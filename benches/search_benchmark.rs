@@ -62,6 +62,20 @@ fn benchmark_regex_search(c: &mut Criterion) {
     });
 }
 
+fn benchmark_large_file_search(c: &mut Criterion) {
+    let test_file = create_test_data(10000);
+    let query = parse_query("test").unwrap();
+    let options = SearchOptions::default();
+
+    c.bench_function("simple_search_10000", |b| {
+        b.iter(|| {
+            let engine = SearchEngine::new(options.clone());
+            let (results, _, _) = engine.search(&test_file, black_box(query.clone())).unwrap();
+            results
+        });
+    });
+}
+
 fn benchmark_json_parsing(c: &mut Criterion) {
     let json_line = r#"{"type":"user","message":{"role":"user","content":"Test message with some content"},"uuid":"123","timestamp":"2024-01-01T00:00:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#;
 
@@ -88,6 +102,7 @@ criterion_group!(
     benchmark_simple_search,
     benchmark_complex_search,
     benchmark_regex_search,
+    benchmark_large_file_search,
     benchmark_json_parsing,
     benchmark_query_parsing
 );
