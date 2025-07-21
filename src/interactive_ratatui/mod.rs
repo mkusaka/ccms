@@ -155,6 +155,9 @@ pub struct InteractiveSearch {
     search_receiver: Option<Receiver<SearchResponse>>,
     current_search_id: Arc<AtomicU64>,
     last_processed_search_id: u64,
+
+    // Truncation control
+    truncation_enabled: bool,
 }
 
 impl InteractiveSearch {
@@ -181,6 +184,7 @@ impl InteractiveSearch {
             search_receiver: None,
             current_search_id: Arc::new(AtomicU64::new(0)),
             last_processed_search_id: 0,
+            truncation_enabled: true, // Default to truncated view
         }
     }
 
@@ -360,7 +364,8 @@ impl InteractiveSearch {
         let status = if let Some(ref msg) = self.message {
             msg.clone()
         } else {
-            "Tab: Filter | ↑/↓: Navigate | Enter: Select | Ctrl+R: Reload | Esc: Exit".to_string()
+            format!("Tab: Filter | ↑/↓: Navigate | Enter: Select | Ctrl+R: Toggle [{}] | Esc: Exit", 
+                    if self.truncation_enabled { "Truncated" } else { "Full Text" })
         };
         let status_bar = Paragraph::new(status).style(Style::default().fg(Color::DarkGray));
         f.render_widget(status_bar, chunks[3]);
@@ -420,10 +425,14 @@ impl InteractiveSearch {
                 let terminal_width = inner.width as usize;
                 let available_width = terminal_width.saturating_sub(fixed_width).saturating_sub(1); // -1 for safety
 
-                // Truncate message to fit
-                let truncated_message = self.truncate_message(&result.text, available_width);
+                // Truncate message to fit if truncation is enabled
+                let display_message = if self.truncation_enabled {
+                    self.truncate_message(&result.text, available_width)
+                } else {
+                    result.text.replace('\n', " ")
+                };
 
-                let line_content = format!("{fixed_part}{truncated_message}");
+                let line_content = format!("{fixed_part}{display_message}");
 
                 let style = if actual_idx == self.selected_index {
                     Style::default()
@@ -522,8 +531,20 @@ impl InteractiveSearch {
             let mut all_lines = content;
 
             // Split message text into lines
-            for line in result.text.lines() {
-                all_lines.push(Line::from(line));
+            if self.truncation_enabled {
+                // In truncated mode, show each line truncated to terminal width
+                let terminal_width = f.area().width as usize;
+                let available_width = terminal_width.saturating_sub(4); // Account for borders
+                
+                for line in result.text.lines() {
+                    let truncated_line = self.truncate_message(line, available_width);
+                    all_lines.push(Line::from(truncated_line));
+                }
+            } else {
+                // In full text mode, show complete lines
+                for line in result.text.lines() {
+                    all_lines.push(Line::from(line));
+                }
             }
 
             // Calculate visible area
@@ -539,7 +560,8 @@ impl InteractiveSearch {
 
             let detail = Paragraph::new(display_lines).block(
                 Block::default().borders(Borders::ALL).title(format!(
-                    "Result Detail (↑/↓ or j/k to scroll, line {}/{})",
+                    "Result Detail [{}] (↑/↓ or j/k to scroll, line {}/{})",
+                    if self.truncation_enabled { "Truncated" } else { "Full Text" },
                     self.detail_scroll_offset + 1,
                     header_lines + result.text.lines().count()
                 )),
@@ -688,14 +710,34 @@ impl InteractiveSearch {
                 if let Some(content_val) = message_content {
                     if let Some(text) = content_val.as_str() {
                         // Split text into lines for proper display
-                        for line in text.lines() {
-                            content.push(Line::from(line));
+                        if self.truncation_enabled {
+                            let terminal_width = f.area().width as usize;
+                            let available_width = terminal_width.saturating_sub(4); // Account for borders
+                            
+                            for line in text.lines() {
+                                let truncated_line = self.truncate_message(line, available_width);
+                                content.push(Line::from(truncated_line));
+                            }
+                        } else {
+                            for line in text.lines() {
+                                content.push(Line::from(line));
+                            }
                         }
                     } else if let Some(parts) = content_val.as_array() {
                         for part in parts {
                             if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
-                                for line in text.lines() {
-                                    content.push(Line::from(line));
+                                if self.truncation_enabled {
+                                    let terminal_width = f.area().width as usize;
+                                    let available_width = terminal_width.saturating_sub(4); // Account for borders
+                                    
+                                    for line in text.lines() {
+                                        let truncated_line = self.truncate_message(line, available_width);
+                                        content.push(Line::from(truncated_line));
+                                    }
+                                } else {
+                                    for line in text.lines() {
+                                        content.push(Line::from(line));
+                                    }
                                 }
                             }
                         }
@@ -704,9 +746,10 @@ impl InteractiveSearch {
 
                 let message = Paragraph::new(content).wrap(Wrap { trim: false }).block(
                     Block::default().borders(Borders::ALL).title(format!(
-                        "Message {}/{}",
+                        "Message {}/{} [{}]",
                         self.session_index + 1,
-                        total
+                        total,
+                        if self.truncation_enabled { "Truncated" } else { "Full Text" }
                     )),
                 );
                 f.render_widget(message, chunks[1]);
@@ -729,9 +772,9 @@ impl InteractiveSearch {
 
         // Status
         let status = if self.session_order.is_some() {
-            "↑/↓: Navigate | Space: Next Page | Q: Quit"
+            "↑/↓: Navigate | Space: Next Page | Ctrl+R: Toggle Truncation | Q: Quit"
         } else {
-            "Choose display order"
+            "Choose display order | Ctrl+R: Toggle Truncation"
         };
         let status_bar = Paragraph::new(status)
             .style(Style::default().fg(Color::DarkGray))
@@ -756,7 +799,7 @@ impl InteractiveSearch {
             Line::from("  Tab         - Cycle role filter"),
             Line::from("  ↑/↓         - Navigate results"),
             Line::from("  Enter       - View result detail"),
-            Line::from("  Ctrl+R      - Clear cache & reload"),
+            Line::from("  Ctrl+R      - Toggle message truncation"),
             Line::from("  Esc         - Exit"),
             Line::from(""),
             Line::from(vec![Span::styled(
@@ -865,9 +908,13 @@ impl InteractiveSearch {
                 return Ok(false);
             }
             KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.cache.clear();
-                self.execute_search(pattern);
-                self.message = Some("Cache cleared and reloaded".to_string());
+                self.truncation_enabled = !self.truncation_enabled;
+                let status = if self.truncation_enabled {
+                    "Truncated"
+                } else {
+                    "Full Text"
+                };
+                self.message = Some(format!("Message display: {}", status));
             }
             KeyCode::Char('?') => {
                 self.mode = Mode::Help;
@@ -961,6 +1008,15 @@ impl InteractiveSearch {
                 self.mode = Mode::Search;
                 self.message = None; // Clear message when returning to search
                 self.detail_scroll_offset = 0;
+            }
+            KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.truncation_enabled = !self.truncation_enabled;
+                let status = if self.truncation_enabled {
+                    "Truncated"
+                } else {
+                    "Full Text"
+                };
+                self.message = Some(format!("Message display: {}", status));
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 self.detail_scroll_offset = self.detail_scroll_offset.saturating_sub(1);
@@ -1081,6 +1137,15 @@ impl InteractiveSearch {
                 KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
                     self.mode = Mode::Search;
                 }
+                KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.truncation_enabled = !self.truncation_enabled;
+                    let status = if self.truncation_enabled {
+                        "Truncated"
+                    } else {
+                        "Full Text"
+                    };
+                    self.message = Some(format!("Message display: {}", status));
+                }
                 _ => {}
             }
         } else {
@@ -1102,6 +1167,15 @@ impl InteractiveSearch {
                 }
                 KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
                     self.mode = Mode::Search;
+                }
+                KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.truncation_enabled = !self.truncation_enabled;
+                    let status = if self.truncation_enabled {
+                        "Truncated"
+                    } else {
+                        "Full Text"
+                    };
+                    self.message = Some(format!("Message display: {}", status));
                 }
                 _ => {}
             }
