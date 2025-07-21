@@ -36,7 +36,6 @@ lazy_static = "1.5"
 
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
 
 # Date/time handling
 chrono = "0.4"
@@ -47,19 +46,10 @@ nom = "7.1"
 
 # Progress indication
 indicatif = "0.17"
-itertools = "0.13"
-
-# SIMD-accelerated string search
-memchr = "2.7"
 
 # Colored output
 colored = "2.1"
-
-# Interactive UI
-dialoguer = "0.11"
-fuzzy-matcher = "0.3"
 console = "0.15"
-termion = "4.0"
 
 # Memory mapping for large files
 memmap2 = "0.9"
@@ -71,9 +61,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Async runtime (optional)
 tokio = { version = "1.40", features = ["full"], optional = true }
-tokio-stream = { version = "0.1", optional = true }
 futures = { version = "0.3", optional = true }
-num_cpus = "1.17.0"
 
 [dev-dependencies]
 criterion = "0.5"
@@ -107,4 +95,4 @@ opt-level = 3
 [features]
 default = []
 profiling = ["pprof"]
-async = ["tokio", "tokio-stream", "futures"]
+async = ["tokio", "futures"]

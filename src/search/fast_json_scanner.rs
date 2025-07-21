@@ -15,7 +15,40 @@ impl FastJsonScanner {
     /// Extract text content from JSON without full parsing
     /// This is a fast but imprecise method for initial filtering
     pub fn extract_text_content(json_line: &str) -> Option<String> {
-        // Look for content field patterns
+        // Try array content pattern first (more specific)
+        if let Some(content_start) = json_line.find(r#""content":[{"#) {
+            // Extract text from content array
+            // Look for "text":" within the content array
+            if let Some(text_start) = json_line[content_start..].find(r#""text":"#) {
+                let start = content_start + text_start + 8; // 8 = length of "text":"
+                let remaining = &json_line[start..];
+                
+                let mut escaped = false;
+                let mut end_pos = None;
+                
+                for (i, ch) in remaining.char_indices() {
+                    if escaped {
+                        escaped = false;
+                        continue;
+                    }
+                    
+                    match ch {
+                        '\\' => escaped = true,
+                        '"' => {
+                            end_pos = Some(i);
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+                
+                if let Some(end) = end_pos {
+                    return Some(remaining[..end].to_string());
+                }
+            }
+        }
+        
+        // Look for simple content field pattern
         if let Some(content_start) = json_line.find(r#""content":"#) {
             let start = content_start + 11;
             let remaining = &json_line[start..];
@@ -42,38 +75,6 @@ impl FastJsonScanner {
             
             if let Some(end) = end_pos {
                 return Some(remaining[..end].to_string());
-            }
-        }
-        
-        // Try array content pattern
-        if let Some(content_start) = json_line.find(r#""content":[{"#) {
-            // Extract text from content array
-            if let Some(text_start) = json_line[content_start..].find(r#""text":"#) {
-                let start = content_start + text_start + 8;
-                let remaining = &json_line[start..];
-                
-                let mut escaped = false;
-                let mut end_pos = None;
-                
-                for (i, ch) in remaining.char_indices() {
-                    if escaped {
-                        escaped = false;
-                        continue;
-                    }
-                    
-                    match ch {
-                        '\\' => escaped = true,
-                        '"' => {
-                            end_pos = Some(i);
-                            break;
-                        }
-                        _ => {}
-                    }
-                }
-                
-                if let Some(end) = end_pos {
-                    return Some(remaining[..end].to_string());
-                }
             }
         }
         
