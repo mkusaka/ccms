@@ -28,7 +28,7 @@ impl SearchEngine {
     ) -> Result<(Vec<SearchResult>, std::time::Duration, usize)> {
         let start_time = std::time::Instant::now();
 
-        // Discover files  
+        // Discover files
         let file_discovery_start = std::time::Instant::now();
         let expanded_pattern = expand_tilde(pattern);
         let files = if expanded_pattern.is_file() {
@@ -37,10 +37,11 @@ impl SearchEngine {
             discover_claude_files(Some(pattern))?
         };
         let file_discovery_time = file_discovery_start.elapsed();
-        
+
         if self.options.verbose {
-            eprintln!("File discovery took: {}ms ({} files found)", 
-                file_discovery_time.as_millis(), 
+            eprintln!(
+                "File discovery took: {}ms ({} files found)",
+                file_discovery_time.as_millis(),
                 files.len()
             );
         }
@@ -112,15 +113,21 @@ impl SearchEngine {
         all_results.truncate(max_results);
 
         let elapsed = start_time.elapsed();
-        
+
         if self.options.verbose {
             eprintln!("\nPerformance breakdown:");
             eprintln!("  File discovery: {}ms", file_discovery_time.as_millis());
             eprintln!("  Search: {}ms", search_time.as_millis());
-            eprintln!("  Post-processing: {}ms", elapsed.saturating_sub(file_discovery_time).saturating_sub(search_time).as_millis());
+            eprintln!(
+                "  Post-processing: {}ms",
+                elapsed
+                    .saturating_sub(file_discovery_time)
+                    .saturating_sub(search_time)
+                    .as_millis()
+            );
             eprintln!("  Total: {}ms", elapsed.as_millis());
         }
-        
+
         Ok((all_results, elapsed, total_count))
     }
 
@@ -131,7 +138,7 @@ impl SearchEngine {
         // Get file metadata
         let metadata = file.metadata()?;
         let _file_size = metadata.len();
-        
+
         // Get file creation time for summary messages
         let file_ctime = Some(&metadata)
             .and_then(|m| {
@@ -328,7 +335,6 @@ impl SearchEngine {
         Ok(results)
     }
 
-
     fn apply_filters(&self, results: &mut Vec<SearchResult>) -> Result<()> {
         // Apply timestamp filters
         if let Some(before) = &self.options.before {
@@ -377,7 +383,7 @@ fn format_preview(text: &str, query: &QueryCondition, context_length: usize) -> 
     // Find the first match position
     let match_info = query.find_match(text);
 
-    let (preview_text, has_prefix, has_suffix, match_in_preview) =
+    let (preview_text, has_prefix, has_suffix, _match_in_preview) =
         if let Some((start, len)) = match_info {
             // Show context around the match
             let context_before = 50;
@@ -432,21 +438,7 @@ fn format_preview(text: &str, query: &QueryCondition, context_length: usize) -> 
     // Apply highlighting and ellipsis
     let mut result = cleaned;
 
-    // Find match position in cleaned text if we have one
-    if let Some((_match_start, _match_len)) = match_in_preview {
-        // Re-find the match in the cleaned text (whitespace may have changed positions)
-        if let Some(match_pos) = query.find_match(&result) {
-            let (clean_start, clean_len) = match_pos;
-
-            // Split the text and apply highlighting
-            let before = &result[..clean_start];
-            let matched = &result[clean_start..clean_start + clean_len];
-            let after = &result[clean_start + clean_len..];
-
-            // Use ANSI escape codes directly to match TypeScript
-            result = format!("{before}\x1b[33m{matched}\x1b[0m{after}");
-        }
-    }
+    // No longer need to highlight matches - removed color highlighting code
 
     // Add ellipsis
     if has_prefix {
@@ -939,7 +931,7 @@ mod tests {
         // Search should handle empty content
         let options = SearchOptions::default();
         let engine = SearchEngine::new(options);
-        let query = parse_query(".*")?;  // Match any
+        let query = parse_query(".*")?; // Match any
         let (results, _, _) = engine.search(test_file.to_str().unwrap(), query)?;
 
         // Empty content should not match
@@ -1000,7 +992,12 @@ mod tests {
         // JSON parsing may decode escape sequences
         // Check if the content contains the special characters (decoded)
         let text = &results[0].text;
-        assert!(text.contains('\n') || text.contains('\t') || text.contains('\r') || text.contains('\\'));
+        assert!(
+            text.contains('\n')
+                || text.contains('\t')
+                || text.contains('\r')
+                || text.contains('\\')
+        );
 
         Ok(())
     }
