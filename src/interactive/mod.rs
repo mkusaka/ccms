@@ -5,12 +5,90 @@ use anyhow::Result;
 use colored::Colorize;
 use console::{Key, Term, style};
 use std::io::{self, Write};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
-use crate::{SearchEngine, SearchOptions, SearchResult, parse_query};
+use crate::{SearchOptions, SearchResult, parse_query, SessionMessage};
+
+// Cache entry for a single JSONL file
+struct CachedFile {
+    messages: Vec<SessionMessage>,
+    raw_lines: Vec<String>,
+    last_modified: SystemTime,
+}
+
+// Cache for all loaded files
+struct MessageCache {
+    files: HashMap<PathBuf, CachedFile>,
+}
+
+impl MessageCache {
+    fn new() -> Self {
+        Self {
+            files: HashMap::new(),
+        }
+    }
+
+    // Load or get cached messages from a file
+    fn get_messages(&mut self, path: &Path) -> Result<&CachedFile> {
+        let metadata = std::fs::metadata(path)?;
+        let modified = metadata.modified()?;
+        
+        // Check if we need to reload
+        let needs_reload = match self.files.get(path) {
+            Some(cached) => cached.last_modified != modified,
+            None => true,
+        };
+
+        if needs_reload {
+            // Load the file
+            let file = std::fs::File::open(path)?;
+            let reader = std::io::BufReader::with_capacity(32 * 1024, file);
+            use std::io::BufRead;
+            
+            let mut messages = Vec::new();
+            let mut raw_lines = Vec::new();
+            
+            for line in reader.lines() {
+                let line = line?;
+                if line.trim().is_empty() {
+                    continue;
+                }
+                
+                raw_lines.push(line.clone());
+                
+                // Parse JSON with SIMD optimization
+                let mut json_bytes = line.as_bytes().to_vec();
+                if let Ok(message) = simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes) {
+                    messages.push(message);
+                }
+            }
+            
+            self.files.insert(
+                path.to_path_buf(),
+                CachedFile {
+                    messages,
+                    raw_lines,
+                    last_modified: modified,
+                },
+            );
+        }
+        
+        Ok(self.files.get(path).unwrap())
+    }
+    
+    // Clear the cache
+    fn clear(&mut self) {
+        self.files.clear();
+    }
+}
 
 pub struct InteractiveSearch {
     base_options: SearchOptions,
     max_results: usize,
+    cache: MessageCache,
+    is_searching: bool,
 }
 
 impl InteractiveSearch {
@@ -19,7 +97,158 @@ impl InteractiveSearch {
         Self {
             base_options: options,
             max_results,
+            cache: MessageCache::new(),
+            is_searching: false,
         }
+    }
+
+    // Execute search using cached data
+    fn execute_cached_search(&mut self, pattern: &str, query: &crate::query::QueryCondition, role_filter: &Option<String>) -> Result<Vec<SearchResult>> {
+        use crate::search::{discover_claude_files, expand_tilde};
+        
+        // Discover files
+        let expanded_pattern = expand_tilde(pattern);
+        let files = if expanded_pattern.is_file() {
+            vec![expanded_pattern]
+        } else {
+            discover_claude_files(Some(pattern))?
+        };
+        
+        let mut results = Vec::new();
+        
+        // Process each file using cache
+        for file_path in &files {
+            let cached_file = self.cache.get_messages(file_path)?;
+            let file_name = file_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+            
+            // Search through cached messages
+            for (idx, message) in cached_file.messages.iter().enumerate() {
+                // Extract text content
+                let text = message.get_content_text();
+                
+                // Apply query condition
+                if let Ok(matches) = query.evaluate(&text) {
+                    if matches {
+                        // Check role filter
+                        if let Some(role) = role_filter {
+                            if message.get_type() != role {
+                                continue;
+                            }
+                        }
+                        
+                        // Check other filters from base_options
+                        if let Some(session_id) = &self.base_options.session_id {
+                            if message.get_session_id() != Some(session_id) {
+                                continue;
+                            }
+                        }
+                        
+                        let timestamp = message.get_timestamp()
+                            .unwrap_or("")
+                            .to_string();
+                        
+                        results.push(SearchResult {
+                            file: file_name.clone(),
+                            uuid: message.get_uuid().unwrap_or("").to_string(),
+                            timestamp,
+                            session_id: message.get_session_id().unwrap_or("").to_string(),
+                            role: message.get_type().to_string(),
+                            text: text.clone(),
+                            has_tools: message.has_tool_use(),
+                            has_thinking: message.has_thinking(),
+                            message_type: message.get_type().to_string(),
+                            query: query.clone(),
+                            project_path: Self::extract_project_path(file_path),
+                            raw_json: Some(cached_file.raw_lines[idx].clone()),
+                        });
+                    }
+                }
+            }
+        }
+        
+        // Apply timestamp filters
+        self.apply_filters(&mut results)?;
+        
+        // Sort by timestamp (newest first)
+        results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        
+        // Limit results
+        results.truncate(self.max_results);
+        
+        Ok(results)
+    }
+    
+    fn extract_project_path(file_path: &Path) -> String {
+        // Extract project path from file path
+        // Format: ~/.claude/projects/{encoded-project-path}/{session-id}.jsonl
+        if let Some(parent) = file_path.parent() {
+            if let Some(project_name) = parent.file_name() {
+                if let Some(project_str) = project_name.to_str() {
+                    // Decode the project path (replace hyphens with slashes)
+                    return project_str.replace('-', "/");
+                }
+            }
+        }
+        String::new()
+    }
+    
+    fn apply_filters(&self, results: &mut Vec<SearchResult>) -> Result<()> {
+        use chrono::DateTime;
+        use anyhow::Context;
+        
+        // Apply timestamp filters
+        if let Some(before) = &self.base_options.before {
+            let before_time =
+                DateTime::parse_from_rfc3339(before).context("Invalid 'before' timestamp")?;
+            results.retain(|r| {
+                if let Ok(time) = DateTime::parse_from_rfc3339(&r.timestamp) {
+                    time < before_time
+                } else {
+                    false
+                }
+            });
+        }
+
+        if let Some(after) = &self.base_options.after {
+            let after_time =
+                DateTime::parse_from_rfc3339(after).context("Invalid 'after' timestamp")?;
+            results.retain(|r| {
+                if let Ok(time) = DateTime::parse_from_rfc3339(&r.timestamp) {
+                    time > after_time
+                } else {
+                    false
+                }
+            });
+        }
+
+        Ok(())
+    }
+
+    // Helper method to execute search and update results
+    // Returns (results, search_query) to allow caller to verify query consistency
+    fn execute_search(&mut self, pattern: &str, query: &str, role_filter: &Option<String>) -> (Vec<SearchResult>, String) {
+        let search_query = query.to_string();
+        
+        self.is_searching = true;
+        let results = if !query.is_empty() {
+            if let Ok(parsed_query) = parse_query(query) {
+                match self.execute_cached_search(pattern, &parsed_query, role_filter) {
+                    Ok(search_results) => search_results,
+                    Err(_) => Vec::new(),
+                }
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
+        self.is_searching = false;
+        
+        (results, search_query)
     }
 
     pub fn run(&mut self, pattern: &str) -> Result<()> {
@@ -28,7 +257,7 @@ impl InteractiveSearch {
 
         // Print headers
         println!("{}", "Interactive Claude Search".cyan());
-        println!("{}", "Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Esc/Ctrl+C to exit".dimmed());
+        println!("{}", "Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Ctrl+R to reload, Esc/Ctrl+C to exit".dimmed());
         println!();
 
         let mut query = String::new();
@@ -109,52 +338,35 @@ impl InteractiveSearch {
 
             // Read key
             match term.read_key()? {
+                Key::Char('\x12') => { // Ctrl+R
+                    // Clear cache and re-execute search
+                    self.cache.clear();
+                    let (new_results, search_query) = self.execute_search(pattern, &query, &role_filter);
+                    // Only update results if query hasn't changed during search
+                    if query == search_query {
+                        results = new_results;
+                    }
+                }
                 Key::Char(c) => {
                     query.push(c);
                     selected_index = 0;
 
-                    // Execute search
-                    if !query.is_empty() {
-                        if let Ok(parsed_query) = parse_query(&query) {
-                            // Create engine with current role filter
-                            let mut options = self.base_options.clone();
-                            options.role = role_filter.clone();
-                            let engine = SearchEngine::new(options);
-                            if let Ok((search_results, _, _)) = engine.search(pattern, parsed_query)
-                            {
-                                results = search_results;
-                            } else {
-                                results.clear();
-                            }
-                        } else {
-                            results.clear();
-                        }
-                    } else {
-                        results.clear();
+                    // Execute search using cache
+                    let (new_results, search_query) = self.execute_search(pattern, &query, &role_filter);
+                    // Only update results if query hasn't changed during search
+                    if query == search_query {
+                        results = new_results;
                     }
                 }
                 Key::Backspace => {
                     query.pop();
                     selected_index = 0;
 
-                    // Re-execute search
-                    if !query.is_empty() {
-                        if let Ok(parsed_query) = parse_query(&query) {
-                            // Create engine with current role filter
-                            let mut options = self.base_options.clone();
-                            options.role = role_filter.clone();
-                            let engine = SearchEngine::new(options);
-                            if let Ok((search_results, _, _)) = engine.search(pattern, parsed_query)
-                            {
-                                results = search_results;
-                            } else {
-                                results.clear();
-                            }
-                        } else {
-                            results.clear();
-                        }
-                    } else {
-                        results.clear();
+                    // Re-execute search using cache
+                    let (new_results, search_query) = self.execute_search(pattern, &query, &role_filter);
+                    // Only update results if query hasn't changed during search
+                    if query == search_query {
+                        results = new_results;
                     }
                 }
                 Key::ArrowUp => {
@@ -234,20 +446,10 @@ impl InteractiveSearch {
                     selected_index = 0;
 
                     // Re-execute search with new filter
-                    if !query.is_empty() {
-                        if let Ok(parsed_query) = parse_query(&query) {
-                            let mut options = self.base_options.clone();
-                            options.role = role_filter.clone();
-                            let engine = SearchEngine::new(options);
-                            if let Ok((search_results, _, _)) = engine.search(pattern, parsed_query)
-                            {
-                                results = search_results;
-                            } else {
-                                results.clear();
-                            }
-                        } else {
-                            results.clear();
-                        }
+                    let (new_results, search_query) = self.execute_search(pattern, &query, &role_filter);
+                    // Only update results if query hasn't changed during search
+                    if query == search_query {
+                        results = new_results;
                     }
                 }
                 Key::Escape | Key::CtrlC => {

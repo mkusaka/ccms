@@ -893,4 +893,173 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_very_long_lines() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("test.jsonl");
+
+        // Create a very long message
+        let long_text = "a".repeat(10000);
+        let mut file = File::create(&test_file)?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"{}"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#,
+            long_text
+        )?;
+
+        // Search should handle long lines
+        let options = SearchOptions::default();
+        let engine = SearchEngine::new(options);
+        let query = parse_query("aaa")?;
+        let (results, _, _) = engine.search(test_file.to_str().unwrap(), query)?;
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].text.len(), 10000);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_content_messages() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("test.jsonl");
+
+        // Create messages with empty content
+        let mut file = File::create(&test_file)?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":""}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+        writeln!(
+            file,
+            r#"{{"type":"assistant","message":{{"id":"msg1","type":"message","role":"assistant","model":"claude","content":[],"stop_reason":"end_turn","stop_sequence":null,"usage":{{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"s1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+
+        // Search should handle empty content
+        let options = SearchOptions::default();
+        let engine = SearchEngine::new(options);
+        let query = parse_query(".*")?;  // Match any
+        let (results, _, _) = engine.search(test_file.to_str().unwrap(), query)?;
+
+        // Empty content should not match
+        assert_eq!(results.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_malformed_json_recovery() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("test.jsonl");
+
+        // Create file with mix of valid and invalid JSON
+        let mut file = File::create(&test_file)?;
+        writeln!(file, "{{invalid json")?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Valid message 1"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+        writeln!(file, "null")?;
+        writeln!(file, "{{}}")?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Valid message 2"}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+
+        // Should skip invalid lines and process valid ones
+        let options = SearchOptions::default();
+        let engine = SearchEngine::new(options);
+        let query = parse_query("Valid")?;
+        let (results, _, _) = engine.search(test_file.to_str().unwrap(), query)?;
+
+        assert_eq!(results.len(), 2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_special_characters_in_content() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("test.jsonl");
+
+        // Create messages with special characters
+        let mut file = File::create(&test_file)?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Special chars: \n\t\r\\ \" ' < > & ="}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+
+        // Search for escaped characters
+        let options = SearchOptions::default();
+        let engine = SearchEngine::new(options);
+        let query = parse_query(r#""\n\t\r\\""#)?;
+        let (results, _, _) = engine.search(test_file.to_str().unwrap(), query)?;
+
+        assert_eq!(results.len(), 1);
+        // JSON parsing may decode escape sequences
+        // Check if the content contains the special characters (decoded)
+        let text = &results[0].text;
+        assert!(text.contains('\n') || text.contains('\t') || text.contains('\r') || text.contains('\\'));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_multiple_file_patterns() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let projects_dir = temp_dir.path().join("projects");
+        std::fs::create_dir_all(&projects_dir)?;
+
+        // Create multiple files
+        for i in 0..3 {
+            let file_path = projects_dir.join(format!("session{}.jsonl", i));
+            let mut file = File::create(&file_path)?;
+            writeln!(
+                file,
+                r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:0{}Z","sessionId":"s{}","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#,
+                i, i, i, i
+            )?;
+        }
+
+        // Search with wildcard pattern
+        let pattern = projects_dir.join("*.jsonl");
+        let options = SearchOptions::default();
+        let engine = SearchEngine::new(options);
+        let query = parse_query("Message")?;
+        let (results, _, _) = engine.search(pattern.to_str().unwrap(), query)?;
+
+        assert_eq!(results.len(), 3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_session_with_thinking_and_tools() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("test.jsonl");
+
+        // Create messages with thinking and tool use
+        let mut file = File::create(&test_file)?;
+        writeln!(
+            file,
+            r#"{{"type":"assistant","message":{{"id":"msg1","type":"message","role":"assistant","model":"claude","content":[{{"type":"thinking","thinking":"Let me analyze this..."}},{{"type":"text","text":"Here's my response"}}],"stop_reason":"end_turn","stop_sequence":null,"usage":{{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+        writeln!(
+            file,
+            r#"{{"type":"assistant","message":{{"id":"msg2","type":"message","role":"assistant","model":"claude","content":[{{"type":"tool_use","id":"tool1","name":"calculator","input":{{"a":1,"b":2}}}},{{"type":"text","text":"The result is 3"}}],"stop_reason":"end_turn","stop_sequence":null,"usage":{{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+
+        let options = SearchOptions::default();
+        let engine = SearchEngine::new(options);
+        let query = parse_query("response OR result")?;
+        let (results, _, _) = engine.search(test_file.to_str().unwrap(), query)?;
+
+        // The actual number of results depends on whether thinking content is searched
+        assert!(!results.is_empty());
+        // At least one message should have thinking or tools
+        assert!(results.iter().any(|r| r.has_thinking || r.has_tools));
+
+        Ok(())
+    }
 }
