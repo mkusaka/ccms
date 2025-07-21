@@ -803,10 +803,17 @@ impl InteractiveSearch {
     }
 
     fn truncate_message(&self, text: &str, max_width: usize) -> String {
+        if max_width == 0 {
+            return String::new();
+        }
+        
         let cleaned = text.replace('\n', " ");
 
         if cleaned.chars().count() <= max_width {
             cleaned
+        } else if max_width <= 3 {
+            // Not enough room for ellipsis
+            cleaned.chars().take(max_width).collect()
         } else {
             // Leave room for "..."
             let truncate_at = max_width.saturating_sub(3);
@@ -1194,14 +1201,22 @@ impl InteractiveSearch {
     }
 
     fn extract_project_path(file_path: &Path) -> String {
-        if let Some(parent) = file_path.parent() {
-            if let Some(project_name) = parent.file_name() {
-                if let Some(project_str) = project_name.to_str() {
-                    return project_str.replace('-', "/");
-                }
+        // Try to extract project path from ~/.claude/projects/encoded-path/session.jsonl
+        let path_str = file_path.to_string_lossy();
+        if let Some(projects_idx) = path_str.find("/.claude/projects/") {
+            let after_projects = &path_str[projects_idx + "/.claude/projects/".len()..];
+            if let Some(slash_idx) = after_projects.find('/') {
+                let encoded_path = &after_projects[..slash_idx];
+                return encoded_path.replace('-', "/");
             }
         }
-        String::new()
+        
+        // Fallback to parent directory
+        if let Some(parent) = file_path.parent() {
+            parent.to_string_lossy().to_string()
+        } else {
+            file_path.to_string_lossy().to_string()
+        }
     }
 
     fn apply_filters(&self, results: &mut Vec<SearchResult>) -> Result<()> {

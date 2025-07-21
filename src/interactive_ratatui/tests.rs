@@ -2,6 +2,7 @@
 mod tests {
     use super::super::*;
     use crate::{QueryCondition, SearchOptions, SearchResult};
+    use crate::interactive_ratatui::SearchRequest;
     use ratatui::{
         backend::TestBackend,
         Terminal,
@@ -12,6 +13,7 @@ mod tests {
     use std::io::Write;
     use std::thread;
     use std::time::Duration;
+    use std::sync::mpsc;
     use tempfile::tempdir;
 
     fn create_test_result(role: &str, text: &str, timestamp: &str) -> SearchResult {
@@ -351,7 +353,7 @@ mod tests {
         // Test path without project structure
         let path2 = PathBuf::from("/tmp/test.jsonl");
         let project_path2 = InteractiveSearch::extract_project_path(&path2);
-        assert_eq!(project_path2, "tmp");
+        assert_eq!(project_path2, "/tmp");
     }
 
     #[test]
@@ -1650,5 +1652,193 @@ mod tests {
             }
         }
         None
+    }
+
+    #[test]
+    fn test_async_search_channel_disconnect() {
+        // Test that worker thread exits gracefully when channel is disconnected
+        let temp_dir = tempdir().unwrap();
+        let test_file = temp_dir.path().join("test.jsonl");
+        
+        // Create test file
+        let mut file = File::create(&test_file).unwrap();
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Test"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+        
+        let search = InteractiveSearch::new(SearchOptions::default());
+        let (tx, rx) = mpsc::channel();
+        let (response_tx, _response_rx) = mpsc::channel();
+        
+        // Start worker thread
+        let handle = search.start_search_worker(rx, response_tx, test_file.to_str().unwrap());
+        
+        // Send a request
+        let request = SearchRequest {
+            id: 1,
+            query: "test".to_string(),
+            role_filter: None,
+            pattern: test_file.to_str().unwrap().to_string(),
+        };
+        tx.send(request).unwrap();
+        
+        // Drop sender to disconnect channel
+        drop(tx);
+        
+        // Thread should exit gracefully
+        assert!(handle.join().is_ok());
+    }
+
+    #[test]
+    fn test_session_viewer_json_parse_error() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        let mut terminal = create_test_terminal();
+        
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        search.session_messages = vec![
+            "invalid json {".to_string(), // Invalid JSON
+        ];
+        search.session_index = 0;
+        
+        // Draw should handle parse error gracefully
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should show error message
+        let error_text = "Error: Unable to parse message JSON";
+        assert!(find_text_in_buffer(buffer, error_text).is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_empty_messages() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        let mut terminal = create_test_terminal();
+        
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        search.session_messages = vec![]; // Empty messages
+        
+        // Draw should handle empty messages gracefully
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should show empty message
+        let empty_text = "No messages in session";
+        assert!(find_text_in_buffer(buffer, empty_text).is_some());
+    }
+
+    #[test]
+    fn test_extract_project_path_edge_cases() {
+        use std::path::Path;
+        
+        // Test various edge cases
+        let test_cases = vec![
+            // Invalid paths
+            ("/invalid/path/file.jsonl", "/invalid/path"),
+            ("", ""),  // Empty path returns empty string
+            ("/", "/"),
+            
+            // Path without projects directory
+            ("/Users/test/file.jsonl", "/Users/test"),
+            
+            // Path with projects but no session (directory path)
+            ("~/.claude/projects/", "~/.claude"),
+            
+            // Valid project path (already tested elsewhere, but included for completeness)
+            ("~/.claude/projects/Users-test-project/session.jsonl", "Users/test/project"),
+        ];
+        
+        for (input, expected) in test_cases {
+            let path = Path::new(input);
+            let result = InteractiveSearch::extract_project_path(path);
+            
+            // For valid claude project paths
+            if input.contains("/.claude/projects/") && input.ends_with(".jsonl") {
+                assert_eq!(result, expected);
+            } else if input.is_empty() {
+                // Empty path returns empty string (Path::new("") has no parent)
+                assert_eq!(result, "");
+            } else {
+                // Other cases should return the parent directory or the path itself
+                assert_eq!(result, expected);
+            }
+        }
+    }
+
+    #[test]
+    fn test_truncate_message_edge_cases() {
+        let search = InteractiveSearch::new(SearchOptions::default());
+        
+        // Test edge cases
+        let long_string = "a".repeat(1000);
+        let expected_long = format!("{}...", "a".repeat(47));
+        let test_cases = vec![
+            // Zero width
+            ("Test message", 0, ""),
+            // Width of 1
+            ("Test", 1, "T"),
+            // Width of 3 (no room for ellipsis)
+            ("Testing", 3, "Tes"),
+            // Width of 4 (room for 1 char + ellipsis)
+            ("Testing", 4, "T..."),
+            // Empty string
+            ("", 100, ""),
+            // String with only spaces
+            ("   ", 10, "   "),
+            // Very long repeated character
+            (long_string.as_str(), 50, expected_long.as_str()),
+        ];
+        
+        for (input, width, expected) in test_cases {
+            let result = search.truncate_message(input, width);
+            assert_eq!(result, expected, 
+                "Failed for input '{}' with width {}", input, width);
+        }
+    }
+
+    #[test]
+    fn test_async_search_response_handling() {
+        // Test that search responses are properly handled
+        let search = InteractiveSearch::new(SearchOptions::default());
+        let (request_tx, request_rx) = mpsc::channel();
+        let (response_tx, response_rx) = mpsc::channel();
+        
+        // Create a simple test pattern
+        let temp_dir = tempdir().unwrap();
+        let test_file = temp_dir.path().join("test.jsonl");
+        let mut file = File::create(&test_file).unwrap();
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Hello"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+        
+        // Start worker
+        let _handle = search.start_search_worker(request_rx, response_tx, test_file.to_str().unwrap());
+        
+        // Send multiple requests quickly
+        for i in 0..3 {
+            let request = SearchRequest {
+                id: i,
+                query: if i == 2 { "Hello".to_string() } else { "nomatch".to_string() },
+                role_filter: None,
+                pattern: test_file.to_str().unwrap().to_string(),
+            };
+            request_tx.send(request).unwrap();
+        }
+        
+        // Collect responses
+        let mut responses = Vec::new();
+        for _ in 0..3 {
+            if let Ok(response) = response_rx.recv_timeout(Duration::from_secs(1)) {
+                responses.push(response);
+            }
+        }
+        
+        // Verify we got all responses
+        assert_eq!(responses.len(), 3);
+        
+        // Check that only the last query returns results
+        responses.sort_by_key(|r| r.id);
+        assert_eq!(responses[0].results.len(), 0); // "nomatch"
+        assert_eq!(responses[1].results.len(), 0); // "nomatch"
+        assert_eq!(responses[2].results.len(), 1); // "Hello"
     }
 }
