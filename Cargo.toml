@@ -1,12 +1,12 @@
 [package]
-name = "claude-search"
-version = "0.1.0"
+name = "ccms"
+version = "0.0.1"
 edition = "2024"
-authors = ["Claude Search CLI"]
+authors = ["CCMS CLI"]
 description = "High-performance CLI for searching Claude session JSONL files"
 
 [[bin]]
-name = "claude-search"
+name = "ccms"
 path = "src/main.rs"
 
 [dependencies]

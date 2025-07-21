@@ -31,11 +31,11 @@ fn query(input: &str) -> IResult<&str, QueryCondition> {
 
 fn or_expression(input: &str) -> IResult<&str, QueryCondition> {
     let (input, first) = and_expression(input)?;
-    
+
     fold_many0(
         preceded(
             preceded(multispace0, tag("OR")),
-            preceded(multispace1, and_expression)
+            preceded(multispace1, and_expression),
         ),
         move || first.clone(),
         |acc, next| match acc {
@@ -43,18 +43,20 @@ fn or_expression(input: &str) -> IResult<&str, QueryCondition> {
                 conditions.push(next);
                 QueryCondition::Or { conditions }
             }
-            _ => QueryCondition::Or { conditions: vec![acc, next] },
+            _ => QueryCondition::Or {
+                conditions: vec![acc, next],
+            },
         },
     )(input)
 }
 
 fn and_expression(input: &str) -> IResult<&str, QueryCondition> {
     let (input, first) = not_expression(input)?;
-    
+
     fold_many0(
         preceded(
             preceded(multispace0, tag("AND")),
-            preceded(multispace1, not_expression)
+            preceded(multispace1, not_expression),
         ),
         move || first.clone(),
         |acc, next| match acc {
@@ -62,7 +64,9 @@ fn and_expression(input: &str) -> IResult<&str, QueryCondition> {
                 conditions.push(next);
                 QueryCondition::And { conditions }
             }
-            _ => QueryCondition::And { conditions: vec![acc, next] },
+            _ => QueryCondition::And {
+                conditions: vec![acc, next],
+            },
         },
     )(input)
 }
@@ -70,10 +74,7 @@ fn and_expression(input: &str) -> IResult<&str, QueryCondition> {
 fn not_expression(input: &str) -> IResult<&str, QueryCondition> {
     alt((
         map(
-            preceded(
-                terminated(tag("NOT"), multispace1),
-                primary_expression,
-            ),
+            preceded(terminated(tag("NOT"), multispace1), primary_expression),
             |condition| QueryCondition::Not {
                 condition: Box::new(condition),
             },
@@ -104,18 +105,21 @@ fn regex_expression(input: &str) -> IResult<&str, QueryCondition> {
     let (input, pattern) = regex_pattern(input)?;
     let (input, _) = char('/')(input)?;
     let (input, flags) = regex_flags(input)?;
-    
-    Ok((input, QueryCondition::Regex { 
-        pattern: pattern.to_string(), 
-        flags: flags.to_string() 
-    }))
+
+    Ok((
+        input,
+        QueryCondition::Regex {
+            pattern: pattern.to_string(),
+            flags: flags.to_string(),
+        },
+    ))
 }
 
 fn regex_pattern(input: &str) -> IResult<&str, &str> {
     let chars = input.chars();
     let mut end = 0;
     let mut escaped = false;
-    
+
     for ch in chars {
         if escaped {
             escaped = false;
@@ -129,12 +133,14 @@ fn regex_pattern(input: &str) -> IResult<&str, &str> {
             end += ch.len_utf8();
         }
     }
-    
+
     Ok((&input[end..], &input[..end]))
 }
 
 fn regex_flags(input: &str) -> IResult<&str, &str> {
-    recognize(take_while(|c: char| matches!(c, 'i' | 'm' | 's' | 'u' | 'x')))(input)
+    recognize(take_while(|c: char| {
+        matches!(c, 'i' | 'm' | 's' | 'u' | 'x')
+    }))(input)
 }
 
 fn quoted_literal(input: &str) -> IResult<&str, QueryCondition> {
@@ -169,11 +175,11 @@ fn quoted_string_content(quote: char) -> impl Fn(&str) -> IResult<&str, String> 
         let mut result = String::new();
         let mut chars = input.chars();
         let mut consumed = 0;
-        
+
         #[allow(clippy::while_let_on_iterator)]
         while let Some(ch) = chars.next() {
             consumed += ch.len_utf8();
-            
+
             if ch == '\\' {
                 if let Some(next_ch) = chars.next() {
                     consumed += next_ch.len_utf8();
@@ -198,7 +204,7 @@ fn quoted_string_content(quote: char) -> impl Fn(&str) -> IResult<&str, String> 
                 result.push(ch);
             }
         }
-        
+
         Ok((&input[consumed..], result))
     }
 }
@@ -206,7 +212,7 @@ fn quoted_string_content(quote: char) -> impl Fn(&str) -> IResult<&str, String> 
 fn unquoted_literal(input: &str) -> IResult<&str, QueryCondition> {
     // First, check if the next word is a keyword
     let (_, word) = take_while1(is_unquoted_char)(input)?;
-    
+
     // Check if it's a keyword
     if matches!(word, "AND" | "OR" | "NOT") {
         return Err(nom::Err::Error(nom::error::Error::new(
@@ -214,14 +220,17 @@ fn unquoted_literal(input: &str) -> IResult<&str, QueryCondition> {
             nom::error::ErrorKind::Tag,
         )));
     }
-    
+
     // If not a keyword, consume it
     let (input, word) = take_while1(is_unquoted_char)(input)?;
-    
-    Ok((input, QueryCondition::Literal {
-        pattern: word.to_string(),
-        case_sensitive: false,
-    }))
+
+    Ok((
+        input,
+        QueryCondition::Literal {
+            pattern: word.to_string(),
+            case_sensitive: false,
+        },
+    ))
 }
 
 fn is_unquoted_char(c: char) -> bool {
@@ -236,7 +245,10 @@ mod tests {
     fn test_simple_literal() -> Result<()> {
         let result = parse_query("hello")?;
         match result {
-            QueryCondition::Literal { pattern, case_sensitive } => {
+            QueryCondition::Literal {
+                pattern,
+                case_sensitive,
+            } => {
                 assert_eq!(pattern, "hello");
                 assert!(!case_sensitive);
             }
@@ -298,7 +310,7 @@ mod tests {
     fn test_not_expression() -> Result<()> {
         let result = parse_query("NOT hello")?;
         match result {
-            QueryCondition::Not { .. } => {},
+            QueryCondition::Not { .. } => {}
             _ => panic!("Expected NOT"),
         }
         Ok(())
@@ -308,12 +320,12 @@ mod tests {
     fn test_complex_expression() -> Result<()> {
         let result = parse_query("(hello OR world) AND NOT /test/i")?;
         match result {
-            QueryCondition::And { .. } => {},
+            QueryCondition::And { .. } => {}
             _ => panic!("Expected complex expression"),
         }
         Ok(())
     }
-    
+
     #[test]
     fn test_or_expression_duplicate() -> Result<()> {
         let result = parse_query("hello OR world")?;
@@ -325,39 +337,39 @@ mod tests {
         }
         Ok(())
     }
-    
+
     #[test]
     fn test_not_expression_duplicate() -> Result<()> {
         let result = parse_query("NOT error")?;
         match result {
-            QueryCondition::Not { condition } => {
-                match condition.as_ref() {
-                    QueryCondition::Literal { pattern, .. } => {
-                        assert_eq!(pattern, "error");
-                    }
-                    _ => panic!("Expected literal inside NOT"),
+            QueryCondition::Not { condition } => match condition.as_ref() {
+                QueryCondition::Literal { pattern, .. } => {
+                    assert_eq!(pattern, "error");
                 }
-            }
+                _ => panic!("Expected literal inside NOT"),
+            },
             _ => panic!("Expected NOT"),
         }
         Ok(())
     }
-    
+
     #[test]
     fn test_complex_expression_extended() -> Result<()> {
         let result = parse_query("(error OR warning) AND NOT test")?;
         match result {
             QueryCondition::And { conditions } => {
                 assert_eq!(conditions.len(), 2);
-                
+
                 // Check first part is OR
                 match &conditions[0] {
-                    QueryCondition::Or { conditions: or_conds } => {
+                    QueryCondition::Or {
+                        conditions: or_conds,
+                    } => {
                         assert_eq!(or_conds.len(), 2);
                     }
                     _ => panic!("Expected OR as first condition"),
                 }
-                
+
                 // Check second part is NOT
                 match &conditions[1] {
                     QueryCondition::Not { .. } => {}
@@ -368,14 +380,17 @@ mod tests {
         }
         Ok(())
     }
-    
+
     #[test]
     fn test_case_sensitive_literal() -> Result<()> {
         // The current parser doesn't support ! prefix for case sensitivity
         // All literals are case-insensitive by default
         let result = parse_query("CaseSensitive")?;
         match result {
-            QueryCondition::Literal { pattern, case_sensitive } => {
+            QueryCondition::Literal {
+                pattern,
+                case_sensitive,
+            } => {
                 assert_eq!(pattern, "CaseSensitive");
                 assert!(!case_sensitive); // Always case-insensitive
             }
@@ -383,7 +398,7 @@ mod tests {
         }
         Ok(())
     }
-    
+
     #[test]
     fn test_escaped_quotes() -> Result<()> {
         let result = parse_query(r#""hello \"world\"""#)?;
@@ -395,7 +410,7 @@ mod tests {
         }
         Ok(())
     }
-    
+
     #[test]
     fn test_single_quoted_string() -> Result<()> {
         let result = parse_query("'single quoted'")?;
@@ -407,7 +422,7 @@ mod tests {
         }
         Ok(())
     }
-    
+
     #[test]
     fn test_regex_with_flags() -> Result<()> {
         let result = parse_query("/pattern/ims")?;
@@ -420,7 +435,7 @@ mod tests {
         }
         Ok(())
     }
-    
+
     #[test]
     fn test_parentheses_grouping() -> Result<()> {
         let result = parse_query("((a OR b) AND c)")?;
@@ -432,7 +447,7 @@ mod tests {
         }
         Ok(())
     }
-    
+
     #[test]
     fn test_minus_as_not() -> Result<()> {
         // The current parser doesn't support - prefix as NOT
@@ -446,19 +461,19 @@ mod tests {
         }
         Ok(())
     }
-    
+
     #[test]
     fn test_empty_query_error() {
         let result = parse_query("");
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_invalid_regex_syntax() {
         let result = parse_query("/unclosed");
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_whitespace_handling() -> Result<()> {
         let result = parse_query("  hello   AND   world  ")?;

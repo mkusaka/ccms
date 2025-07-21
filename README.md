@@ -1,4 +1,4 @@
-# Claude Search Rust
+# CCMS (Claude Conversation Management System)
 
 [![CI](https://github.com/mkusaka/ccmeta/actions/workflows/ci.yml/badge.svg)](https://github.com/mkusaka/ccmeta/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -22,7 +22,7 @@ High-performance CLI for searching Claude session JSONL files with an interactiv
 ```bash
 # Clone the repository
 git clone https://github.com/mkusaka/ccmeta.git
-cd ccmeta/schema/claude-search-rust
+cd ccmeta/schema/ccms
 
 # Build and install
 cargo install --path .
@@ -35,9 +35,9 @@ cargo install --path .
 cargo build --release
 
 # Copy to your PATH
-cp target/release/claude-search ~/.local/bin/
+cp target/release/ccms ~/.local/bin/
 # or
-sudo cp target/release/claude-search /usr/local/bin/
+sudo cp target/release/ccms /usr/local/bin/
 ```
 
 ## Usage
@@ -46,17 +46,17 @@ sudo cp target/release/claude-search /usr/local/bin/
 
 ```bash
 # Search for "error" in all Claude sessions
-claude-search "error"
+ccms "error"
 
 # Search in specific files
-claude-search -p "~/.claude/projects/myproject/*.jsonl" "bug"
+ccms -p "~/.claude/projects/myproject/*.jsonl" "bug"
 
 # Filter by role
-claude-search -r user "how to"
-claude-search -r assistant "I can help"
+ccms -r user "how to"
+ccms -r assistant "I can help"
 
 # Filter by current project directory
-claude-search --project "$(pwd)" "TODO"
+ccms --project "$(pwd)" "TODO"
 ```
 
 ### Interactive Mode (TUI)
@@ -65,10 +65,10 @@ Launch an interactive search interface similar to fzf:
 
 ```bash
 # Interactive search in default location
-claude-search -i
+ccms -i
 
 # Interactive search in specific directory
-claude-search -i -p "~/my-project/*.jsonl"
+ccms -i -p "~/my-project/*.jsonl"
 ```
 
 **Interactive Mode Controls:**
@@ -88,62 +88,62 @@ claude-search -i -p "~/my-project/*.jsonl"
 
 ```bash
 # AND operator
-claude-search "error AND connection"
+ccms "error AND connection"
 
 # OR operator
-claude-search "warning OR error"
+ccms "warning OR error"
 
 # NOT operator
-claude-search "response NOT error"
+ccms "response NOT error"
 
 # Complex queries with parentheses
-claude-search "(error OR warning) AND NOT /test/i"
+ccms "(error OR warning) AND NOT /test/i"
 
 # Regular expressions
-claude-search "/failed.*connection/i"
-claude-search "/^Error:.*\d+/m"
+ccms "/failed.*connection/i"
+ccms "/^Error:.*\d+/m"
 ```
 
 ### Filtering Options
 
 ```bash
 # Limit results
-claude-search -n 100 "search term"
+ccms -n 100 "search term"
 
 # Filter by session ID
-claude-search -s "session-123" "query"
+ccms -s "session-123" "query"
 
 # Filter by timestamp
-claude-search --after "2024-01-01T00:00:00Z" "recent"
-claude-search --before "2024-12-31T23:59:59Z" "old"
+ccms --after "2024-01-01T00:00:00Z" "recent"
+ccms --before "2024-12-31T23:59:59Z" "old"
 
 # Filter by project path
-claude-search --project "/Users/me/project" "bug"
+ccms --project "/Users/me/project" "bug"
 
 # Combine filters
-claude-search -r user -n 20 --after "2024-06-01T00:00:00Z" "question"
+ccms -r user -n 20 --after "2024-06-01T00:00:00Z" "question"
 ```
 
 ### Output Formats
 
 ```bash
 # Default text output with colors
-claude-search "query"
+ccms "query"
 
 # Disable colors
-claude-search --no-color "query"
+ccms --no-color "query"
 
 # Show full message text
-claude-search --full-text "query"
+ccms --full-text "query"
 
 # JSON output
-claude-search -f json "query" > results.json
+ccms -f json "query" > results.json
 
 # JSONL output (one JSON per line)
-claude-search -f jsonl "query" > results.jsonl
+ccms -f jsonl "query" > results.jsonl
 
 # Verbose output with debug info
-claude-search -v "query"
+ccms -v "query"
 ```
 
 ## Query Syntax Reference
@@ -196,7 +196,7 @@ error AND /failed.*connection/i
 ```bash
 # Clone the repository
 git clone https://github.com/mkusaka/ccmeta.git
-cd ccmeta/schema/claude-search-rust
+cd ccmeta/schema/ccms
 
 # Install development tools
 cargo install cargo-nextest --locked
@@ -244,7 +244,7 @@ cargo run --release --features profiling -- --profile baseline "query"
 ### Project Structure
 
 ```
-claude-search-rust/
+ccms/
 ├── src/
 │   ├── main.rs           # CLI entry point
 │   ├── lib.rs            # Library exports
@@ -285,13 +285,13 @@ By default, searches in `~/.claude/projects/**/*.jsonl`
 
 ```bash
 # Search in specific project
-claude-search -p "~/.claude/projects/myproject/*.jsonl" "query"
+ccms -p "~/.claude/projects/myproject/*.jsonl" "query"
 
 # Search in current directory
-claude-search -p "$(pwd)/**/*.jsonl" "query"
+ccms -p "$(pwd)/**/*.jsonl" "query"
 
 # Search single file
-claude-search -p "/path/to/specific/session.jsonl" "query"
+ccms -p "/path/to/specific/session.jsonl" "query"
 ```
 
 ## Contributing

@@ -34,11 +34,11 @@ impl Profiler {
     pub fn report(&mut self, path: &str) -> Result<()> {
         if let Some(guard) = self.guard.take() {
             let report = guard.report().build()?;
-            
+
             // Generate flamegraph
-            let file = File::create(format!("{}.svg", path))?;
+            let file = File::create(format!("{path}.svg"))?;
             report.flamegraph(file)?;
-            
+
             tracing::info!("Profiling report saved to {}.svg", path);
         }
         Ok(())
@@ -53,7 +53,7 @@ impl Profiler {
     pub fn new() -> Result<Self> {
         Ok(Self)
     }
-    
+
     pub fn report(&mut self, _path: &str) -> Result<()> {
         Ok(())
     }

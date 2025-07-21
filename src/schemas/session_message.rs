@@ -189,7 +189,7 @@ impl SessionMessage {
             SessionMessage::System { content, .. } => content.clone(),
             SessionMessage::User { message, .. } => {
                 let mut texts = Vec::new();
-                
+
                 // Extract content text
                 match &message.content {
                     UserContent::String(s) => texts.push(s.clone()),
@@ -197,29 +197,30 @@ impl SessionMessage {
                         for content in contents {
                             match content {
                                 Content::Text { text } => texts.push(text.clone()),
-                                Content::ToolResult { content: Some(tool_content), .. } => {
-                                    match tool_content {
-                                        ToolResultContent::String(s) => texts.push(s.clone()),
-                                        ToolResultContent::TextArray(arr) => {
-                                            for item in arr {
-                                                texts.push(item.text.clone());
-                                            }
+                                Content::ToolResult {
+                                    content: Some(tool_content),
+                                    ..
+                                } => match tool_content {
+                                    ToolResultContent::String(s) => texts.push(s.clone()),
+                                    ToolResultContent::TextArray(arr) => {
+                                        for item in arr {
+                                            texts.push(item.text.clone());
                                         }
-                                        _ => {}
                                     }
-                                }
+                                    _ => {}
+                                },
                                 Content::ToolResult { content: None, .. } => {}
                                 _ => {}
                             }
                         }
                     }
                 }
-                
+
                 texts.join("\n")
-            },
+            }
             SessionMessage::Assistant { message, .. } => {
                 let mut texts = Vec::new();
-                
+
                 for content in &message.content {
                     match content {
                         Content::Text { text } => texts.push(text.clone()),
@@ -227,7 +228,7 @@ impl SessionMessage {
                         _ => {}
                     }
                 }
-                
+
                 texts.join("\n")
             }
         }
@@ -262,18 +263,20 @@ impl SessionMessage {
 
     pub fn has_tool_use(&self) -> bool {
         match self {
-            SessionMessage::Assistant { message, .. } => {
-                message.content.iter().any(|c| matches!(c, Content::ToolUse { .. }))
-            }
+            SessionMessage::Assistant { message, .. } => message
+                .content
+                .iter()
+                .any(|c| matches!(c, Content::ToolUse { .. })),
             _ => false,
         }
     }
 
     pub fn has_thinking(&self) -> bool {
         match self {
-            SessionMessage::Assistant { message, .. } => {
-                message.content.iter().any(|c| matches!(c, Content::Thinking { .. }))
-            }
+            SessionMessage::Assistant { message, .. } => message
+                .content
+                .iter()
+                .any(|c| matches!(c, Content::Thinking { .. })),
             _ => false,
         }
     }
@@ -283,7 +286,7 @@ impl SessionMessage {
 mod tests {
     use super::*;
     use serde_json;
-    
+
     #[test]
     fn test_parse_user_message() {
         let json = r#"{
@@ -301,9 +304,9 @@ mod tests {
             "cwd": "/test",
             "version": "1.0"
         }"#;
-        
+
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(msg.get_type(), "user");
         assert_eq!(msg.get_content_text(), "Hello, Claude!");
         assert_eq!(msg.get_uuid(), Some("test-uuid"));
@@ -312,7 +315,7 @@ mod tests {
         assert!(!msg.has_tool_use());
         assert!(!msg.has_thinking());
     }
-    
+
     #[test]
     fn test_parse_assistant_message_with_tool_use() {
         let json = r#"{
@@ -349,15 +352,15 @@ mod tests {
             "cwd": "/test",
             "version": "1.0"
         }"#;
-        
+
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(msg.get_type(), "assistant");
         assert_eq!(msg.get_content_text(), "I'll help you with that.");
         assert!(msg.has_tool_use());
         assert!(!msg.has_thinking());
     }
-    
+
     #[test]
     fn test_parse_assistant_message_with_thinking() {
         let json = r#"{
@@ -393,15 +396,18 @@ mod tests {
             "cwd": "/test",
             "version": "1.0"
         }"#;
-        
+
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(msg.get_type(), "assistant");
-        assert_eq!(msg.get_content_text(), "Let me think about this problem...\nHere's my answer.");
+        assert_eq!(
+            msg.get_content_text(),
+            "Let me think about this problem...\nHere's my answer."
+        );
         assert!(!msg.has_tool_use());
         assert!(msg.has_thinking());
     }
-    
+
     #[test]
     fn test_parse_system_message() {
         let json = r#"{
@@ -417,14 +423,17 @@ mod tests {
             "version": "1.0",
             "isMeta": false
         }"#;
-        
+
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(msg.get_type(), "system");
-        assert_eq!(msg.get_content_text(), "System notification: Task completed");
+        assert_eq!(
+            msg.get_content_text(),
+            "System notification: Task completed"
+        );
         assert_eq!(msg.get_uuid(), Some("system-uuid"));
     }
-    
+
     #[test]
     fn test_parse_summary_message() {
         let json = r#"{
@@ -432,16 +441,16 @@ mod tests {
             "summary": "User asked about Rust programming",
             "leafUuid": "leaf-uuid-123"
         }"#;
-        
+
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(msg.get_type(), "summary");
         assert_eq!(msg.get_content_text(), "User asked about Rust programming");
         assert_eq!(msg.get_uuid(), Some("leaf-uuid-123"));
         assert_eq!(msg.get_timestamp(), None);
         assert_eq!(msg.get_session_id(), None);
     }
-    
+
     #[test]
     fn test_user_message_with_array_content() {
         let json = r#"{
@@ -466,13 +475,16 @@ mod tests {
             "cwd": "/test",
             "version": "1.0"
         }"#;
-        
+
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(msg.get_type(), "user");
-        assert_eq!(msg.get_content_text(), "Here's the result:\nFile contents: Hello World");
+        assert_eq!(
+            msg.get_content_text(),
+            "Here's the result:\nFile contents: Hello World"
+        );
     }
-    
+
     #[test]
     fn test_user_message_with_tool_result_array() {
         let json = r#"{
@@ -499,13 +511,13 @@ mod tests {
             "cwd": "/test",
             "version": "1.0"
         }"#;
-        
+
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(msg.get_type(), "user");
         assert_eq!(msg.get_content_text(), "Line 1\nLine 2");
     }
-    
+
     #[test]
     fn test_assistant_message_with_multiple_content_types() {
         let json = r#"{
@@ -543,14 +555,17 @@ mod tests {
             "cwd": "/test",
             "version": "1.0"
         }"#;
-        
+
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(msg.get_type(), "assistant");
-        assert_eq!(msg.get_content_text(), "Starting analysis...\nAnalysis complete.");
+        assert_eq!(
+            msg.get_content_text(),
+            "Starting analysis...\nAnalysis complete."
+        );
         assert!(msg.has_tool_use());
     }
-    
+
     #[test]
     fn test_system_message_with_tool_use_id() {
         let json = r#"{
@@ -567,17 +582,22 @@ mod tests {
             "isMeta": true,
             "toolUseID": "tool_3"
         }"#;
-        
+
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
-        
-        if let SessionMessage::System { tool_use_id, is_meta, .. } = &msg {
+
+        if let SessionMessage::System {
+            tool_use_id,
+            is_meta,
+            ..
+        } = &msg
+        {
             assert_eq!(tool_use_id.as_deref(), Some("tool_3"));
             assert!(is_meta);
         } else {
             panic!("Expected System message");
         }
     }
-    
+
     #[test]
     fn test_message_with_git_branch() {
         let json = r#"{
@@ -596,9 +616,9 @@ mod tests {
             "version": "1.0",
             "gitBranch": "feature/test-branch"
         }"#;
-        
+
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
-        
+
         if let SessionMessage::User { git_branch, .. } = &msg {
             assert_eq!(git_branch.as_deref(), Some("feature/test-branch"));
         } else {

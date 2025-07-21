@@ -1,15 +1,15 @@
 use crate::query::condition::QueryCondition;
 use crate::schemas::session_message::SessionMessage;
 use crate::search::file_discovery::discover_claude_files;
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
+use futures::stream::{self, StreamExt};
 use std::path::Path;
-use std::time::{Duration, Instant};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::fs::File;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::Semaphore;
-use futures::stream::{self, StreamExt};
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 #[derive(Debug, Clone)]
 pub struct AsyncSearchOptions {
@@ -66,7 +66,7 @@ impl AsyncSearchEngine {
     ) -> Result<(Vec<AsyncSearchResult>, Duration, usize)> {
         let start = Instant::now();
         let files = discover_claude_files(Some(pattern))?;
-        
+
         if self.options.verbose {
             info!("Found {} files to search", files.len());
         }
@@ -75,7 +75,7 @@ impl AsyncSearchEngine {
         let max_results = self.options.max_results.unwrap_or(usize::MAX);
         let results = Arc::new(tokio::sync::Mutex::new(Vec::with_capacity(max_results)));
         let total_count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-        
+
         // Process files concurrently with controlled parallelism
         let tasks = stream::iter(files.into_iter())
             .map(|file_path: std::path::PathBuf| {
@@ -84,16 +84,16 @@ impl AsyncSearchEngine {
                 let total_count = Arc::clone(&total_count);
                 let query = query.clone();
                 let options = self.options.clone();
-                
+
                 async move {
                     let _permit = semaphore.acquire().await.unwrap();
-                    
+
                     if let Ok(file_results) = search_file(&file_path, &query, &options).await {
                         let mut results_guard = results.lock().await;
-                        
+
                         for result in file_results {
                             total_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                            
+
                             if results_guard.len() < max_results {
                                 results_guard.push(result);
                             }
@@ -102,14 +102,14 @@ impl AsyncSearchEngine {
                 }
             })
             .buffer_unordered(self.options.max_concurrent_files);
-        
+
         // Consume all tasks
         tasks.collect::<Vec<_>>().await;
-        
+
         let duration = start.elapsed();
         let results = Arc::try_unwrap(results).unwrap().into_inner();
         let total = total_count.load(std::sync::atomic::Ordering::Relaxed);
-        
+
         Ok((results, duration, total))
     }
 }
@@ -119,24 +119,25 @@ async fn search_file(
     query: &QueryCondition,
     options: &AsyncSearchOptions,
 ) -> Result<Vec<AsyncSearchResult>> {
-    let file = File::open(file_path).await
-        .with_context(|| format!("Failed to open file: {:?}", file_path))?;
-    
+    let file = File::open(file_path)
+        .await
+        .with_context(|| format!("Failed to open file: {file_path:?}"))?;
+
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
     let mut results = Vec::new();
-    
+
     let file_name = file_path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("unknown")
         .to_string();
-    
+
     while let Some(line) = lines.next_line().await? {
         if line.trim().is_empty() {
             continue;
         }
-        
+
         // Parse JSON line
         let mut bytes = line.as_bytes().to_vec();
         match simd_json::serde::from_slice::<SessionMessage>(&mut bytes) {
@@ -147,13 +148,13 @@ async fn search_file(
                         continue;
                     }
                 }
-                
+
                 if let Some(session_id) = &options.session_id {
                     if message.get_session_id() != Some(session_id.as_str()) {
                         continue;
                     }
                 }
-                
+
                 // Apply timestamp filters if needed
                 if let Some(timestamp) = message.get_timestamp() {
                     if let Some(before) = &options.before {
@@ -167,7 +168,7 @@ async fn search_file(
                         }
                     }
                 }
-                
+
                 // Check if content matches query
                 let content = message.get_content_text();
                 if matches_query(&content, query) {
@@ -190,13 +191,16 @@ async fn search_file(
             }
         }
     }
-    
+
     Ok(results)
 }
 
 fn matches_query(text: &str, condition: &QueryCondition) -> bool {
     match condition {
-        QueryCondition::Literal { pattern, case_sensitive } => {
+        QueryCondition::Literal {
+            pattern,
+            case_sensitive,
+        } => {
             if *case_sensitive {
                 text.contains(pattern)
             } else {
@@ -214,19 +218,15 @@ fn matches_query(text: &str, condition: &QueryCondition) -> bool {
             if flags.contains('s') {
                 builder.dot_matches_new_line(true);
             }
-            
+
             match builder.build() {
                 Ok(re) => re.is_match(text),
                 Err(_) => false,
             }
         }
         QueryCondition::Not { condition } => !matches_query(text, condition),
-        QueryCondition::And { conditions } => {
-            conditions.iter().all(|c| matches_query(text, c))
-        }
-        QueryCondition::Or { conditions } => {
-            conditions.iter().any(|c| matches_query(text, c))
-        }
+        QueryCondition::And { conditions } => conditions.iter().all(|c| matches_query(text, c)),
+        QueryCondition::Or { conditions } => conditions.iter().any(|c| matches_query(text, c)),
     }
 }
 

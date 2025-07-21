@@ -5,7 +5,7 @@ use serde_json::Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TodoItem {
     pub content: String,
-    pub status: String, // "pending", "in_progress", "completed"
+    pub status: String,   // "pending", "in_progress", "completed"
     pub priority: String, // "high", "medium", "low"
     pub id: String,
 }
@@ -60,17 +60,20 @@ pub enum ToolResult {
         interrupted: bool,
         #[serde(rename = "isImage")]
         is_image: bool,
-        #[serde(skip_serializing_if = "Option::is_none", rename = "returnCodeInterpretation")]
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            rename = "returnCodeInterpretation"
+        )]
         return_code_interpretation: Option<String>,
     },
-    
+
     // File Read Result (23.26%)
     FileRead {
         #[serde(rename = "type")]
         result_type: String, // "text"
         file: FileInfo,
     },
-    
+
     // Edit File Result (15.97%)
     EditFile {
         #[serde(rename = "filePath")]
@@ -88,7 +91,7 @@ pub enum ToolResult {
         #[serde(rename = "replaceAll")]
         replace_all: bool,
     },
-    
+
     // Todo Update Result (12.36%)
     TodoUpdate {
         #[serde(rename = "oldTodos")]
@@ -96,7 +99,7 @@ pub enum ToolResult {
         #[serde(rename = "newTodos")]
         new_todos: Vec<TodoItem>,
     },
-    
+
     // Create File Result (5.21%)
     CreateFile {
         #[serde(rename = "type")]
@@ -107,7 +110,7 @@ pub enum ToolResult {
         #[serde(rename = "structuredPatch")]
         structured_patch: Vec<StructuredPatchItem>,
     },
-    
+
     // Multi-edit Result (3.33%)
     MultiEdit {
         #[serde(rename = "filePath")]
@@ -120,7 +123,7 @@ pub enum ToolResult {
         #[serde(rename = "userModified")]
         user_modified: bool,
     },
-    
+
     // Glob Result (3.32%)
     Glob {
         filenames: Vec<String>,
@@ -130,7 +133,7 @@ pub enum ToolResult {
         num_files: u32,
         truncated: bool,
     },
-    
+
     // Grep Result (3.26%)
     Grep {
         mode: String, // "content", "files_with_matches", "count"
@@ -144,7 +147,7 @@ pub enum ToolResult {
         #[serde(skip_serializing_if = "Option::is_none", rename = "numMatches")]
         num_matches: Option<u32>,
     },
-    
+
     // Task Completion Result (1.49%)
     TaskResult {
         content: Vec<TextContent>,
@@ -158,7 +161,7 @@ pub enum ToolResult {
         #[serde(rename = "wasInterrupted")]
         was_interrupted: bool,
     },
-    
+
     // WebSearch Result (0.71%)
     WebSearch {
         query: String,
@@ -166,7 +169,7 @@ pub enum ToolResult {
         #[serde(rename = "durationSeconds")]
         duration_seconds: f64,
     },
-    
+
     // WebFetch Result (0.42%)
     WebFetch {
         bytes: u64,
@@ -178,14 +181,14 @@ pub enum ToolResult {
         duration_ms: u64,
         url: String,
     },
-    
+
     // Simple filenames pattern
     SimpleFilenames {
         filenames: Vec<String>,
         #[serde(rename = "numFiles")]
         num_files: u32,
     },
-    
+
     // Update File Result
     UpdateFile {
         #[serde(rename = "type")]
@@ -196,7 +199,7 @@ pub enum ToolResult {
         #[serde(rename = "structuredPatch")]
         structured_patch: Vec<StructuredPatchItem>,
     },
-    
+
     // Image results
     ImageResult {
         #[serde(rename = "type")]
@@ -204,7 +207,7 @@ pub enum ToolResult {
         #[serde(skip_serializing_if = "Option::is_none")]
         file: Option<ImageFileInfo>,
     },
-    
+
     // Fallback for any other tool result
     Other(Value),
 }

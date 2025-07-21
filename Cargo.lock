@@ -214,6 +214,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "ccms"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "colored",
+ "console",
+ "criterion",
+ "crossbeam",
+ "dialoguer",
+ "dirs",
+ "futures",
+ "fuzzy-matcher",
+ "globset",
+ "indicatif",
+ "memmap2",
+ "nom",
+ "pprof",
+ "rayon",
+ "regex",
+ "serde",
+ "serde_json",
+ "simd-json",
+ "tempfile",
+ "termion",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-subscriber",
+ "walkdir",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -299,41 +334,6 @@ name = "clap_lex"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
-
-[[package]]
-name = "claude-search"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "colored",
- "console",
- "criterion",
- "crossbeam",
- "dialoguer",
- "dirs",
- "futures",
- "fuzzy-matcher",
- "globset",
- "indicatif",
- "memmap2",
- "nom",
- "pprof",
- "rayon",
- "regex",
- "serde",
- "serde_json",
- "simd-json",
- "tempfile",
- "termion",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-subscriber",
- "walkdir",
-]
 
 [[package]]
 name = "colorchoice"

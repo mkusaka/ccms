@@ -1,4 +1,4 @@
-# TUI Testing Approaches for claude-search Interactive Module
+# TUI Testing Approaches for ccms Interactive Module
 
 ## Overview
 Testing Terminal User Interface (TUI) functionality in Rust presents unique challenges due to the interactive nature of terminal applications. This document outlines various approaches suitable for testing the `interactive.rs` module.
@@ -185,7 +185,7 @@ fn test_interactive_display() {
 - May require adapting code to work with different terminal types
 - Limited to testing output, not input handling
 
-## Recommended Approach for claude-search
+## Recommended Approach for ccms
 
 Given the current architecture and the complexity of refactoring, I recommend a **hybrid approach**:
 
