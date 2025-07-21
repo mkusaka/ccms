@@ -18,7 +18,12 @@ impl MmapReader {
         }
         
         // Safety: We're only reading the file and not modifying it
-        let mmap = unsafe { Mmap::map(&file)? };
+        let mmap = unsafe { 
+            let mmap = Mmap::map(&file)?;
+            // Advise the kernel about our access pattern
+            mmap.advise(memmap2::Advice::Sequential)?;
+            mmap
+        };
         
         Ok(Self { mmap })
     }

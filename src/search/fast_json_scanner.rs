@@ -5,11 +5,6 @@ impl FastJsonScanner {
     /// Quick scan to check if a line might contain matching content
     /// Returns true if the line should be parsed fully
     pub fn might_contain(json_line: &str, query_hint: &str) -> bool {
-        // Skip obviously non-matching lines
-        if json_line.len() < 50 {
-            return false;
-        }
-        
         // Quick case-insensitive check for common patterns
         let lower_line = json_line.to_lowercase();
         let lower_query = query_hint.to_lowercase();
@@ -95,6 +90,10 @@ mod tests {
         let json = r#"{"type":"user","content":"Hello world"}"#;
         assert!(FastJsonScanner::might_contain(json, "hello"));
         assert!(!FastJsonScanner::might_contain(json, "goodbye"));
+        
+        // Test short lines
+        let short_json = r#"{"error":"E"}"#;
+        assert!(FastJsonScanner::might_contain(short_json, "error"));
     }
     
     #[test]

@@ -28,20 +28,29 @@ impl SearchEngine {
     ) -> Result<(Vec<SearchResult>, std::time::Duration, usize)> {
         let start_time = std::time::Instant::now();
 
-        // Discover files
+        // Discover files  
+        let file_discovery_start = std::time::Instant::now();
         let expanded_pattern = expand_tilde(pattern);
         let files = if expanded_pattern.is_file() {
             vec![expanded_pattern]
         } else {
             discover_claude_files(Some(pattern))?
         };
+        let file_discovery_time = file_discovery_start.elapsed();
+        
+        if self.options.verbose {
+            eprintln!("File discovery took: {}ms ({} files found)", 
+                file_discovery_time.as_millis(), 
+                files.len()
+            );
+        }
 
         if files.is_empty() {
             return Ok((Vec::new(), start_time.elapsed(), 0));
         }
 
-        // Progress bar
-        let progress = if self.options.verbose {
+        // Progress bar - only show for operations with many files or when explicitly verbose
+        let progress = if self.options.verbose && files.len() > 100 {
             let pb = ProgressBar::new(files.len() as u64);
             pb.set_style(
                 ProgressStyle::default_bar()
@@ -58,6 +67,7 @@ impl SearchEngine {
         let max_results = self.options.max_results.unwrap_or(50);
 
         // Process files in parallel
+        let search_start = std::time::Instant::now();
         files.par_iter().for_each_with(sender, |s, file_path| {
             if let Some(pb) = &progress {
                 pb.inc(1);
@@ -70,6 +80,7 @@ impl SearchEngine {
                 }
             }
         });
+        let search_time = search_start.elapsed();
 
         // Collect results
         drop(progress);
@@ -101,6 +112,15 @@ impl SearchEngine {
         all_results.truncate(max_results);
 
         let elapsed = start_time.elapsed();
+        
+        if self.options.verbose {
+            eprintln!("\nPerformance breakdown:");
+            eprintln!("  File discovery: {}ms", file_discovery_time.as_millis());
+            eprintln!("  Search: {}ms", search_time.as_millis());
+            eprintln!("  Post-processing: {}ms", elapsed.saturating_sub(file_discovery_time).saturating_sub(search_time).as_millis());
+            eprintln!("  Total: {}ms", elapsed.as_millis());
+        }
+        
         Ok((all_results, elapsed, total_count))
     }
 
@@ -149,14 +169,9 @@ impl SearchEngine {
             .unwrap_or("unknown")
             .to_string();
 
-        // Try to use memory-mapped I/O for better performance
-        let lines: Vec<String> = if let Ok(mmap_reader) = super::mmap_reader::MmapReader::new(file_path) {
-            mmap_reader.lines().map(|s| s.to_string()).collect()
-        } else {
-            // Fallback to regular buffered reader
-            let reader = BufReader::new(file);
-            reader.lines().collect::<Result<Vec<_>, _>>()?
-        };
+        // Optimized buffer size for JSONL files (average line ~2KB)
+        let reader = BufReader::with_capacity(32 * 1024, file);
+        let lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
 
         // Second pass: find first timestamp if first message is summary
         let mut first_timestamp: Option<String> = None;
@@ -308,7 +323,6 @@ impl SearchEngine {
                 }
             }
         }
-
         Ok(results)
     }
 

@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use rayon::prelude::*;
 use std::path::Path;
 
@@ -29,11 +29,12 @@ impl OptimizedSearchEngine {
             .to_string();
 
         // Use memory-mapped I/O
-        let lines: Vec<&str> = if let Ok(mmap_reader) = super::mmap_reader::MmapReader::new(file_path) {
-            mmap_reader.lines().collect()
-        } else {
-            return Ok(Vec::new());
+        let mmap_reader = match super::mmap_reader::MmapReader::new(file_path) {
+            Ok(reader) => reader,
+            Err(_) => return Ok(Vec::new()),
         };
+        
+        let lines: Vec<&str> = mmap_reader.lines().collect();
 
         // Phase 1: Quick filtering with fast scanner
         let candidates: Vec<(usize, &str)> = if let Some(hint) = query_hint {
@@ -54,7 +55,7 @@ impl OptimizedSearchEngine {
 
         // Phase 2: Full parsing and evaluation for candidates only
         let mut results = Vec::new();
-        for (line_num, line) in candidates {
+        for (_line_num, line) in candidates {
             if line.trim().is_empty() {
                 continue;
             }

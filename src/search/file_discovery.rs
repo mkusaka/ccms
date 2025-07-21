@@ -3,6 +3,7 @@ use dirs::home_dir;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+use rayon::prelude::*;
 
 pub struct FileDiscovery {
     glob_set: GlobSet,
@@ -28,6 +29,11 @@ impl FileDiscovery {
     }
 
     pub fn discover_files(&self, base_path: &Path) -> Result<Vec<PathBuf>> {
+        // For Claude projects pattern, use optimized discovery
+        if base_path.ends_with(".claude/projects") {
+            return self.discover_claude_project_files(base_path);
+        }
+        
         let mut files = Vec::new();
 
         // Walk directory tree
@@ -48,6 +54,52 @@ impl FileDiscovery {
 
         // Sort by modification time (newest first)
         files.sort_by_cached_key(|path| {
+            std::fs::metadata(path)
+                .and_then(|m| m.modified())
+                .map(std::cmp::Reverse)
+                .ok()
+        });
+
+        Ok(files)
+    }
+    
+    /// Optimized discovery for Claude project files
+    fn discover_claude_project_files(&self, base_path: &Path) -> Result<Vec<PathBuf>> {
+        // Read project directories directly
+        let entries: Vec<_> = std::fs::read_dir(base_path)
+            .context("Failed to read projects directory")?
+            .filter_map(|e| e.ok())
+            .collect();
+            
+        // Process directories in parallel
+        let mut files: Vec<PathBuf> = entries
+            .par_iter()
+            .flat_map(|entry| {
+                let path = entry.path();
+                if path.is_dir() {
+                    // Look for .jsonl files directly in each project directory
+                    std::fs::read_dir(&path)
+                        .ok()
+                        .map(|dir| {
+                            dir.filter_map(|e| e.ok())
+                                .filter(|e| {
+                                    e.path().extension()
+                                        .and_then(|ext| ext.to_str())
+                                        .map(|ext| ext == "jsonl")
+                                        .unwrap_or(false)
+                                })
+                                .map(|e| e.path())
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default()
+                } else {
+                    vec![]
+                }
+            })
+            .collect();
+            
+        // Sort by modification time (newest first) 
+        files.par_sort_by_cached_key(|path| {
             std::fs::metadata(path)
                 .and_then(|m| m.modified())
                 .map(std::cmp::Reverse)
@@ -92,6 +144,45 @@ pub fn discover_claude_files(pattern: Option<&str>) -> Result<Vec<PathBuf>> {
 
     let discovery = FileDiscovery::from_pattern(&glob_pattern)?;
     discovery.discover_files(&base_path)
+}
+
+pub fn discover_claude_files_with_filter(pattern: Option<&str>, recent_hours: Option<u64>) -> Result<Vec<PathBuf>> {
+    let default_pattern = default_claude_pattern();
+    let pattern = pattern.unwrap_or(&default_pattern);
+    let expanded_path = expand_tilde(pattern);
+
+    // Extract base path and glob pattern
+    let path_str = expanded_path.to_string_lossy();
+    let (base_path, glob_pattern) = if let Some(pos) = path_str.find("**") {
+        let base = &path_str[..pos];
+        (PathBuf::from(base), path_str.to_string())
+    } else if let Some(pos) = path_str.find('*') {
+        let base = &path_str[..pos];
+        let parent = Path::new(base).parent().unwrap_or(Path::new("/"));
+        (parent.to_path_buf(), path_str.to_string())
+    } else {
+        // No glob pattern, treat as single file
+        return Ok(vec![expanded_path]);
+    };
+
+    let discovery = FileDiscovery::from_pattern(&glob_pattern)?;
+    let mut files = discovery.discover_files(&base_path)?;
+    
+    // Apply recent filter if specified
+    if let Some(hours) = recent_hours {
+        let cutoff_time = std::time::SystemTime::now()
+            .checked_sub(std::time::Duration::from_secs(hours * 3600))
+            .unwrap_or(std::time::UNIX_EPOCH);
+            
+        files.retain(|path| {
+            std::fs::metadata(path)
+                .and_then(|m| m.modified())
+                .map(|mtime| mtime >= cutoff_time)
+                .unwrap_or(false)
+        });
+    }
+    
+    Ok(files)
 }
 
 #[cfg(test)]
