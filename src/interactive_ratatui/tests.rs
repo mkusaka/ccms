@@ -667,7 +667,7 @@
         // Verify each message can be parsed
         for (i, msg_str) in search.session_messages.iter().enumerate() {
             let msg: serde_json::Value = serde_json::from_str(msg_str).unwrap();
-            assert!(msg.get("type").is_some(), "Message {} missing type", i);
+            assert!(msg.get("type").is_some(), "Message {i} missing type");
         }
     }
 
@@ -799,7 +799,7 @@
         for i in 0..25 {
             results.push(create_test_result(
                 "user",
-                &format!("Message {}", i),
+                &format!("Message {i}"),
                 "2024-01-01T00:00:00Z",
             ));
         }
@@ -1037,7 +1037,7 @@
         for i in 0..50 {
             results.push(create_test_result(
                 "user",
-                &format!("Message {}", i),
+                &format!("Message {i}"),
                 "2024-01-01T00:00:00Z",
             ));
         }
