@@ -128,10 +128,12 @@ impl SearchEngine {
         let file =
             File::open(file_path).with_context(|| format!("Failed to open file: {file_path:?}"))?;
 
+        // Get file metadata
+        let metadata = file.metadata()?;
+        let _file_size = metadata.len();
+        
         // Get file creation time for summary messages
-        let file_ctime = file
-            .metadata()
-            .ok()
+        let file_ctime = Some(&metadata)
             .and_then(|m| {
                 // Try to get creation time (birth time) first
                 #[cfg(target_os = "macos")]
@@ -169,7 +171,7 @@ impl SearchEngine {
             .unwrap_or("unknown")
             .to_string();
 
-        // Optimized buffer size for JSONL files (average line ~2KB)
+        // Use optimized buffer size for JSONL files
         let reader = BufReader::with_capacity(32 * 1024, file);
         let lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
 
@@ -325,6 +327,7 @@ impl SearchEngine {
         }
         Ok(results)
     }
+
 
     fn apply_filters(&self, results: &mut Vec<SearchResult>) -> Result<()> {
         // Apply timestamp filters

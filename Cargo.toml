@@ -47,6 +47,10 @@ nom = "7.1"
 
 # Progress indication
 indicatif = "0.17"
+itertools = "0.13"
+
+# SIMD-accelerated string search
+memchr = "2.7"
 
 # Colored output
 colored = "2.1"
