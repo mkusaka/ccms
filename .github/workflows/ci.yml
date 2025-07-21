@@ -84,6 +84,9 @@ jobs:
       
       - name: Run tests with cargo-nextest
         run: cargo nextest run --all-features
+        # Note: Some clipboard-related tests are marked with #[ignore] as they require
+        # clipboard utilities (pbcopy/xclip) not available in CI. Run locally with:
+        # cargo test -- --ignored
       
       - name: Run doc tests
         run: cargo test --doc --all-features
