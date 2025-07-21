@@ -1150,6 +1150,40 @@ mod tests {
     }
 
     #[test]
+    fn test_non_blocking_input() {
+        let temp_dir = tempdir().unwrap();
+        let test_file = temp_dir.path().join("test.jsonl");
+        
+        // Create test data
+        let mut file = File::create(&test_file).unwrap();
+        for i in 0..10 {
+            writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i).unwrap();
+        }
+        
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        
+        // Simulate typing
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let m_key = KeyEvent::new(KeyCode::Char('M'), KeyModifiers::empty());
+        search.handle_search_input(m_key, test_file.to_str().unwrap()).unwrap();
+        
+        // Should have pending query
+        assert_eq!(search.pending_query, Some("M".to_string()));
+        assert!(search.last_input_time.is_some());
+        assert!(search.results.is_empty()); // Not searched yet
+        
+        // Simulate more typing
+        let e_key = KeyEvent::new(KeyCode::Char('e'), KeyModifiers::empty());
+        search.handle_search_input(e_key, test_file.to_str().unwrap()).unwrap();
+        
+        assert_eq!(search.pending_query, Some("Me".to_string()));
+        assert!(search.results.is_empty()); // Still not searched
+        
+        // After debounce delay, search should be executed in run_app loop
+        // (Can't test the actual loop here, but the mechanism is in place)
+    }
+
+    #[test]
     fn test_escape_key_behaviors() {
         let mut search = InteractiveSearch::new(SearchOptions::default());
         

@@ -3,7 +3,7 @@ mod tests;
 
 use anyhow::{Result, Context};
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers, poll},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -18,7 +18,7 @@ use ratatui::{
 use std::io::{self, Stdout};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::time::{SystemTime, Duration, Instant};
 
 use crate::{SearchOptions, SearchResult, parse_query, SessionMessage};
 
@@ -127,6 +127,11 @@ pub struct InteractiveSearch {
     
     // For search results scrolling
     scroll_offset: usize,  // Scroll offset for search results list
+    
+    // For search performance
+    last_input_time: Option<Instant>,
+    is_searching: bool,
+    pending_query: Option<String>,
 }
 
 impl InteractiveSearch {
@@ -148,6 +153,9 @@ impl InteractiveSearch {
             selected_result: None,
             detail_scroll_offset: 0,
             scroll_offset: 0,
+            last_input_time: None,
+            is_searching: false,
+            pending_query: None,
         }
     }
 
@@ -180,21 +188,37 @@ impl InteractiveSearch {
         loop {
             terminal.draw(|f| self.draw(f))?;
 
-            if let Event::Key(key) = event::read()? {
-                match self.mode {
-                    Mode::Search => {
-                        if !self.handle_search_input(key, pattern)? {
-                            break;
+            // Check if there's a pending search after debounce delay
+            if let Some(pending) = self.pending_query.clone() {
+                if let Some(last_input) = self.last_input_time {
+                    if last_input.elapsed() > Duration::from_millis(300) && !self.is_searching {
+                        self.is_searching = true;
+                        self.pending_query = None;
+                        self.query = pending;
+                        self.execute_search(pattern);
+                        self.is_searching = false;
+                    }
+                }
+            }
+
+            // Non-blocking event polling with 50ms timeout
+            if poll(Duration::from_millis(50))? {
+                if let Event::Key(key) = event::read()? {
+                    match self.mode {
+                        Mode::Search => {
+                            if !self.handle_search_input(key, pattern)? {
+                                break;
+                            }
                         }
-                    }
-                    Mode::ResultDetail => {
-                        self.handle_result_detail_input(key)?;
-                    }
-                    Mode::SessionViewer => {
-                        self.handle_session_viewer_input(key)?;
-                    }
-                    Mode::Help => {
-                        self.mode = Mode::Search;
+                        Mode::ResultDetail => {
+                            self.handle_result_detail_input(key)?;
+                        }
+                        Mode::SessionViewer => {
+                            self.handle_session_viewer_input(key)?;
+                        }
+                        Mode::Help => {
+                            self.mode = Mode::Search;
+                        }
                     }
                 }
             }
@@ -229,16 +253,25 @@ impl InteractiveSearch {
             .block(Block::default().borders(Borders::BOTTOM));
         f.render_widget(header, chunks[0]);
 
-        // Search input
+        // Search input - show pending query if available
+        let display_query = self.pending_query.as_ref().unwrap_or(&self.query);
         let search_label = if let Some(ref role) = self.role_filter {
-            format!("Search [{}]: {}", role, self.query)
+            format!("Search [{}]: {}", role, display_query)
         } else {
-            format!("Search: {}", self.query)
+            format!("Search: {}", display_query)
+        };
+        
+        let title = if self.is_searching {
+            "Query (searching...)"
+        } else if self.pending_query.is_some() {
+            "Query (typing...)"
+        } else {
+            "Query"
         };
         
         let input = Paragraph::new(search_label.as_str())
             .style(Style::default())
-            .block(Block::default().borders(Borders::ALL).title("Query"));
+            .block(Block::default().borders(Borders::ALL).title(title));
         f.render_widget(input, chunks[1]);
 
         // Results - always show if we have any
@@ -751,16 +784,26 @@ impl InteractiveSearch {
                 self.message = None;  // Clear any message when changing role filter
             }
             KeyCode::Char(c) => {
-                self.query.push(c);
+                if self.pending_query.is_none() {
+                    self.pending_query = Some(self.query.clone());
+                }
+                if let Some(ref mut pending) = self.pending_query {
+                    pending.push(c);
+                }
+                self.last_input_time = Some(Instant::now());
                 self.selected_index = 0;
                 self.scroll_offset = 0;
-                self.execute_search(pattern);
             }
             KeyCode::Backspace => {
-                self.query.pop();
+                if self.pending_query.is_none() {
+                    self.pending_query = Some(self.query.clone());
+                }
+                if let Some(ref mut pending) = self.pending_query {
+                    pending.pop();
+                }
+                self.last_input_time = Some(Instant::now());
                 self.selected_index = 0;
                 self.scroll_offset = 0;
-                self.execute_search(pattern);
             }
             KeyCode::Up => {
                 if self.selected_index > 0 {

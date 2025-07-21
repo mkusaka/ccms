@@ -2,7 +2,7 @@
 
 ## Overview
 
-The interactive mode provides a terminal-based user interface for searching Claude session messages in real-time. It uses the `console` crate for terminal control and implements features like incremental search, result navigation, role filtering, and clipboard operations.
+The interactive mode provides a terminal-based user interface for searching Claude session messages in real-time. It uses the `ratatui` crate with crossterm backend for terminal control and implements features like incremental search, result navigation, role filtering, and clipboard operations.
 
 ## User Interface Layout
 
