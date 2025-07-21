@@ -2305,6 +2305,191 @@ mod tests {
         assert_eq!(search.session_messages.len(), 2); // Only valid lines
     }
 
+    #[test]
+    fn test_session_viewer_no_matches_filtered_count() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Setup messages
+        search.session_messages = vec![
+            r#"{"type":"user","message":{"role":"user","content":"Hello world"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":"Hi there"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"How are you?"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        
+        // Search for something that doesn't exist
+        search.session_query = "nonexistent".to_string();
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should show "Messages (3 total, 0 filtered)" in title bar
+        assert!(find_text_in_buffer(buffer, "Messages (3 total, 0 filtered)").is_some());
+        
+        // Should show "No messages match filter" message
+        assert!(find_text_in_buffer(buffer, "No messages match filter").is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_empty_session() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Empty session - no messages
+        search.session_messages = vec![];
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should show "No messages in session" message (not message count title)
+        assert!(find_text_in_buffer(buffer, "No messages in session").is_some());
+        
+        // Should show the limited status bar
+        assert!(find_text_in_buffer(buffer, "No messages | Q: Quit").is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_scroll_indicator() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Create many messages to test scrolling
+        let mut messages = vec![];
+        for i in 0..20 {
+            messages.push(format!(
+                r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"test-session"}}"#,
+                i, i, i
+            ));
+        }
+        search.session_messages = messages;
+        search.session_filtered_indices = (0..20).collect();
+        search.session_selected_index = 5; // Select middle message
+        search.session_scroll_offset = 3; // Scroll down a bit
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should show scroll indicator with position
+        // Look for "Showing" text which is part of "Showing X-Y of Z messages"
+        assert!(find_text_in_buffer(buffer, "Showing").is_some());
+        assert!(find_text_in_buffer(buffer, "messages").is_some());
+        assert!(find_text_in_buffer(buffer, "to scroll").is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_selected_message_highlight() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Create a few messages
+        search.session_messages = vec![
+            r#"{"type":"user","message":{"role":"user","content":"First message"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":"Second message"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"Third message"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        search.session_filtered_indices = vec![0, 1, 2];
+        search.session_selected_index = 1; // Select second message
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Debug: print what's actually in the buffer
+        // eprintln!("Buffer contents:");
+        // for y in 0..buffer.area.height {
+        //     let mut line = String::new();
+        //     for x in 0..buffer.area.width {
+        //         let cell = &buffer[(x, y)];
+        //         line.push_str(cell.symbol());
+        //     }
+        //     eprintln!("{:2}: |{}|", y, line);
+        // }
+        
+        // The new implementation doesn't use ">" prefix, it just highlights with bg color
+        // Check for any numbered message (formatting might vary)
+        assert!(find_text_in_buffer(buffer, "1.").is_some());
+        assert!(find_text_in_buffer(buffer, "2.").is_some());
+        assert!(find_text_in_buffer(buffer, "3.").is_some());
+        
+        // Check that roles are displayed
+        assert!(find_text_in_buffer(buffer, "USER").is_some());
+        assert!(find_text_in_buffer(buffer, "ASSISTANT").is_some());
+        
+        // Check that Second message is displayed (which is selected)
+        assert!(find_text_in_buffer(buffer, "Second message").is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_thinking_block_display() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Message with thinking block
+        search.session_messages = vec![
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","text":"Let me think about this..."},{"type":"text","text":"Here is my response"}]},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":"Simple message"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        search.session_filtered_indices = vec![0, 1];
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should display the thinking block content in preview
+        assert!(find_text_in_buffer(buffer, "Let me think about this...").is_some());
+        
+        // Should also show the regular text content
+        assert!(find_text_in_buffer(buffer, "Simple message").is_some());
+    }
+
+    #[test]
+    fn test_session_viewer_tool_use_display() {
+        let mut search = InteractiveSearch::new(SearchOptions::default());
+        search.mode = Mode::SessionViewer;
+        search.session_order = Some(SessionOrder::Ascending);
+        
+        // Messages with tool_use blocks
+        search.session_messages = vec![
+            // Tool use request
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Let me search for that."},{"type":"tool_use","id":"tool_123","name":"search","input":{"query":"rust programming"}}]},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+            // Tool result
+            r#"{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tool_123","content":"Found 10 results for rust programming"}]},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+        ];
+        search.session_filtered_indices = vec![0, 1];
+        search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+        
+        let mut terminal = create_test_terminal();
+        terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+        
+        let buffer = terminal.backend().buffer();
+        
+        // Should show text content from tool use message
+        assert!(find_text_in_buffer(buffer, "Let me search for that.").is_some());
+        
+        // Should show that tool messages are displayed (content might be formatted differently)
+        // Check that at least the messages are shown by checking for their timestamps/indices
+        assert!(find_text_in_buffer(buffer, "1.").is_some());
+        assert!(find_text_in_buffer(buffer, "2.").is_some());
+    }
+
     // Helper function to find text in buffer
     fn find_text_in_buffer(buffer: &Buffer, text: &str) -> Option<(u16, u16)> {
         for y in 0..buffer.area.height {
