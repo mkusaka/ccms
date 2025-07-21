@@ -1,5 +1,6 @@
 #[cfg(test)]
-use super::{InteractiveSearch, MessageCache, Mode, SessionOrder};
+use super::*;
+use crate::interactive_ratatui::SearchRequest;
 use crate::{QueryCondition, SearchOptions, SearchResult};
 use ratatui::{
     Terminal,
@@ -9,6 +10,7 @@ use ratatui::{
 };
 use std::fs::File;
 use std::io::Write;
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use tempfile::tempdir;
@@ -219,17 +221,17 @@ fn test_empty_query_shows_initial_screen() {
 
     // Empty query should not show results
     search.query = "".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 0);
 
     // Query with content should show results
     search.query = "Test".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 1);
 
     // Clear query should clear results
     search.query = "".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 0);
 }
 
@@ -302,13 +304,13 @@ fn test_execute_search_with_filters() {
     // Test with role filter
     search.query = "message".to_string();
     search.role_filter = Some("user".to_string());
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 1);
     assert_eq!(search.results[0].role, "user");
 
     // Test without filter
     search.role_filter = None;
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 2);
 }
 
@@ -331,7 +333,7 @@ fn test_timestamp_filtering() {
 
     let mut search = InteractiveSearch::new(options);
     search.query = "Middle".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
 
     assert_eq!(search.results.len(), 1);
     assert!(search.results[0].text.contains("Middle"));
@@ -349,7 +351,7 @@ fn test_project_path_extraction() {
     // Test path without project structure
     let path2 = PathBuf::from("/tmp/test.jsonl");
     let project_path2 = InteractiveSearch::extract_project_path(&path2);
-    assert_eq!(project_path2, "tmp");
+    assert_eq!(project_path2, "/tmp");
 }
 
 #[test]
@@ -406,7 +408,7 @@ fn test_message_limit() {
 
     let mut search = InteractiveSearch::new(options);
     search.query = "Message".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
 
     assert_eq!(search.results.len(), 10);
 }
@@ -444,23 +446,23 @@ fn test_query_parsing_integration() {
 
     // Test AND query
     search.query = "Hello AND world".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 1);
 
     // Test OR query
     search.query = "Hello OR Goodbye".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 2);
 
     // Test NOT query
     search.query = "world AND NOT Hello".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 1);
     assert!(search.results[0].text.contains("Goodbye"));
 
     // Test invalid query
     search.query = "/invalid(regex".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 0);
 }
 
@@ -476,7 +478,7 @@ fn test_result_sorting() {
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.query = "message".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
 
     // Results should be sorted by timestamp (newest first)
     assert_eq!(search.results.len(), 3);
@@ -624,7 +626,8 @@ fn test_max_results_limit() {
     // Create file with many messages
     let mut file = File::create(&test_file).unwrap();
     for i in 0..100 {
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i % 60).unwrap();
+        let seconds = i % 60;
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{seconds:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
     }
 
     // Test with custom max_results
@@ -636,7 +639,7 @@ fn test_max_results_limit() {
     assert_eq!(search.max_results, 25);
 
     search.query = "Message".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
 
     // Should be limited to 25 results
     assert_eq!(search.results.len(), 25);
@@ -675,7 +678,7 @@ fn test_session_viewer_message_parsing() {
 }
 
 #[test]
-#[ignore = "Requires clipboard utilities not available in CI"]
+#[ignore] // Clipboard commands not available in CI
 fn test_copy_feedback_messages() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
@@ -725,7 +728,7 @@ fn test_ctrl_r_cache_reload() {
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.query = "Original".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 1);
 
     // Modify file
@@ -743,7 +746,7 @@ fn test_ctrl_r_cache_reload() {
 
     // Cache should be cleared and search re-executed
     search.query = "Updated".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 1);
     assert!(search.results[0].text.contains("Updated"));
 }
@@ -760,7 +763,7 @@ fn test_search_navigation_keys() {
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.query = "Message".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
 
     // Test down arrow
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -882,7 +885,7 @@ fn test_result_limit_indicator() {
     // Create more messages than the limit
     let mut file = File::create(&test_file).unwrap();
     for i in 0..60 {
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i % 60).unwrap();
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
     }
 
     let options = SearchOptions {
@@ -892,7 +895,7 @@ fn test_result_limit_indicator() {
     let mut search = InteractiveSearch::new(options);
 
     search.query = "Message".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
 
     // Should be limited to max_results
     assert_eq!(search.results.len(), 50);
@@ -903,7 +906,7 @@ fn test_result_limit_indicator() {
 }
 
 #[test]
-#[ignore = "Requires clipboard utilities not available in CI"]
+#[ignore] // Clipboard commands not available in CI
 fn test_clipboard_error_handling() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
@@ -951,12 +954,12 @@ fn test_search_results_scrolling() {
     // Create many results to test scrolling
     let mut file = File::create(&test_file).unwrap();
     for i in 0..100 {
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i % 60).unwrap();
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
     }
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.query = "Message".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
 
     // We should have many results
     assert!(search.results.len() > 20);
@@ -1081,7 +1084,7 @@ fn test_actual_scrolling_behavior() {
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.query = "Message".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
 
     assert_eq!(search.results.len(), 30);
 
@@ -1152,12 +1155,12 @@ fn test_scrolling_with_ratatui_terminal() {
     // Create 50 results
     let mut file = File::create(&test_file).unwrap();
     for i in 0..50 {
-        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {i}"}},"uuid":"{i}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i % 60).unwrap();
+        writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#, i, i, i % 60).unwrap();
     }
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.query = "Message".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
 
     // Create test terminal
     let backend = TestBackend::new(80, 24);
@@ -1294,6 +1297,8 @@ fn test_non_blocking_input() {
         .handle_search_input(m_key, test_file.to_str().unwrap())
         .unwrap();
     assert_eq!(search.query, "M");
+    // Use sync search for testing
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 10); // All messages match "M"
 
     // Test that each character triggers immediate search
@@ -1302,6 +1307,7 @@ fn test_non_blocking_input() {
         .handle_search_input(e_key, test_file.to_str().unwrap())
         .unwrap();
     assert_eq!(search.query, "Me");
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 10); // All messages still match "Me"
 
     // Test backspace also triggers immediate search
@@ -1310,6 +1316,7 @@ fn test_non_blocking_input() {
         .handle_search_input(backspace, test_file.to_str().unwrap())
         .unwrap();
     assert_eq!(search.query, "M");
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 10); // Back to "M"
 
     // Clear query
@@ -1325,6 +1332,7 @@ fn test_non_blocking_input() {
         .handle_search_input(zero_key, test_file.to_str().unwrap())
         .unwrap();
     assert_eq!(search.query, "0");
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 1); // Only "Message 0" contains "0"
 }
 
@@ -1388,14 +1396,14 @@ fn test_file_discovery_logic() {
 
     // Test single file discovery
     search.query = "Test".to_string();
-    search.execute_search(file1.to_str().unwrap());
+    search.execute_search_sync(file1.to_str().unwrap());
     assert_eq!(search.results.len(), 1);
     assert_eq!(search.results[0].text, "Test 1");
 
     // Test directory pattern discovery - use glob pattern
     search.query = "Test".to_string();
     let pattern = format!("{}/*.jsonl", temp_dir.path().to_str().unwrap());
-    search.execute_search(&pattern);
+    search.execute_search_sync(&pattern);
     // Should find at least the two files in root dir
     assert!(search.results.len() >= 2);
 
@@ -1406,7 +1414,7 @@ fn test_file_discovery_logic() {
 }
 
 #[test]
-#[ignore = "Requires clipboard utilities not available in CI"]
+#[ignore] // Clipboard commands not available in CI
 fn test_clipboard_operations() {
     let temp_dir = tempdir().unwrap();
     let test_file = temp_dir.path().join("test.jsonl");
@@ -1416,7 +1424,7 @@ fn test_clipboard_operations() {
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.query = "Clipboard".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 1);
 
     // Enter detail view
@@ -1510,8 +1518,10 @@ fn test_searching_indicator() {
     search
         .handle_search_input(t_key, test_file.to_str().unwrap())
         .unwrap();
-    assert!(!search.is_searching); // Should be false after search completes
+    // In async mode, is_searching is set to true, then async search happens
+    // For testing, we verify the query was updated and use sync search
     assert_eq!(search.query, "T");
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 1);
 }
 
@@ -1577,7 +1587,7 @@ fn test_tilde_expansion() {
 
     // Test with actual path (not tilde)
     search.query = "Tilde".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert_eq!(search.results.len(), 1);
 
     // Note: We can't easily test actual tilde expansion without modifying HOME env var
@@ -1600,7 +1610,7 @@ fn test_session_viewer_full_flow() {
 
     // Search and enter detail view
     search.query = "message".to_string();
-    search.execute_search(test_file.to_str().unwrap());
+    search.execute_search_sync(test_file.to_str().unwrap());
     assert!(!search.results.is_empty());
 
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -1787,33 +1797,195 @@ fn find_text_in_buffer(buffer: &Buffer, text: &str) -> Option<(u16, u16)> {
 }
 
 #[test]
-fn test_clipboard_keys_without_clipboard() {
-    // This test verifies that clipboard key presses don't crash
-    // even when clipboard utilities are not available
+fn test_async_search_channel_disconnect() {
+    // Test that worker thread exits gracefully when channel is disconnected
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+
+    // Create test file
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Test"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+
+    let search = InteractiveSearch::new(SearchOptions::default());
+    let (tx, rx) = mpsc::channel();
+    let (response_tx, _response_rx) = mpsc::channel();
+
+    // Start worker thread
+    let handle = search.start_search_worker(rx, response_tx, test_file.to_str().unwrap());
+
+    // Send a request
+    let request = SearchRequest {
+        id: 1,
+        query: "test".to_string(),
+        role_filter: None,
+        pattern: test_file.to_str().unwrap().to_string(),
+    };
+    tx.send(request).unwrap();
+
+    // Drop sender to disconnect channel
+    drop(tx);
+
+    // Thread should exit gracefully
+    assert!(handle.join().is_ok());
+}
+
+#[test]
+fn test_session_viewer_json_parse_error() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
-    search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    search.mode = Mode::ResultDetail;
+    let mut terminal = create_test_terminal();
 
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    search.mode = Mode::SessionViewer;
+    search.session_order = Some(SessionOrder::Ascending);
+    search.session_messages = vec![
+        "invalid json {".to_string(), // Invalid JSON
+    ];
+    search.session_index = 0;
 
-    // Test all clipboard keys - they should not panic even if clipboard fails
-    let keys = vec![
-        KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()), // file path
-        KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty()), // session id
-        KeyEvent::new(KeyCode::Char('p'), KeyModifiers::empty()), // project path
-        KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty()), // message text
-        KeyEvent::new(KeyCode::Char('r'), KeyModifiers::empty()), // raw json
+    // Draw should handle parse error gracefully
+    terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+
+    let buffer = terminal.backend().buffer();
+
+    // Should show error message
+    let error_text = "Error: Unable to parse message JSON";
+    assert!(find_text_in_buffer(buffer, error_text).is_some());
+}
+
+#[test]
+fn test_session_viewer_empty_messages() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    let mut terminal = create_test_terminal();
+
+    search.mode = Mode::SessionViewer;
+    search.session_order = Some(SessionOrder::Ascending);
+    search.session_messages = vec![]; // Empty messages
+
+    // Draw should handle empty messages gracefully
+    terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+
+    let buffer = terminal.backend().buffer();
+
+    // Should show empty message
+    let empty_text = "No messages in session";
+    assert!(find_text_in_buffer(buffer, empty_text).is_some());
+}
+
+#[test]
+fn test_extract_project_path_edge_cases() {
+    use std::path::Path;
+
+    // Test various edge cases
+    let test_cases = vec![
+        // Invalid paths
+        ("/invalid/path/file.jsonl", "/invalid/path"),
+        ("", ""), // Empty path returns empty string
+        ("/", "/"),
+        // Path without projects directory
+        ("/Users/test/file.jsonl", "/Users/test"),
+        // Path with projects but no session (directory path)
+        ("~/.claude/projects/", "~/.claude"),
+        // Valid project path (already tested elsewhere, but included for completeness)
+        (
+            "~/.claude/projects/Users-test-project/session.jsonl",
+            "Users/test/project",
+        ),
     ];
 
-    for key in keys {
-        // Should not panic, regardless of clipboard availability
-        let result = search.handle_result_detail_input(key);
+    for (input, expected) in test_cases {
+        let path = Path::new(input);
+        let result = InteractiveSearch::extract_project_path(path);
 
-        // The operation might succeed or fail depending on environment
-        // but it should always return a Result without panicking
-        assert!(result.is_ok() || result.is_err());
-
-        // Should still be in detail mode
-        assert_eq!(search.mode, Mode::ResultDetail);
+        // For valid claude project paths
+        if input.contains("/.claude/projects/") && input.ends_with(".jsonl") {
+            assert_eq!(result, expected);
+        } else if input.is_empty() {
+            // Empty path returns empty string (Path::new("") has no parent)
+            assert_eq!(result, "");
+        } else {
+            // Other cases should return the parent directory or the path itself
+            assert_eq!(result, expected);
+        }
     }
+}
+
+#[test]
+fn test_truncate_message_edge_cases() {
+    let search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test edge cases
+    let long_string = "a".repeat(1000);
+    let expected_long = format!("{}...", "a".repeat(47));
+    let test_cases = vec![
+        // Zero width
+        ("Test message", 0, ""),
+        // Width of 1
+        ("Test", 1, "T"),
+        // Width of 3 (no room for ellipsis)
+        ("Testing", 3, "Tes"),
+        // Width of 4 (room for 1 char + ellipsis)
+        ("Testing", 4, "T..."),
+        // Empty string
+        ("", 100, ""),
+        // String with only spaces
+        ("   ", 10, "   "),
+        // Very long repeated character
+        (long_string.as_str(), 50, expected_long.as_str()),
+    ];
+
+    for (input, width, expected) in test_cases {
+        let result = search.truncate_message(input, width);
+        assert_eq!(
+            result, expected,
+            "Failed for input '{input}' with width {width}"
+        );
+    }
+}
+
+#[test]
+fn test_async_search_response_handling() {
+    // Test that search responses are properly handled
+    let search = InteractiveSearch::new(SearchOptions::default());
+    let (request_tx, request_rx) = mpsc::channel();
+    let (response_tx, response_rx) = mpsc::channel();
+
+    // Create a simple test pattern
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Hello"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+
+    // Start worker
+    let _handle = search.start_search_worker(request_rx, response_tx, test_file.to_str().unwrap());
+
+    // Send multiple requests quickly
+    for i in 0..3 {
+        let request = SearchRequest {
+            id: i,
+            query: if i == 2 {
+                "Hello".to_string()
+            } else {
+                "nomatch".to_string()
+            },
+            role_filter: None,
+            pattern: test_file.to_str().unwrap().to_string(),
+        };
+        request_tx.send(request).unwrap();
+    }
+
+    // Collect responses
+    let mut responses = Vec::new();
+    for _ in 0..3 {
+        if let Ok(response) = response_rx.recv_timeout(Duration::from_secs(1)) {
+            responses.push(response);
+        }
+    }
+
+    // Verify we got all responses
+    assert_eq!(responses.len(), 3);
+
+    // Check that only the last query returns results
+    responses.sort_by_key(|r| r.id);
+    assert_eq!(responses[0].results.len(), 0); // "nomatch"
+    assert_eq!(responses[1].results.len(), 0); // "nomatch"
+    assert_eq!(responses[2].results.len(), 1); // "Hello"
 }

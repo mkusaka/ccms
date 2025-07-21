@@ -4,8 +4,8 @@ use ccms::{
     interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
 use chrono::{DateTime, Local, Utc};
-use clap::{CommandFactory, Parser, ValueEnum};
-use clap_complete::{Shell, generate};
+use clap::{Command, CommandFactory, Parser, ValueEnum};
+use clap_complete::{Generator, Shell, generate};
 use parse_datetime::parse_datetime_at_date;
 use std::io::{self, Write};
 
@@ -18,7 +18,7 @@ use std::io::{self, Write};
 )]
 struct Cli {
     /// Search query (supports literal, regex, AND/OR/NOT operators)
-    #[arg(required_unless_present_any = ["interactive", "completion"])]
+    #[arg(required_unless_present_any = ["interactive", "generator"])]
     query: Option<String>,
 
     /// File pattern to search (default: ~/.claude/projects/**/*.jsonl)
@@ -91,8 +91,8 @@ struct Cli {
     profile: Option<String>,
 
     /// Generate shell completion script
-    #[arg(long, value_enum)]
-    completion: Option<Shell>,
+    #[arg(long = "completion", value_enum)]
+    generator: Option<Shell>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -102,18 +102,28 @@ enum OutputFormat {
     JsonL,
 }
 
+fn print_completions<G: Generator>(generator: G, cmd: &mut Command) {
+    generate(
+        generator,
+        cmd,
+        cmd.get_name().to_string(),
+        &mut io::stdout(),
+    );
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Initialize tracing
-    profiling::init_tracing();
-
-    // Handle shell completion generation
-    if let Some(shell) = cli.completion {
+    // Handle completion generation
+    if let Some(generator) = cli.generator {
         let mut cmd = Cli::command();
-        generate(shell, &mut cmd, "ccms", &mut io::stdout());
+        eprintln!("Generating completion file for {generator:?}...");
+        print_completions(generator, &mut cmd);
         return Ok(());
     }
+
+    // Initialize tracing
+    profiling::init_tracing();
 
     if cli.help_query {
         print_query_help();
