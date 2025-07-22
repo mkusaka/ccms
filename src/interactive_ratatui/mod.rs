@@ -1,4 +1,6 @@
 #[cfg(test)]
+mod integration_tests;
+#[cfg(test)]
 mod tests;
 
 use anyhow::{Context, Result};
@@ -95,7 +97,7 @@ impl MessageCache {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum Mode {
+pub(crate) enum Mode {
     Search,
     ResultDetail,
     SessionViewer,
@@ -105,6 +107,7 @@ enum Mode {
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum SessionOrder {
     Ascending,
+    Descending,
 }
 
 // Search request and response for async communication
@@ -126,8 +129,8 @@ pub struct InteractiveSearch {
     max_results: usize,
     cache: MessageCache,
 
-    // UI state
-    mode: Mode,
+    // UI state - navigation stack
+    screen_stack: Vec<Mode>,
     query: String,
     selected_index: usize,
     results: Vec<SearchResult>,
@@ -167,7 +170,7 @@ impl InteractiveSearch {
             base_options: options,
             max_results,
             cache: MessageCache::new(),
-            mode: Mode::Search,
+            screen_stack: vec![Mode::Search],
             query: String::new(),
             selected_index: 0,
             results: Vec::new(),
@@ -191,6 +194,25 @@ impl InteractiveSearch {
         }
     }
 
+    pub(crate) fn current_mode(&self) -> Mode {
+        self.screen_stack.last().copied().unwrap_or(Mode::Search)
+    }
+
+    pub(crate) fn push_screen(&mut self, mode: Mode) {
+        self.screen_stack.push(mode);
+    }
+
+    fn pop_screen(&mut self) {
+        if self.screen_stack.len() > 1 {
+            self.screen_stack.pop();
+        }
+    }
+
+    #[cfg(test)]
+    #[allow(dead_code)]
+    pub(crate) fn set_mode(&mut self, mode: Mode) {
+        self.screen_stack = vec![mode];
+    }
     pub fn run(&mut self, pattern: &str) -> Result<()> {
         // Initialize async search channel
         let (sender, receiver) = mpsc::channel::<SearchRequest>();
@@ -273,7 +295,7 @@ impl InteractiveSearch {
             // Non-blocking event polling with 50ms timeout
             if poll(Duration::from_millis(50))? {
                 if let Event::Key(key) = event::read()? {
-                    match self.mode {
+                    match self.current_mode() {
                         Mode::Search => {
                             if !self.handle_search_input(key, pattern)? {
                                 break;
@@ -286,7 +308,7 @@ impl InteractiveSearch {
                             self.handle_session_viewer_input(key)?;
                         }
                         Mode::Help => {
-                            self.mode = Mode::Search;
+                            self.pop_screen();
                         }
                     }
                 }
@@ -296,7 +318,7 @@ impl InteractiveSearch {
     }
 
     fn draw(&mut self, f: &mut Frame) {
-        match self.mode {
+        match self.current_mode() {
             Mode::Search => self.draw_search(f),
             Mode::ResultDetail => self.draw_result_detail(f),
             Mode::SessionViewer => self.draw_session_viewer(f),
@@ -685,7 +707,7 @@ impl InteractiveSearch {
         f.render_widget(status_bar, chunks[3]);
 
         // Position cursor in search box if typing
-        if !self.session_query.is_empty() || self.mode == Mode::SessionViewer {
+        if !self.session_query.is_empty() || self.current_mode() == Mode::SessionViewer {
             let cursor_x =
                 chunks[1].x + 1 + "Filter: ".len() as u16 + self.session_query.len() as u16;
             let cursor_y = chunks[1].y + 1;
@@ -878,9 +900,16 @@ impl InteractiveSearch {
     fn draw_help(&mut self, f: &mut Frame) {
         let help_text = vec![
             Line::from(vec![Span::styled(
-                "CCMS Help",
+                "Interactive Claude Search - Help",
                 Style::default()
                     .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(""),
+            Line::from(vec![Span::styled(
+                "Keyboard Shortcuts",
+                Style::default()
+                    .fg(Color::Green)
                     .add_modifier(Modifier::BOLD),
             )]),
             Line::from(""),
@@ -1008,7 +1037,9 @@ impl InteractiveSearch {
         }
         // If selected index is below the visible range, scroll down
         else if self.selected_index >= self.scroll_offset + visible_count {
-            self.scroll_offset = self.selected_index.saturating_sub(visible_count - 1);
+            self.scroll_offset = self
+                .selected_index
+                .saturating_sub(visible_count.saturating_sub(1));
         }
     }
 
@@ -1026,7 +1057,7 @@ impl InteractiveSearch {
                 self.message = Some("Cache cleared and reloaded".to_string());
             }
             KeyCode::Char('?') => {
-                self.mode = Mode::Help;
+                self.push_screen(Mode::Help);
             }
             KeyCode::Tab => {
                 self.role_filter = match self.role_filter {
@@ -1101,7 +1132,7 @@ impl InteractiveSearch {
             KeyCode::Enter => {
                 if !self.results.is_empty() && self.selected_index < self.results.len() {
                     self.selected_result = Some(self.results[self.selected_index].clone());
-                    self.mode = Mode::ResultDetail;
+                    self.push_screen(Mode::ResultDetail);
                     self.detail_scroll_offset = 0; // Reset scroll when entering detail
                     self.message = None; // Clear any previous message
                 }
@@ -1114,14 +1145,14 @@ impl InteractiveSearch {
     fn handle_result_detail_input(&mut self, key: KeyEvent) -> Result<()> {
         match key.code {
             KeyCode::Esc => {
-                self.mode = Mode::Search;
+                self.pop_screen();
                 self.message = None; // Clear message when returning to search
                 self.detail_scroll_offset = 0;
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 self.detail_scroll_offset = self.detail_scroll_offset.saturating_sub(1);
             }
-            KeyCode::Down | KeyCode::Char('j') => {
+            KeyCode::Down => {
                 if let Some(ref result) = self.selected_result {
                     let total_lines = 9 + result.text.lines().count(); // 9 header lines
                     self.detail_scroll_offset = self
@@ -1140,6 +1171,34 @@ impl InteractiveSearch {
                         .detail_scroll_offset
                         .saturating_add(10)
                         .min(total_lines.saturating_sub(10));
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if let Some(ref result) = self.selected_result {
+                    match self.copy_to_clipboard(&result.text) {
+                        Ok(_) => {
+                            self.message = Some("Copied message to clipboard!".to_string());
+                        }
+                        Err(e) => {
+                            self.message = Some(format!("Failed to copy: {e}"));
+                        }
+                    }
+                }
+            }
+            KeyCode::Char('j') | KeyCode::Char('J') => {
+                if let Some(ref result) = self.selected_result {
+                    if let Some(ref json) = result.raw_json {
+                        match self.copy_to_clipboard(json) {
+                            Ok(_) => {
+                                self.message = Some("Copied JSON to clipboard!".to_string());
+                            }
+                            Err(e) => {
+                                self.message = Some(format!("Failed to copy: {e}"));
+                            }
+                        }
+                    } else {
+                        self.message = Some("No JSON data available for this message".to_string());
+                    }
                 }
             }
             KeyCode::Char('s') | KeyCode::Char('S') => {
@@ -1171,13 +1230,13 @@ impl InteractiveSearch {
                     match self.load_session_messages(&full_path) {
                         Ok(_) => {
                             self.session_index = 0;
-                            self.session_order = Some(SessionOrder::Ascending); // Default to ascending
+                            self.session_order = None; // User will choose order
                             self.session_query.clear();
                             self.session_filtered_indices =
                                 (0..self.session_messages.len()).collect();
                             self.session_scroll_offset = 0;
                             self.session_selected_index = 0;
-                            self.mode = Mode::SessionViewer;
+                            self.push_screen(Mode::SessionViewer);
                         }
                         Err(e) => {
                             self.message = Some(format!("⚠ Failed to load session: {e}"));
@@ -1230,124 +1289,148 @@ impl InteractiveSearch {
     }
 
     fn handle_session_viewer_input(&mut self, key: KeyEvent) -> Result<()> {
-        match key.code {
-            KeyCode::Char('q') | KeyCode::Char('Q') => {
-                self.mode = Mode::ResultDetail;
-                // Clear session viewer state
-                self.session_messages.clear();
-                self.session_query.clear();
-                self.session_filtered_indices.clear();
-                self.session_scroll_offset = 0;
-                self.session_selected_index = 0;
+        // If order hasn't been selected yet, handle order selection
+        if self.session_order.is_none() {
+            match key.code {
+                KeyCode::Char('a') | KeyCode::Char('A') => {
+                    self.session_order = Some(SessionOrder::Ascending);
+                }
+                KeyCode::Char('d') | KeyCode::Char('D') => {
+                    self.session_order = Some(SessionOrder::Descending);
+                    self.session_messages.reverse();
+                }
+                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
+                    self.pop_screen();
+                }
+                _ => {}
             }
-            KeyCode::Esc => {
-                if !self.session_query.is_empty() {
-                    // Clear search if active
-                    self.session_query.clear();
-                    self.session_selected_index = 0;
-                    self.session_scroll_offset = 0;
-                } else {
-                    // Go back to result detail
-                    self.mode = Mode::ResultDetail;
+        } else {
+            // Normal session viewer input handling
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Char('Q') => {
+                    self.pop_screen();
+                    // Clear session viewer state
                     self.session_messages.clear();
                     self.session_query.clear();
                     self.session_filtered_indices.clear();
                     self.session_scroll_offset = 0;
                     self.session_selected_index = 0;
                 }
-            }
-            KeyCode::Char('/') => {
-                // Start search mode - cursor will be positioned automatically
-            }
-            KeyCode::Char(c) => {
-                self.session_query.push(c);
-                self.session_selected_index = 0;
-                self.session_scroll_offset = 0;
-            }
-            KeyCode::Backspace => {
-                self.session_query.pop();
-                self.session_selected_index = 0;
-                self.session_scroll_offset = 0;
-            }
-            KeyCode::Up => {
-                if !self.session_filtered_indices.is_empty() && self.session_selected_index > 0 {
-                    self.session_selected_index -= 1;
-                    self.adjust_session_scroll_offset();
+                KeyCode::Esc => {
+                    if !self.session_query.is_empty() {
+                        // Clear search if active
+                        self.session_query.clear();
+                        self.session_selected_index = 0;
+                        self.session_scroll_offset = 0;
+                    } else {
+                        // Go back to result detail
+                        self.pop_screen();
+                        self.session_messages.clear();
+                        self.session_query.clear();
+                        self.session_filtered_indices.clear();
+                        self.session_scroll_offset = 0;
+                        self.session_selected_index = 0;
+                    }
                 }
-            }
-            KeyCode::Down => {
-                if !self.session_filtered_indices.is_empty() {
-                    let max_index = self.session_filtered_indices.len().saturating_sub(1);
-                    if self.session_selected_index < max_index {
-                        self.session_selected_index += 1;
+                KeyCode::Char('/') => {
+                    // Start search mode - cursor will be positioned automatically
+                }
+                KeyCode::Char(c) => {
+                    self.session_query.push(c);
+                    self.session_selected_index = 0;
+                    self.session_scroll_offset = 0;
+                }
+                KeyCode::Backspace => {
+                    self.session_query.pop();
+                    self.session_selected_index = 0;
+                    self.session_scroll_offset = 0;
+                }
+                KeyCode::Up => {
+                    if !self.session_filtered_indices.is_empty() && self.session_selected_index > 0
+                    {
+                        self.session_selected_index -= 1;
                         self.adjust_session_scroll_offset();
                     }
                 }
-            }
-            KeyCode::PageUp => {
-                if !self.session_filtered_indices.is_empty() {
-                    self.session_selected_index = self.session_selected_index.saturating_sub(10);
-                    self.adjust_session_scroll_offset();
-                }
-            }
-            KeyCode::PageDown => {
-                if !self.session_filtered_indices.is_empty() {
-                    let max_index = self.session_filtered_indices.len().saturating_sub(1);
-                    self.session_selected_index = (self.session_selected_index + 10).min(max_index);
-                    self.adjust_session_scroll_offset();
-                }
-            }
-            KeyCode::Enter => {
-                // View selected message in detail
-                if !self.session_filtered_indices.is_empty() {
-                    let actual_idx = self.session_filtered_indices[self.session_selected_index];
-                    if let Ok(msg) = serde_json::from_str::<serde_json::Value>(
-                        &self.session_messages[actual_idx],
-                    ) {
-                        // Create a pseudo SearchResult for detail view
-                        let role = msg
-                            .get("type")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("unknown");
-                        let timestamp = msg.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
-                        let uuid = msg.get("uuid").and_then(|v| v.as_str()).unwrap_or("");
-
-                        let content = msg
-                            .get("message")
-                            .and_then(|m| m.get("content"))
-                            .or_else(|| msg.get("content"));
-
-                        let text = if let Some(content_val) = content {
-                            if let Some(text) = content_val.as_str() {
-                                text.to_string()
-                            } else if let Some(parts) = content_val.as_array() {
-                                parts
-                                    .iter()
-                                    .filter_map(|part| part.get("text").and_then(|v| v.as_str()))
-                                    .collect::<Vec<_>>()
-                                    .join("\n")
-                            } else {
-                                "(no content)".to_string()
-                            }
-                        } else {
-                            "(no content)".to_string()
-                        };
-
-                        if let Some(ref mut result) = self.selected_result {
-                            // Update the selected result with this message's details
-                            result.role = role.to_string();
-                            result.timestamp = timestamp.to_string();
-                            result.text = text;
-                            result.uuid = uuid.to_string();
-                            result.raw_json = Some(self.session_messages[actual_idx].clone());
+                KeyCode::Down => {
+                    if !self.session_filtered_indices.is_empty() {
+                        let max_index = self.session_filtered_indices.len().saturating_sub(1);
+                        if self.session_selected_index < max_index {
+                            self.session_selected_index += 1;
+                            self.adjust_session_scroll_offset();
                         }
-
-                        self.mode = Mode::ResultDetail;
-                        self.detail_scroll_offset = 0;
                     }
                 }
+                KeyCode::PageUp => {
+                    if !self.session_filtered_indices.is_empty() {
+                        self.session_selected_index =
+                            self.session_selected_index.saturating_sub(10);
+                        self.adjust_session_scroll_offset();
+                    }
+                }
+                KeyCode::PageDown => {
+                    if !self.session_filtered_indices.is_empty() {
+                        let max_index = self.session_filtered_indices.len().saturating_sub(1);
+                        self.session_selected_index =
+                            (self.session_selected_index + 10).min(max_index);
+                        self.adjust_session_scroll_offset();
+                    }
+                }
+                KeyCode::Enter => {
+                    // View selected message in detail
+                    if !self.session_filtered_indices.is_empty() {
+                        let actual_idx = self.session_filtered_indices[self.session_selected_index];
+                        if let Ok(msg) = serde_json::from_str::<serde_json::Value>(
+                            &self.session_messages[actual_idx],
+                        ) {
+                            // Create a pseudo SearchResult for detail view
+                            let role = msg
+                                .get("type")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown");
+                            let timestamp =
+                                msg.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
+                            let uuid = msg.get("uuid").and_then(|v| v.as_str()).unwrap_or("");
+
+                            let content = msg
+                                .get("message")
+                                .and_then(|m| m.get("content"))
+                                .or_else(|| msg.get("content"));
+
+                            let text = if let Some(content_val) = content {
+                                if let Some(text) = content_val.as_str() {
+                                    text.to_string()
+                                } else if let Some(parts) = content_val.as_array() {
+                                    parts
+                                        .iter()
+                                        .filter_map(|part| {
+                                            part.get("text").and_then(|v| v.as_str())
+                                        })
+                                        .collect::<Vec<_>>()
+                                        .join("\n")
+                                } else {
+                                    "(no content)".to_string()
+                                }
+                            } else {
+                                "(no content)".to_string()
+                            };
+
+                            if let Some(ref mut result) = self.selected_result {
+                                // Update the selected result with this message's details
+                                result.role = role.to_string();
+                                result.timestamp = timestamp.to_string();
+                                result.text = text;
+                                result.uuid = uuid.to_string();
+                                result.raw_json = Some(self.session_messages[actual_idx].clone());
+                            }
+
+                            self.push_screen(Mode::ResultDetail);
+                            self.detail_scroll_offset = 0;
+                        }
+                    }
+                }
+                _ => {}
             }
-            _ => {}
         }
         Ok(())
     }
@@ -1474,9 +1557,13 @@ impl InteractiveSearch {
             }
         }
 
-        // Fallback to parent directory
+        // Fallback to parent directory name (not full path)
         if let Some(parent) = file_path.parent() {
-            parent.to_string_lossy().to_string()
+            if let Some(file_name) = parent.file_name() {
+                file_name.to_string_lossy().to_string()
+            } else {
+                parent.to_string_lossy().to_string()
+            }
         } else {
             file_path.to_string_lossy().to_string()
         }
