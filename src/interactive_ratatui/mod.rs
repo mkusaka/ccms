@@ -763,9 +763,16 @@ impl InteractiveSearch {
     fn draw_help(&mut self, f: &mut Frame) {
         let help_text = vec![
             Line::from(vec![Span::styled(
-                "CCMS Help",
+                "Interactive Claude Search - Help",
                 Style::default()
                     .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(""),
+            Line::from(vec![Span::styled(
+                "Keyboard Shortcuts",
+                Style::default()
+                    .fg(Color::Green)
                     .add_modifier(Modifier::BOLD),
             )]),
             Line::from(""),
@@ -1267,9 +1274,13 @@ impl InteractiveSearch {
             }
         }
 
-        // Fallback to parent directory
+        // Fallback to parent directory name (not full path)
         if let Some(parent) = file_path.parent() {
-            parent.to_string_lossy().to_string()
+            if let Some(file_name) = parent.file_name() {
+                file_name.to_string_lossy().to_string()
+            } else {
+                parent.to_string_lossy().to_string()
+            }
         } else {
             file_path.to_string_lossy().to_string()
         }

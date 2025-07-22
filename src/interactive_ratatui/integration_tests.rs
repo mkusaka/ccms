@@ -65,8 +65,8 @@ mod tests {
         app.push_screen(Mode::Help);
         terminal.draw(|f| app.draw(f)).unwrap();
         let buffer = terminal.backend().buffer();
-        assert!(buffer_contains(buffer, "CCMS Help"));
-        assert!(buffer_contains(buffer, "Search Mode:"));
+        assert!(buffer_contains(buffer, "Interactive Claude Search - Help"));
+        assert!(buffer_contains(buffer, "Keyboard Shortcuts"));
 
         // Test draw_results() with results
         app.pop_screen();
