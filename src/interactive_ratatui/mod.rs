@@ -636,7 +636,9 @@ impl InteractiveSearch {
             let header_text = vec![
                 Line::from(vec![Span::styled(
                     "Session Viewer",
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
                 )]),
                 Line::from(vec![
                     Span::styled("Session: ", Style::default().fg(Color::Yellow)),
@@ -684,7 +686,8 @@ impl InteractiveSearch {
 
         // Position cursor in search box if typing
         if !self.session_query.is_empty() || self.mode == Mode::SessionViewer {
-            let cursor_x = chunks[1].x + 1 + "Filter: ".len() as u16 + self.session_query.len() as u16;
+            let cursor_x =
+                chunks[1].x + 1 + "Filter: ".len() as u16 + self.session_query.len() as u16;
             let cursor_y = chunks[1].y + 1;
             f.set_cursor_position((cursor_x.min(chunks[1].x + chunks[1].width - 2), cursor_y));
         }
@@ -697,7 +700,8 @@ impl InteractiveSearch {
             self.session_filtered_indices = (0..self.session_messages.len()).collect();
         } else {
             // Filter messages based on search query
-            self.session_filtered_indices = self.session_messages
+            self.session_filtered_indices = self
+                .session_messages
                 .iter()
                 .enumerate()
                 .filter_map(|(idx, msg)| {
@@ -707,12 +711,13 @@ impl InteractiveSearch {
                             .get("message")
                             .and_then(|m| m.get("content"))
                             .or_else(|| parsed.get("content"));
-                        
+
                         if let Some(content_val) = content {
                             let text = if let Some(text_str) = content_val.as_str() {
                                 text_str.to_lowercase()
                             } else if let Some(parts) = content_val.as_array() {
-                                parts.iter()
+                                parts
+                                    .iter()
                                     .filter_map(|part| part.get("text").and_then(|v| v.as_str()))
                                     .collect::<Vec<_>>()
                                     .join(" ")
@@ -720,7 +725,7 @@ impl InteractiveSearch {
                             } else {
                                 String::new()
                             };
-                            
+
                             if text.contains(&self.session_query.to_lowercase()) {
                                 return Some(idx);
                             }
@@ -735,12 +740,14 @@ impl InteractiveSearch {
         let title = if self.session_query.is_empty() {
             format!("Messages ({} total)", self.session_messages.len())
         } else {
-            format!("Messages ({} total, {} filtered)", self.session_messages.len(), filtered_count)
+            format!(
+                "Messages ({} total, {} filtered)",
+                self.session_messages.len(),
+                filtered_count
+            )
         };
 
-        let messages_block = Block::default()
-            .title(title)
-            .borders(Borders::ALL);
+        let messages_block = Block::default().title(title).borders(Borders::ALL);
         let inner = messages_block.inner(area);
         f.render_widget(messages_block, area);
 
@@ -763,21 +770,27 @@ impl InteractiveSearch {
             .enumerate()
             .map(|(display_idx, &actual_idx)| {
                 let list_idx = start_idx + display_idx;
-                if let Ok(msg) = serde_json::from_str::<serde_json::Value>(&self.session_messages[actual_idx]) {
-                    let role = msg.get("type").and_then(|v| v.as_str()).unwrap_or("unknown");
+                if let Ok(msg) =
+                    serde_json::from_str::<serde_json::Value>(&self.session_messages[actual_idx])
+                {
+                    let role = msg
+                        .get("type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown");
                     let timestamp = msg.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
-                    
+
                     // Extract message preview
                     let content = msg
                         .get("message")
                         .and_then(|m| m.get("content"))
                         .or_else(|| msg.get("content"));
-                    
+
                     let preview = if let Some(content_val) = content {
                         if let Some(text) = content_val.as_str() {
                             text.replace('\n', " ")
                         } else if let Some(parts) = content_val.as_array() {
-                            parts.iter()
+                            parts
+                                .iter()
                                 .filter_map(|part| part.get("text").and_then(|v| v.as_str()))
                                 .collect::<Vec<_>>()
                                 .join(" ")
@@ -789,7 +802,8 @@ impl InteractiveSearch {
                     };
 
                     // Format timestamp
-                    let short_time = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+                    let short_time = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp)
+                    {
                         dt.format("%m/%d %H:%M").to_string()
                     } else {
                         timestamp.to_string()
@@ -799,11 +813,15 @@ impl InteractiveSearch {
                     let index_str = format!("{:3}. ", actual_idx + 1);
                     let role_str = format!("[{:^9}]", role.to_uppercase());
                     let fixed_part = format!("{index_str}{role_str} {short_time} ");
-                    
+
                     // Calculate available width for preview
-                    let available_width = inner.width.saturating_sub(fixed_part.len() as u16).saturating_sub(1);
-                    let truncated_preview = self.truncate_message(&preview, available_width as usize);
-                    
+                    let available_width = inner
+                        .width
+                        .saturating_sub(fixed_part.len() as u16)
+                        .saturating_sub(1);
+                    let truncated_preview =
+                        self.truncate_message(&preview, available_width as usize);
+
                     let line_content = format!("{fixed_part}{truncated_preview}");
 
                     let style = if list_idx == self.session_selected_index {
@@ -1146,7 +1164,8 @@ impl InteractiveSearch {
                             self.session_index = 0;
                             self.session_order = Some(SessionOrder::Ascending); // Default to ascending
                             self.session_query.clear();
-                            self.session_filtered_indices = (0..self.session_messages.len()).collect();
+                            self.session_filtered_indices =
+                                (0..self.session_messages.len()).collect();
                             self.session_scroll_offset = 0;
                             self.session_selected_index = 0;
                             self.mode = Mode::SessionViewer;
@@ -1242,11 +1261,10 @@ impl InteractiveSearch {
                 self.session_scroll_offset = 0;
             }
             KeyCode::Up => {
-                if !self.session_filtered_indices.is_empty()
-                    && self.session_selected_index > 0 {
-                        self.session_selected_index -= 1;
-                        self.adjust_session_scroll_offset();
-                    }
+                if !self.session_filtered_indices.is_empty() && self.session_selected_index > 0 {
+                    self.session_selected_index -= 1;
+                    self.adjust_session_scroll_offset();
+                }
             }
             KeyCode::Down => {
                 if !self.session_filtered_indices.is_empty() {
@@ -1274,22 +1292,28 @@ impl InteractiveSearch {
                 // View selected message in detail
                 if !self.session_filtered_indices.is_empty() {
                     let actual_idx = self.session_filtered_indices[self.session_selected_index];
-                    if let Ok(msg) = serde_json::from_str::<serde_json::Value>(&self.session_messages[actual_idx]) {
+                    if let Ok(msg) = serde_json::from_str::<serde_json::Value>(
+                        &self.session_messages[actual_idx],
+                    ) {
                         // Create a pseudo SearchResult for detail view
-                        let role = msg.get("type").and_then(|v| v.as_str()).unwrap_or("unknown");
+                        let role = msg
+                            .get("type")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("unknown");
                         let timestamp = msg.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
                         let uuid = msg.get("uuid").and_then(|v| v.as_str()).unwrap_or("");
-                        
+
                         let content = msg
                             .get("message")
                             .and_then(|m| m.get("content"))
                             .or_else(|| msg.get("content"));
-                        
+
                         let text = if let Some(content_val) = content {
                             if let Some(text) = content_val.as_str() {
                                 text.to_string()
                             } else if let Some(parts) = content_val.as_array() {
-                                parts.iter()
+                                parts
+                                    .iter()
                                     .filter_map(|part| part.get("text").and_then(|v| v.as_str()))
                                     .collect::<Vec<_>>()
                                     .join("\n")
@@ -1308,7 +1332,7 @@ impl InteractiveSearch {
                             result.uuid = uuid.to_string();
                             result.raw_json = Some(self.session_messages[actual_idx].clone());
                         }
-                        
+
                         self.mode = Mode::ResultDetail;
                         self.detail_scroll_offset = 0;
                     }
@@ -1324,11 +1348,13 @@ impl InteractiveSearch {
         // to ensure the selected item is visible
         // We'll implement this similar to adjust_scroll_offset but for session viewer
         let visible_height = 20; // Approximate visible height, will be calculated properly in draw
-        
+
         if self.session_selected_index < self.session_scroll_offset {
             self.session_scroll_offset = self.session_selected_index;
         } else if self.session_selected_index >= self.session_scroll_offset + visible_height {
-            self.session_scroll_offset = self.session_selected_index.saturating_sub(visible_height - 1);
+            self.session_scroll_offset = self
+                .session_selected_index
+                .saturating_sub(visible_height - 1);
         }
     }
 

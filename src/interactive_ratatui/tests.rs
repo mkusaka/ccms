@@ -2,9 +2,9 @@ use super::*;
 use crate::query::condition::QueryCondition;
 use crate::{SearchOptions, SearchResult};
 // use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
-use ratatui::Terminal;
 use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
@@ -22,7 +22,10 @@ fn create_test_result(role: &str, content: &str, timestamp: &str) -> SearchResul
         has_tools: false,
         has_thinking: false,
         message_type: "message".to_string(),
-        query: QueryCondition::Literal { pattern: "test".to_string(), case_sensitive: false },
+        query: QueryCondition::Literal {
+            pattern: "test".to_string(),
+            case_sensitive: false,
+        },
         project_path: "/test/project".to_string(),
         raw_json: None,
     }
@@ -65,18 +68,18 @@ fn test_draw_search_mode() {
         create_test_result("user", "Test message", "2024-01-01T00:00:00Z"),
         create_test_result("assistant", "Another test", "2024-01-01T00:01:00Z"),
     ];
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_search(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Check that search prompt is displayed
     assert!(find_text_in_buffer(buffer, "Search:").is_some());
-    
+
     // Check that query is displayed
     assert!(find_text_in_buffer(buffer, "test query").is_some());
-    
+
     // Check that results are displayed
     assert!(find_text_in_buffer(buffer, "Test message").is_some());
     assert!(find_text_in_buffer(buffer, "Another test").is_some());
@@ -86,12 +89,12 @@ fn test_draw_search_mode() {
 fn test_draw_help_mode() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.mode = Mode::Help;
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_help(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Check that help content is displayed
     assert!(find_text_in_buffer(buffer, "CCMS Help").is_some());
     assert!(find_text_in_buffer(buffer, "Search Mode:").is_some());
@@ -102,13 +105,17 @@ fn test_draw_help_mode() {
 fn test_draw_result_detail() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.mode = Mode::ResultDetail;
-    search.selected_result = Some(create_test_result("user", "Detailed test message with more content", "2024-01-01T00:00:00Z"));
-    
+    search.selected_result = Some(create_test_result(
+        "user",
+        "Detailed test message with more content",
+        "2024-01-01T00:00:00Z",
+    ));
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_result_detail(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Check that result details are displayed - look for metadata fields
     assert!(find_text_in_buffer(buffer, "Role:").is_some());
     assert!(find_text_in_buffer(buffer, "Time:").is_some());
@@ -127,17 +134,17 @@ fn test_search_result_selection() {
         create_test_result("assistant", "Second", "2024-01-01T00:01:00Z"),
         create_test_result("user", "Third", "2024-01-01T00:02:00Z"),
     ];
-    
+
     assert_eq!(search.selected_index, 0);
-    
+
     // Move down
     search.selected_index = 1;
     assert_eq!(search.selected_index, 1);
-    
+
     // Move to last
     search.selected_index = 2;
     assert_eq!(search.selected_index, 2);
-    
+
     // Wrap around
     search.selected_index = 0;
     assert_eq!(search.selected_index, 0);
@@ -146,20 +153,20 @@ fn test_search_result_selection() {
 #[test]
 fn test_role_filter_cycle() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
-    
+
     // Initial state
     assert_eq!(search.role_filter, None);
-    
+
     // Cycle through filters
     search.role_filter = Some("user".to_string());
     assert_eq!(search.role_filter, Some("user".to_string()));
-    
+
     search.role_filter = Some("assistant".to_string());
     assert_eq!(search.role_filter, Some("assistant".to_string()));
-    
+
     search.role_filter = Some("system".to_string());
     assert_eq!(search.role_filter, Some("system".to_string()));
-    
+
     search.role_filter = None;
     assert_eq!(search.role_filter, None);
 }
@@ -167,21 +174,20 @@ fn test_role_filter_cycle() {
 #[test]
 fn test_truncate_message_multibyte_safe() {
     let search = InteractiveSearch::new(SearchOptions::default());
-    
+
     // Test with Japanese characters
     let japanese = "こんにちは世界";
     let truncated = search.truncate_message(japanese, 10);
     assert_eq!(truncated, "こんにちは世界"); // 7 chars fits in width 10
-    
+
     let truncated = search.truncate_message(japanese, 6);
     assert_eq!(truncated, "こんに..."); // Width 6: 3 chars + "..." = 6
-    
+
     // Test with emojis
     let emojis = "Hello 👋 World 🌍";
     let truncated = search.truncate_message(emojis, 10);
     assert_eq!(truncated, "Hello 👋..."); // Should handle emoji boundaries
 }
-
 
 #[test]
 fn test_session_viewer_rendering() {
@@ -189,22 +195,21 @@ fn test_session_viewer_rendering() {
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // Add some test messages
     search.session_messages = vec![
         r#"{"type":"user","message":{"role":"user","content":"Hello"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
         r#"{"type":"assistant","message":{"role":"assistant","content":"Hi there"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
     ];
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Check that session viewer is displayed
     assert!(find_text_in_buffer(buffer, "Session Viewer").is_some());
 }
-
 
 #[test]
 fn test_draw_search_results_with_selection() {
@@ -214,12 +219,12 @@ fn test_draw_search_results_with_selection() {
         create_test_result("assistant", "Second message", "2024-01-01T00:01:00Z"),
     ];
     search.selected_index = 1; // Select second result
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_search(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Both messages should be visible
     assert!(find_text_in_buffer(buffer, "First message").is_some());
     assert!(find_text_in_buffer(buffer, "Second message").is_some());
@@ -230,15 +235,15 @@ fn test_empty_search_results() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.query = "no matches".to_string();
     search.results = vec![];
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_search(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Should show the query
     assert!(find_text_in_buffer(buffer, "no matches").is_some());
-    
+
     // Should indicate no results
     assert!(find_text_in_buffer(buffer, "No results").is_some());
 }
@@ -247,15 +252,17 @@ fn test_empty_search_results() {
 fn test_long_message_truncation() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     let long_content = "This is a very long message that should be truncated when displayed in the search results list ".repeat(5);
-    search.results = vec![
-        create_test_result("user", &long_content, "2024-01-01T00:00:00Z"),
-    ];
-    
+    search.results = vec![create_test_result(
+        "user",
+        &long_content,
+        "2024-01-01T00:00:00Z",
+    )];
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_search(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Should show truncated message with ellipsis
     assert!(find_text_in_buffer(buffer, "...").is_some());
 }
@@ -266,36 +273,36 @@ fn test_session_viewer_case_insensitive_search() {
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // Add messages with mixed case content
     search.session_messages = vec![
         r#"{"type":"user","message":{"role":"user","content":"Hello World"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
         r#"{"type":"assistant","message":{"role":"assistant","content":"HELLO there"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
         r#"{"type":"user","message":{"role":"user","content":"goodbye"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
     ];
-    
+
     // Search with lowercase
     search.session_query = "hello".to_string();
-    
+
     // Draw to trigger filtering
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     // Should match both messages containing "hello" regardless of case
     assert_eq!(search.session_filtered_indices.len(), 2);
     assert_eq!(search.session_filtered_indices, vec![0, 1]);
-    
+
     // Search with uppercase
     search.session_query = "HELLO".to_string();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     // Should still match both messages
     assert_eq!(search.session_filtered_indices.len(), 2);
-    
+
     // Search for something not present
     search.session_query = "missing".to_string();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     assert_eq!(search.session_filtered_indices.len(), 0);
 }
 
@@ -305,22 +312,22 @@ fn test_session_viewer_filtered_count_display() {
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // Add some test messages
     search.session_messages = vec![
         r#"{"type":"user","message":{"role":"user","content":"Apple"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
         r#"{"type":"assistant","message":{"role":"assistant","content":"Banana"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
         r#"{"type":"user","message":{"role":"user","content":"Apple pie"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
     ];
-    
+
     // Search for "apple"
     search.session_query = "apple".to_string();
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Should show filtered count in the title
     assert!(find_text_in_buffer(buffer, "3 total, 2 filtered").is_some());
 }
@@ -331,25 +338,25 @@ fn test_session_viewer_search_filtering_implementation() {
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // Set up messages
     search.session_messages = vec![
         r#"{"type":"user","message":{"role":"user","content":"Hello world"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
         r#"{"type":"assistant","message":{"role":"assistant","content":"Goodbye"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
         r#"{"type":"user","message":{"role":"user","content":"World peace"},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session"}"#.to_string(),
     ];
-    
+
     // Test basic filtering
     search.session_query = "world".to_string();
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
     assert_eq!(search.session_filtered_indices, vec![0, 2]);
-    
+
     // Test empty query shows all
     search.session_query = "".to_string();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
     assert_eq!(search.session_filtered_indices, vec![0, 1, 2]);
-    
+
     // Test no matches
     search.session_query = "notfound".to_string();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
@@ -362,7 +369,7 @@ fn test_session_viewer_array_content_search() {
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // Message with array content structure
     let array_message = r#"{
         "type":"assistant",
@@ -378,20 +385,20 @@ fn test_session_viewer_array_content_search() {
         "timestamp":"2024-01-01T00:00:00Z",
         "sessionId":"test-session"
     }"#;
-    
+
     search.session_messages = vec![
         array_message.to_string(),
         r#"{"type":"user","message":{"role":"user","content":"No match"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
     ];
-    
+
     // Search for text in array content
     search.session_query = "keyword".to_string();
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     // Should find the message with array content
     assert_eq!(search.session_filtered_indices, vec![0]);
-    
+
     // Search for text not in array
     search.session_query = "missing".to_string();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
@@ -404,19 +411,21 @@ fn test_session_viewer_loading_error_handling() {
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // Simulate loading with empty messages (error case)
     search.session_messages = vec![];
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Should show that no messages are available
-    assert!(find_text_in_buffer(buffer, "No messages").is_some() || 
-            find_text_in_buffer(buffer, "0 messages").is_some() ||
-            find_text_in_buffer(buffer, "Session Viewer").is_some());
+    assert!(
+        find_text_in_buffer(buffer, "No messages").is_some()
+            || find_text_in_buffer(buffer, "0 messages").is_some()
+            || find_text_in_buffer(buffer, "Session Viewer").is_some()
+    );
 }
 
 #[test]
@@ -425,21 +434,21 @@ fn test_session_viewer_no_matches_filtered_count() {
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // Add messages
     search.session_messages = vec![
         r#"{"type":"user","message":{"role":"user","content":"Hello"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
         r#"{"type":"assistant","message":{"role":"assistant","content":"Hi"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
     ];
-    
+
     // Search for something not present
     search.session_query = "notfound".to_string();
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Should show that no messages match
     assert!(find_text_in_buffer(buffer, "No messages match filter").is_some());
 }
@@ -450,21 +459,23 @@ fn test_session_viewer_empty_session() {
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // No messages at all
     search.session_messages = vec![];
     search.session_filtered_indices = vec![];
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Should indicate empty session
-    assert!(find_text_in_buffer(buffer, "No messages").is_some() ||
-            find_text_in_buffer(buffer, "0 messages").is_some() ||
-            find_text_in_buffer(buffer, "Empty session").is_some() ||
-            find_text_in_buffer(buffer, "Session Viewer").is_some()); // At minimum, title should be shown
+    assert!(
+        find_text_in_buffer(buffer, "No messages").is_some()
+            || find_text_in_buffer(buffer, "0 messages").is_some()
+            || find_text_in_buffer(buffer, "Empty session").is_some()
+            || find_text_in_buffer(buffer, "Session Viewer").is_some()
+    ); // At minimum, title should be shown
 }
 
 #[test]
@@ -473,7 +484,7 @@ fn test_session_viewer_scroll_indicator() {
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // Add many messages to enable scrolling
     let mut messages = Vec::new();
     for i in 0..50 {
@@ -484,17 +495,19 @@ fn test_session_viewer_scroll_indicator() {
     search.session_messages = messages;
     search.session_filtered_indices = (0..50).collect();
     search.session_scroll_offset = 10; // Scrolled down
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Should show some indication of scrolling capability
     // Check for arrows or scroll indicators
-    assert!(find_text_in_buffer(buffer, "↑").is_some() ||
-            find_text_in_buffer(buffer, "↓").is_some() ||
-            find_text_in_buffer(buffer, "to scroll").is_some());
+    assert!(
+        find_text_in_buffer(buffer, "↑").is_some()
+            || find_text_in_buffer(buffer, "↓").is_some()
+            || find_text_in_buffer(buffer, "to scroll").is_some()
+    );
 }
 
 #[test]
@@ -502,7 +515,7 @@ fn test_session_viewer_selected_message_highlight() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
-    
+
     // Create a few messages
     search.session_messages = vec![
         r#"{"type":"user","message":{"role":"user","content":"First message"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
@@ -512,22 +525,22 @@ fn test_session_viewer_selected_message_highlight() {
     search.session_filtered_indices = vec![0, 1, 2];
     search.session_selected_index = 1; // Select second message
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // The new implementation doesn't use ">" prefix, it just highlights with bg color
     // Check for any numbered message (formatting might vary)
     assert!(find_text_in_buffer(buffer, "1.").is_some());
     assert!(find_text_in_buffer(buffer, "2.").is_some());
     assert!(find_text_in_buffer(buffer, "3.").is_some());
-    
+
     // Check that roles are displayed
     assert!(find_text_in_buffer(buffer, "USER").is_some());
     assert!(find_text_in_buffer(buffer, "ASSISTANT").is_some());
-    
+
     // Check that Second message is displayed (which is selected)
     assert!(find_text_in_buffer(buffer, "Second message").is_some());
 }
@@ -537,7 +550,7 @@ fn test_session_viewer_thinking_block_display() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
-    
+
     // Message with thinking block
     search.session_messages = vec![
         r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","text":"Let me think about this..."},{"type":"text","text":"Here is my response"}]},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
@@ -545,15 +558,15 @@ fn test_session_viewer_thinking_block_display() {
     ];
     search.session_filtered_indices = vec![0, 1];
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Should display the thinking block content in preview
     assert!(find_text_in_buffer(buffer, "Let me think about this...").is_some());
-    
+
     // Should also show the regular text content
     assert!(find_text_in_buffer(buffer, "Simple message").is_some());
 }
@@ -563,7 +576,7 @@ fn test_session_viewer_tool_use_display() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
-    
+
     // Messages with tool_use blocks
     search.session_messages = vec![
         // Tool use request
@@ -573,15 +586,15 @@ fn test_session_viewer_tool_use_display() {
     ];
     search.session_filtered_indices = vec![0, 1];
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Should show text content from tool use message
     assert!(find_text_in_buffer(buffer, "Let me search for that.").is_some());
-    
+
     // Should show that tool messages are displayed (content might be formatted differently)
     // Check that at least the messages are shown by checking for their timestamps/indices
     assert!(find_text_in_buffer(buffer, "1.").is_some());
