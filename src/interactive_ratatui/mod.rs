@@ -424,7 +424,7 @@ impl InteractiveSearch {
             .title(format!("Results ({})", self.results.len()))
             .borders(Borders::ALL);
         let inner = results_block.inner(area);
-        
+
         // Clear the inner area first to prevent rendering artifacts
         f.render_widget(Clear, inner);
         f.render_widget(results_block, area);
@@ -925,7 +925,8 @@ impl InteractiveSearch {
 
                             // Subsequent lines with proper indentation
                             // Make sure indent doesn't exceed available space
-                            let indent_width = fixed_part.len().min(available_width.saturating_sub(10));
+                            let indent_width =
+                                fixed_part.len().min(available_width.saturating_sub(10));
                             let indent = " ".repeat(indent_width);
                             for line in wrapped_preview.iter().skip(1) {
                                 let indented_line = format!("{indent}{line}");
@@ -1201,11 +1202,11 @@ impl InteractiveSearch {
             let start = self.scroll_offset;
             let mut current_height = 0;
             let mut end = start;
-            
+
             // Get terminal width for wrapping calculation
             // Use a conservative estimate to avoid overflow
             let terminal_width: usize = 100; // Most terminals are wider than 80
-            
+
             while end < self.results.len() && current_height < height_for_items as usize {
                 if let Some(result) = self.results.get(end) {
                     // Calculate how many lines this item will take
@@ -1214,18 +1215,19 @@ impl InteractiveSearch {
                     let index_str = format!("{:2}. ", end + 1);
                     let fixed_part = format!("{index_str}{role_str} {timestamp} ");
                     let fixed_width = fixed_part.chars().count();
-                    
+
                     // Estimate available width (conservative)
-                    let available_width = terminal_width.saturating_sub(fixed_width).saturating_sub(2);
-                    
+                    let available_width =
+                        terminal_width.saturating_sub(fixed_width).saturating_sub(2);
+
                     // Calculate wrapped lines
                     let wrapped_lines = self.wrap_text(&result.text, available_width);
-                    let item_height = if wrapped_lines.is_empty() { 
-                        1 
-                    } else { 
-                        wrapped_lines.len() 
+                    let item_height = if wrapped_lines.is_empty() {
+                        1
+                    } else {
+                        wrapped_lines.len()
                     };
-                    
+
                     // Check if this item fits (with safety margin)
                     let required_height = item_height + 1; // Always add space for separator
                     if current_height + required_height <= height_for_items as usize - 2 {
@@ -1238,12 +1240,12 @@ impl InteractiveSearch {
                     }
                 }
             }
-            
+
             // Ensure we show at least one item
             if end == start && start < self.results.len() {
                 end = start + 1;
             }
-            
+
             (start, end)
         }
     }
@@ -1274,7 +1276,7 @@ impl InteractiveSearch {
             // In full text mode, use the calculate_visible_range to determine
             // if we need to adjust scroll
             let (current_start, current_end) = self.calculate_visible_range(height_for_items);
-            
+
             // If selected index is before the visible range, scroll up
             if self.selected_index < current_start {
                 self.scroll_offset = self.selected_index;
@@ -1282,9 +1284,9 @@ impl InteractiveSearch {
             // If selected index is at or after the visible range, scroll down
             else if self.selected_index >= current_end {
                 // Find a scroll offset that includes the selected item
-                self.scroll_offset = self.selected_index.saturating_sub(
-                    (current_end - current_start).saturating_sub(1).max(0)
-                );
+                self.scroll_offset = self
+                    .selected_index
+                    .saturating_sub((current_end - current_start).saturating_sub(1).max(0));
             }
         }
     }
@@ -1610,7 +1612,8 @@ impl InteractiveSearch {
                     self.session_scroll_offset = 0;
                 }
                 KeyCode::Up => {
-                    if !self.session_filtered_indices.is_empty() && self.session_selected_index > 0 {
+                    if !self.session_filtered_indices.is_empty() && self.session_selected_index > 0
+                    {
                         self.session_selected_index -= 1;
                         self.adjust_session_scroll_offset();
                     }

@@ -2,11 +2,7 @@ use super::*;
 use crate::query::condition::QueryCondition;
 use crate::{SearchOptions, SearchResult};
 use crossterm::terminal;
-use ratatui::{
-    Terminal,
-    backend::TestBackend,
-    buffer::Buffer,
-};
+use ratatui::{Terminal, backend::TestBackend, buffer::Buffer};
 use std::fs::File;
 use std::io::Write;
 use std::time::Duration;
