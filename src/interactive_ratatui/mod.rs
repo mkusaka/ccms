@@ -751,6 +751,8 @@ impl InteractiveSearch {
         let inner = messages_block.inner(area);
 
         // Clear the area before rendering to avoid artifacts
+        // Note: While Ratatui should automatically clear, we experienced
+        // rendering artifacts in practice, so explicit Clear is used
         f.render_widget(Clear, area);
         f.render_widget(messages_block, area);
 
