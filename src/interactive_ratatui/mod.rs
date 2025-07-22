@@ -1,7 +1,7 @@
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod integration_tests;
+#[cfg(test)]
+mod tests;
 
 use anyhow::{Context, Result};
 use crossterm::{
@@ -198,11 +198,6 @@ impl InteractiveSearch {
         if self.screen_stack.len() > 1 {
             self.screen_stack.pop();
         }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn set_mode(&mut self, mode: Mode) {
-        self.screen_stack = vec![mode];
     }
 
     pub fn run(&mut self, pattern: &str) -> Result<()> {
@@ -873,7 +868,9 @@ impl InteractiveSearch {
         }
         // If selected index is below the visible range, scroll down
         else if self.selected_index >= self.scroll_offset + visible_count {
-            self.scroll_offset = self.selected_index.saturating_sub(visible_count.saturating_sub(1));
+            self.scroll_offset = self
+                .selected_index
+                .saturating_sub(visible_count.saturating_sub(1));
         }
     }
 

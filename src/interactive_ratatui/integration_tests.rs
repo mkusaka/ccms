@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod integration_tests {
+mod tests {
     use super::super::*;
     use crate::{QueryCondition, SearchOptions, SearchResult};
     use ratatui::backend::TestBackend;
@@ -19,7 +19,7 @@ mod integration_tests {
         // - Manual integration testing
         // - CI tests that verify the binary runs without panicking
         // - The existing unit tests that test the individual components
-        
+
         // Here we document what run() should do:
         // 1. Enable raw mode via crossterm
         // 2. Setup alternate screen buffer
@@ -84,7 +84,7 @@ mod integration_tests {
     #[test]
     fn test_error_handling_scenarios() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
-        
+
         // Test handling of invalid session file
         app.selected_result = Some(SearchResult {
             file: "/nonexistent/file.jsonl".to_string(),
@@ -103,7 +103,7 @@ mod integration_tests {
             project_path: "test".to_string(),
             raw_json: None,
         });
-        
+
         // This should not panic
         // load_session_messages requires a file path parameter
         // Since the file doesn't exist, this will handle the error gracefully
@@ -136,7 +136,8 @@ mod integration_tests {
 
     // Helper functions
     fn buffer_contains(buffer: &Buffer, text: &str) -> bool {
-        let content = buffer.content()
+        let content = buffer
+            .content()
             .iter()
             .map(|cell| cell.symbol())
             .collect::<String>();
@@ -159,7 +160,7 @@ mod integration_tests {
                 case_sensitive: false,
             },
             project_path: "test".to_string(),
-            raw_json: Some(format!(r#"{{"type":"{}","content":"{}"}}"#, role, text)),
+            raw_json: Some(format!(r#"{{"type":"{role}","content":"{text}"}}"#)),
         }
     }
 }
