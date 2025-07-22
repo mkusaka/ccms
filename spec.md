@@ -10,7 +10,7 @@ The interactive mode provides a terminal-based user interface for searching Clau
 
 ```
 Interactive Claude Search
-Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Ctrl+R to toggle truncation, Esc/Ctrl+C to exit
+Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Ctrl+R to reload, Esc/Ctrl+C to exit
 
 Search: [cursor]
 ```
@@ -21,7 +21,7 @@ When a query is entered, the interface shows:
 
 ```
 Interactive Claude Search
-Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Ctrl+R to toggle truncation, Esc/Ctrl+C to exit
+Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Ctrl+R to reload, Esc/Ctrl+C to exit
 
 Search: [query]
 Found N results (limit reached if applicable)
@@ -60,7 +60,8 @@ Search [role]: [query]
 | PageDown | Scroll down by visible height |
 | ? | Show help screen |
 | Tab | Cycle through role filters: None → user → assistant → system → summary → None |
-| Ctrl+R | Toggle message truncation (Truncated/Full Text) |
+| Ctrl+R | Clear cache and reload all files |
+| Alt+Z | Toggle message truncation (Truncated/Full Text) |
 | Esc or Ctrl+C | Exit interactive mode |
 
 ### Full Result View
@@ -179,7 +180,8 @@ struct CachedFile {
 
 1. **Automatic Loading**: Files are loaded and cached on first access
 2. **Change Detection**: Files are reloaded if modification time changes
-3. **Performance**: Uses 32KB buffer for file reading
+3. **Manual Reload**: Ctrl+R clears entire cache forcing reload
+4. **Performance**: Uses 32KB buffer for file reading
 
 ### File Discovery
 
@@ -272,7 +274,7 @@ Applied before other filters in the search pipeline.
 
 ### Message Truncation Toggle
 
-The Ctrl+R keyboard shortcut toggles between truncated and full text display modes:
+The Alt+Z keyboard shortcut toggles between truncated and full text display modes:
 
 #### Truncated Mode (Default)
 - Messages are truncated to fit the terminal width

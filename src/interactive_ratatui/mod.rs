@@ -366,7 +366,7 @@ impl InteractiveSearch {
             msg.clone()
         } else {
             format!(
-                "Tab: Filter | ↑/↓: Navigate | Enter: Select | Ctrl+R: Toggle [{}] | Esc: Exit",
+                "Tab: Filter | ↑/↓: Navigate | Enter: Select | Ctrl+R: Reload | Alt+Z: Toggle [{}] | Esc: Exit",
                 if self.truncation_enabled {
                     "Truncated"
                 } else {
@@ -788,9 +788,9 @@ impl InteractiveSearch {
 
         // Status
         let status = if self.session_order.is_some() {
-            "↑/↓: Navigate | Space: Next Page | Ctrl+R: Toggle Truncation | Q: Quit"
+            "↑/↓: Navigate | Space: Next Page | Alt+Z: Toggle Truncation | Q: Quit"
         } else {
-            "Choose display order | Ctrl+R: Toggle Truncation"
+            "Choose display order | Alt+Z: Toggle Truncation"
         };
         let status_bar = Paragraph::new(status)
             .style(Style::default().fg(Color::DarkGray))
@@ -815,7 +815,8 @@ impl InteractiveSearch {
             Line::from("  Tab         - Cycle role filter"),
             Line::from("  ↑/↓         - Navigate results"),
             Line::from("  Enter       - View result detail"),
-            Line::from("  Ctrl+R      - Toggle message truncation"),
+            Line::from("  Ctrl+R      - Clear cache & reload"),
+            Line::from("  Alt+Z       - Toggle message truncation"),
             Line::from("  Esc         - Exit"),
             Line::from(""),
             Line::from(vec![Span::styled(
@@ -924,6 +925,11 @@ impl InteractiveSearch {
                 return Ok(false);
             }
             KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.cache.clear();
+                self.execute_search(pattern);
+                self.message = Some("Cache cleared and reloaded".to_string());
+            }
+            KeyCode::Char('z') if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.truncation_enabled = !self.truncation_enabled;
                 let status = if self.truncation_enabled {
                     "Truncated"
@@ -1025,7 +1031,7 @@ impl InteractiveSearch {
                 self.message = None; // Clear message when returning to search
                 self.detail_scroll_offset = 0;
             }
-            KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            KeyCode::Char('z') if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.truncation_enabled = !self.truncation_enabled;
                 let status = if self.truncation_enabled {
                     "Truncated"

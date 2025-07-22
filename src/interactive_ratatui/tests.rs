@@ -717,7 +717,7 @@ fn test_initial_results_loading() {
 }
 
 #[test]
-fn test_ctrl_r_truncation_toggle() {
+fn test_alt_z_truncation_toggle() {
     let temp_dir = tempdir().unwrap();
     let test_file = temp_dir.path().join("test.jsonl");
 
@@ -733,9 +733,9 @@ fn test_ctrl_r_truncation_toggle() {
 
     // Simulate Ctrl+R to toggle truncation
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    let ctrl_r = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL);
+    let alt_z = KeyEvent::new(KeyCode::Char('z'), KeyModifiers::ALT);
     search
-        .handle_search_input(ctrl_r, test_file.to_str().unwrap())
+        .handle_search_input(alt_z, test_file.to_str().unwrap())
         .unwrap();
 
     // Truncation should now be disabled
@@ -747,7 +747,7 @@ fn test_ctrl_r_truncation_toggle() {
 
     // Toggle again
     search
-        .handle_search_input(ctrl_r, test_file.to_str().unwrap())
+        .handle_search_input(alt_z, test_file.to_str().unwrap())
         .unwrap();
 
     // Truncation should be enabled again
@@ -770,14 +770,14 @@ fn test_truncation_toggle_preserves_state_across_modes() {
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    let ctrl_r = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL);
+    let alt_z = KeyEvent::new(KeyCode::Char('z'), KeyModifiers::ALT);
 
     // Initially truncation should be enabled
     assert!(search.truncation_enabled);
 
     // Toggle in Search mode
     search
-        .handle_search_input(ctrl_r, test_file.to_str().unwrap())
+        .handle_search_input(alt_z, test_file.to_str().unwrap())
         .unwrap();
     assert!(!search.truncation_enabled);
     assert_eq!(
@@ -798,7 +798,7 @@ fn test_truncation_toggle_preserves_state_across_modes() {
     assert!(!search.truncation_enabled);
 
     // Toggle in detail mode
-    search.handle_result_detail_input(ctrl_r).unwrap();
+    search.handle_result_detail_input(alt_z).unwrap();
     assert!(search.truncation_enabled);
     assert_eq!(
         search.message,
