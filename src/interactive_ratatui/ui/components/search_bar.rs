@@ -44,6 +44,16 @@ impl SearchBar {
     pub fn set_role_filter(&mut self, role_filter: Option<String>) {
         self.role_filter = role_filter;
     }
+
+    #[allow(dead_code)]
+    pub fn get_query(&self) -> &str {
+        &self.query
+    }
+
+    #[allow(dead_code)]
+    pub fn is_searching(&self) -> bool {
+        self.is_searching
+    }
 }
 
 impl Component for SearchBar {

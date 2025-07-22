@@ -4,6 +4,11 @@ pub mod result_list;
 pub mod search_bar;
 pub mod session_viewer;
 
+#[cfg(test)]
+mod result_list_test;
+#[cfg(test)]
+mod search_bar_test;
+
 use crate::interactive_ratatui::ui::events::Message;
 use crossterm::event::KeyEvent;
 use ratatui::{Frame, layout::Rect};

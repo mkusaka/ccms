@@ -3,3 +3,6 @@ pub mod commands;
 pub mod components;
 pub mod events;
 pub mod renderer;
+
+#[cfg(test)]
+mod app_state_test;

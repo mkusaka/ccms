@@ -42,15 +42,29 @@ impl ResultList {
         self.results.get(self.selected_index)
     }
 
-    fn format_timestamp(timestamp: &str) -> String {
+    #[allow(dead_code)]
+    pub fn update_results(&mut self, results: Vec<SearchResult>, selected_index: usize) {
+        self.results = results;
+        self.selected_index = selected_index;
+        self.scroll_offset = 0;
+    }
+
+    #[allow(dead_code)]
+    pub fn update_selection(&mut self, index: usize) {
+        if index < self.results.len() {
+            self.selected_index = index;
+        }
+    }
+
+    pub fn format_timestamp(timestamp: &str) -> String {
         if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
-            dt.format("%Y-%m-%d %H:%M").to_string()
+            dt.format("%m/%d %H:%M").to_string()
         } else {
             "N/A".to_string()
         }
     }
 
-    fn truncate_message(text: &str, max_width: usize) -> String {
+    pub fn truncate_message(text: &str, max_width: usize) -> String {
         let text = text.replace('\n', " ");
         let chars: Vec<char> = text.chars().collect();
 
