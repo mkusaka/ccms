@@ -749,7 +749,7 @@ impl InteractiveSearch {
 
         let messages_block = Block::default().title(title).borders(Borders::ALL);
         let inner = messages_block.inner(area);
-        
+
         // Clear the area before rendering to avoid artifacts
         f.render_widget(Clear, area);
         f.render_widget(messages_block, area);
