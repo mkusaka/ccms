@@ -1203,9 +1203,10 @@ impl InteractiveSearch {
             let mut current_height = 0;
             let mut end = start;
 
-            // Get terminal width for wrapping calculation
-            // Use a conservative estimate to avoid overflow
-            let terminal_width: usize = 100; // Most terminals are wider than 80
+            // Get actual available width from the height_for_items parameter
+            // This is more accurate than guessing terminal width
+            // Account for borders and padding
+            let available_width_estimate: usize = 78; // Conservative estimate for 80-char terminal
 
             while end < self.results.len() && current_height < height_for_items as usize {
                 if let Some(result) = self.results.get(end) {
@@ -1218,7 +1219,7 @@ impl InteractiveSearch {
 
                     // Estimate available width (conservative)
                     let available_width =
-                        terminal_width.saturating_sub(fixed_width).saturating_sub(2);
+                        available_width_estimate.saturating_sub(fixed_width).saturating_sub(4); // Extra margin
 
                     // Calculate wrapped lines
                     let wrapped_lines = self.wrap_text(&result.text, available_width);
@@ -1228,10 +1229,11 @@ impl InteractiveSearch {
                         wrapped_lines.len()
                     };
 
-                    // Check if this item fits (with safety margin)
-                    let required_height = item_height + 1; // Always add space for separator
-                    if current_height + required_height <= height_for_items as usize - 2 {
-                        // Leave 2 lines margin to prevent overflow
+                    // Check if this item fits (with stricter safety margin)
+                    let required_height = item_height; // No separator in List widget
+                    
+                    // Be more conservative - ensure we never exceed the actual height
+                    if current_height + required_height <= height_for_items as usize {
                         current_height += required_height;
                         end += 1;
                     } else {
