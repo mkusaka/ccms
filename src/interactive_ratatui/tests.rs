@@ -1205,6 +1205,37 @@ fn test_session_viewer_rendering_after_scroll_and_search() {
 }
 
 #[test]
+fn test_full_text_mode_display() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Add a long message
+    let long_content = "This is a very long message that should be wrapped when displayed in full text mode. It contains multiple words and should span multiple lines.";
+    search.results = vec![create_test_result(
+        "user",
+        long_content,
+        "2024-01-01T00:00:00Z",
+    )];
+    
+    // Enable full text mode
+    search.truncation_enabled = false;
+    
+    // Draw the search view
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw_search(f)).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    
+    // Should show the wrapped content
+    assert!(find_text_in_buffer(buffer, "This is a very long").is_some(), "First part of message should be visible");
+    assert!(find_text_in_buffer(buffer, "wrapped when displayed").is_some(), "Second line should be visible");
+    assert!(find_text_in_buffer(buffer, "contains multiple").is_some(), "Third line should be visible");
+    assert!(find_text_in_buffer(buffer, "lines.").is_some(), "Last part should be visible");
+    
+    // Should NOT show ellipsis in full text mode
+    assert!(find_text_in_buffer(buffer, "...").is_none(), "Ellipsis should not appear in full text mode");
+}
+
+#[test]
 fn test_session_viewer_clear_area_before_render() {
     // Test that the message list area is properly cleared before each render
     let mut search = InteractiveSearch::new(SearchOptions::default());
