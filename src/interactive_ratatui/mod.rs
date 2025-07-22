@@ -398,13 +398,13 @@ impl InteractiveSearch {
     }
 
     fn draw_results(&mut self, f: &mut Frame, area: Rect) {
-        // Clear the area first to prevent rendering artifacts
-        f.render_widget(Clear, area);
-        
         let results_block = Block::default()
             .title(format!("Results ({})", self.results.len()))
             .borders(Borders::ALL);
         let inner = results_block.inner(area);
+        
+        // Clear the inner area first to prevent rendering artifacts
+        f.render_widget(Clear, inner);
         f.render_widget(results_block, area);
 
         if self.results.is_empty() {
@@ -1167,33 +1167,54 @@ impl InteractiveSearch {
             let end = (start + visible_count).min(self.results.len());
             (start, end)
         } else {
-            // In full text mode, we need to calculate how many items fit
-            // Each item typically takes 2-4 lines when wrapped
-            // Use a more generous calculation to ensure multiple items are visible
-            let remaining_items = self.results.len().saturating_sub(self.scroll_offset);
-            
-            // Calculate based on available height
-            // Be more aggressive about showing multiple items
-            let calculated_items = if height_for_items >= 15 {
-                // For larger terminals, show 4-5 items
-                5.min(remaining_items)
-            } else if height_for_items >= 10 {
-                // For medium-large terminals, show 3-4 items
-                4.min(remaining_items)
-            } else if height_for_items >= 7 {
-                // For medium terminals, show 2-3 items  
-                3.min(remaining_items)
-            } else if height_for_items >= 4 {
-                // For smaller terminals, show at least 2 items
-                2.min(remaining_items)
-            } else {
-                // For very small terminals, show at least 1 item
-                1
-            };
-            
-            let visible_count = calculated_items.min(remaining_items);
+            // In full text mode, calculate exactly how many items fit
+            // by simulating the rendering process
             let start = self.scroll_offset;
-            let end = start + visible_count;
+            let mut current_height = 0;
+            let mut end = start;
+            
+            // Get terminal width for wrapping calculation
+            // Use a conservative estimate to avoid overflow
+            let terminal_width: usize = 100; // Most terminals are wider than 80
+            
+            while end < self.results.len() && current_height < height_for_items as usize {
+                if let Some(result) = self.results.get(end) {
+                    // Calculate how many lines this item will take
+                    let timestamp = Self::format_timestamp(&result.timestamp);
+                    let role_str = format!("[{:^9}]", result.role.to_uppercase());
+                    let index_str = format!("{:2}. ", end + 1);
+                    let fixed_part = format!("{index_str}{role_str} {timestamp} ");
+                    let fixed_width = fixed_part.chars().count();
+                    
+                    // Estimate available width (conservative)
+                    let available_width = terminal_width.saturating_sub(fixed_width).saturating_sub(2);
+                    
+                    // Calculate wrapped lines
+                    let wrapped_lines = self.wrap_text(&result.text, available_width);
+                    let item_height = if wrapped_lines.is_empty() { 
+                        1 
+                    } else { 
+                        wrapped_lines.len() 
+                    };
+                    
+                    // Check if this item fits (with safety margin)
+                    let required_height = item_height + 1; // Always add space for separator
+                    if current_height + required_height <= height_for_items as usize - 2 {
+                        // Leave 2 lines margin to prevent overflow
+                        current_height += required_height;
+                        end += 1;
+                    } else {
+                        // This item doesn't fit, stop here
+                        break;
+                    }
+                }
+            }
+            
+            // Ensure we show at least one item
+            if end == start && start < self.results.len() {
+                end = start + 1;
+            }
+            
             (start, end)
         }
     }
