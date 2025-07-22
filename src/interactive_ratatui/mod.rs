@@ -441,7 +441,7 @@ impl InteractiveSearch {
         }
 
         // Calculate visible range with scrolling
-        let (start_idx, end_idx) = self.calculate_visible_range(inner.height);
+        let (start_idx, end_idx) = self.calculate_visible_range(inner.height, inner.width);
 
         let items: Vec<ListItem> = self
             .results
@@ -1182,7 +1182,7 @@ impl InteractiveSearch {
         lines
     }
 
-    fn calculate_visible_range(&self, available_height: u16) -> (usize, usize) {
+    fn calculate_visible_range(&self, available_height: u16, available_width: u16) -> (usize, usize) {
         // Reserve 1 line for scroll indicator if needed
         let height_for_items = if self.results.len() > available_height as usize {
             available_height.saturating_sub(1)
@@ -1203,10 +1203,8 @@ impl InteractiveSearch {
             let mut current_height = 0;
             let mut end = start;
 
-            // Get actual available width from the height_for_items parameter
-            // This is more accurate than guessing terminal width
-            // Account for borders and padding
-            let available_width_estimate: usize = 78; // Conservative estimate for 80-char terminal
+            // Use the actual available width passed as parameter
+            let available_width_estimate = available_width as usize;
 
             while end < self.results.len() && current_height < height_for_items as usize {
                 if let Some(result) = self.results.get(end) {
@@ -1278,7 +1276,10 @@ impl InteractiveSearch {
         } else {
             // In full text mode, use the calculate_visible_range to determine
             // if we need to adjust scroll
-            let (current_start, current_end) = self.calculate_visible_range(height_for_items);
+            // Estimate width for scroll adjustment - this is just for calculating if we need to scroll
+            // The actual width will be used during rendering
+            let estimated_width = 80u16;
+            let (current_start, current_end) = self.calculate_visible_range(height_for_items, estimated_width);
 
             // If selected index is before the visible range, scroll up
             if self.selected_index < current_start {
