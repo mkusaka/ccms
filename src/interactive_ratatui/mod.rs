@@ -883,10 +883,10 @@ impl InteractiveSearch {
                     } else {
                         // Full text mode: multi-line display with wrapping
                         let mut lines = Vec::new();
-                        
+
                         // Wrap the preview text
                         let wrapped_preview = self.wrap_text(&preview, available_width);
-                        
+
                         if wrapped_preview.is_empty() {
                             // If no wrapped lines, just show the header
                             lines.push(Line::from(vec![Span::styled(fixed_part.clone(), style)]));
@@ -894,7 +894,7 @@ impl InteractiveSearch {
                             // First line with metadata and first part of preview
                             let first_line = format!("{fixed_part}{}", wrapped_preview[0]);
                             lines.push(Line::from(vec![Span::styled(first_line, style)]));
-                            
+
                             // Subsequent lines with proper indentation
                             let indent = " ".repeat(fixed_part.len());
                             for line in wrapped_preview.iter().skip(1) {
@@ -902,7 +902,7 @@ impl InteractiveSearch {
                                 lines.push(Line::from(vec![Span::styled(indented_line, style)]));
                             }
                         }
-                        
+
                         ListItem::new(lines)
                     }
                 } else {
