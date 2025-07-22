@@ -1230,7 +1230,7 @@ impl InteractiveSearch {
                     match self.load_session_messages(&full_path) {
                         Ok(_) => {
                             self.session_index = 0;
-                            self.session_order = None;  // User will choose order
+                            self.session_order = None; // User will choose order
                             self.session_query.clear();
                             self.session_filtered_indices =
                                 (0..self.session_messages.len()).collect();
@@ -1346,7 +1346,8 @@ impl InteractiveSearch {
                     self.session_scroll_offset = 0;
                 }
                 KeyCode::Up => {
-                    if !self.session_filtered_indices.is_empty() && self.session_selected_index > 0 {
+                    if !self.session_filtered_indices.is_empty() && self.session_selected_index > 0
+                    {
                         self.session_selected_index -= 1;
                         self.adjust_session_scroll_offset();
                     }
@@ -1362,14 +1363,16 @@ impl InteractiveSearch {
                 }
                 KeyCode::PageUp => {
                     if !self.session_filtered_indices.is_empty() {
-                        self.session_selected_index = self.session_selected_index.saturating_sub(10);
+                        self.session_selected_index =
+                            self.session_selected_index.saturating_sub(10);
                         self.adjust_session_scroll_offset();
                     }
                 }
                 KeyCode::PageDown => {
                     if !self.session_filtered_indices.is_empty() {
                         let max_index = self.session_filtered_indices.len().saturating_sub(1);
-                        self.session_selected_index = (self.session_selected_index + 10).min(max_index);
+                        self.session_selected_index =
+                            (self.session_selected_index + 10).min(max_index);
                         self.adjust_session_scroll_offset();
                     }
                 }
@@ -1385,7 +1388,8 @@ impl InteractiveSearch {
                                 .get("type")
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("unknown");
-                            let timestamp = msg.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
+                            let timestamp =
+                                msg.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
                             let uuid = msg.get("uuid").and_then(|v| v.as_str()).unwrap_or("");
 
                             let content = msg
@@ -1399,7 +1403,9 @@ impl InteractiveSearch {
                                 } else if let Some(parts) = content_val.as_array() {
                                     parts
                                         .iter()
-                                        .filter_map(|part| part.get("text").and_then(|v| v.as_str()))
+                                        .filter_map(|part| {
+                                            part.get("text").and_then(|v| v.as_str())
+                                        })
                                         .collect::<Vec<_>>()
                                         .join("\n")
                                 } else {

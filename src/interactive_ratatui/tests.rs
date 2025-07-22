@@ -39,7 +39,7 @@ fn create_test_result(role: &str, text: &str, timestamp: &str) -> SearchResult {
         timestamp: timestamp.to_string(),
         session_id: "test-session".to_string(),
         role: role.to_string(),
-        text: content.to_string(),
+        text: text.to_string(),
         has_tools: false,
         has_thinking: false,
         message_type: "message".to_string(),
@@ -349,6 +349,38 @@ fn test_execute_search_with_filters() {
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
 
+    // Test role filter
+    search.query = "message".to_string();
+    search.role_filter = Some("user".to_string());
+    search.execute_search_sync(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+    assert_eq!(search.results[0].role, "user");
+
+    // Test assistant filter - search for "response" which is in the assistant message
+    search.query = "response".to_string();
+    search.role_filter = Some("assistant".to_string());
+    search.execute_search_sync(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+    assert_eq!(search.results[0].role, "assistant");
+
+    // Test system filter
+    search.query = "System".to_string();
+    search.role_filter = Some("system".to_string());
+    search.execute_search_sync(test_file.to_str().unwrap());
+
+    // Also try without filter to see what messages are found
+    search.query = "message".to_string();
+    search.role_filter = None;
+    search.execute_search_sync(test_file.to_str().unwrap());
+
+    assert_eq!(
+        search.results.iter().filter(|r| r.role == "system").count(),
+        1
+    );
+    let system_msg = search.results.iter().find(|r| r.role == "system").unwrap();
+    assert_eq!(system_msg.text, "System message");
+}
+
 #[test]
 fn test_draw_search_mode() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
@@ -385,9 +417,8 @@ fn test_draw_help_mode() {
     let buffer = terminal.backend().buffer();
 
     // Check that help content is displayed
-    assert!(find_text_in_buffer(buffer, "CCMS Help").is_some());
-    assert!(find_text_in_buffer(buffer, "Search Mode:").is_some());
-    assert!(find_text_in_buffer(buffer, "Result Detail:").is_some());
+    assert!(find_text_in_buffer(buffer, "Interactive Claude Search - Help").is_some());
+    assert!(find_text_in_buffer(buffer, "Keyboard Shortcuts").is_some());
 }
 
 #[test]
@@ -524,36 +555,14 @@ fn test_empty_search_results() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.query = "no matches".to_string();
     search.results = vec![];
-    // Test role filter
-    search.query = "message".to_string();
-    search.role_filter = Some("user".to_string());
-    search.execute_search_sync(test_file.to_str().unwrap());
-    assert_eq!(search.results.len(), 1);
-    assert_eq!(search.results[0].role, "user");
 
-    // Test assistant filter - search for "response" which is in the assistant message
-    search.query = "response".to_string();
-    search.role_filter = Some("assistant".to_string());
-    search.execute_search_sync(test_file.to_str().unwrap());
-    assert_eq!(search.results.len(), 1);
-    assert_eq!(search.results[0].role, "assistant");
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw_search(f)).unwrap();
 
-    // Test system filter - Debug
-    search.query = "System".to_string(); // Search for "System" which is in the system message
-    search.role_filter = Some("system".to_string());
-    search.execute_search_sync(test_file.to_str().unwrap());
+    let buffer = terminal.backend().buffer();
 
-    // Also try without filter to see what messages are found
-    search.query = "message".to_string();
-    search.role_filter = None;
-    search.execute_search_sync(test_file.to_str().unwrap());
-
-    assert_eq!(
-        search.results.iter().filter(|r| r.role == "system").count(),
-        1
-    );
-    let system_msg = search.results.iter().find(|r| r.role == "system").unwrap();
-    assert!(system_msg.text.contains("System message"));
+    // Should show "No results found"
+    assert!(find_text_in_buffer(buffer, "No results found").is_some());
 }
 
 #[test]
@@ -1062,14 +1071,14 @@ fn test_long_message_truncation() {
     terminal.draw(|f| search.draw_search(f)).unwrap();
 
     let buffer = terminal.backend().buffer();
-    
+
     // The long message should be truncated with "..."
     let buffer_content = buffer
         .content()
         .iter()
         .map(|cell| cell.symbol())
         .collect::<String>();
-    
+
     // Should contain part of the message
     assert!(buffer_content.contains("This is a very long"));
     // Should be truncated
@@ -1320,19 +1329,19 @@ fn test_search_navigation_keys() {
 #[test]
 fn test_more_results_display() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
-    
+
     // Create many results to test "more results" display
     let mut results = Vec::new();
     for i in 0..30 {
         results.push(create_test_result(
             "user",
-            &format!("Message {}", i),
+            &format!("Message {i}"),
             "2024-01-01T00:00:00Z",
         ));
     }
     search.results = results;
     search.max_results = 25; // Limit to show "more results" indicator
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw(f)).unwrap();
 
@@ -1575,7 +1584,7 @@ fn test_session_viewer_scroll_indicator() {
     terminal.draw(|f| search.draw(f)).unwrap();
 
     let buffer = terminal.backend().buffer();
-    
+
     // Should show scroll indicator since we have 50 messages
     assert!(find_text_in_buffer(buffer, "messages ↑/↓ to scroll").is_some());
 }
@@ -1600,6 +1609,9 @@ fn test_session_viewer_pagination() {
     search.session_order = Some(SessionOrder::Ascending);
     search.push_screen(Mode::SessionViewer);
 
+    // Initialize filtered indices to show all messages
+    search.session_filtered_indices = (0..search.session_messages.len()).collect();
+
     // Test that we have multiple messages
     assert_eq!(search.session_messages.len(), 10);
 
@@ -1609,22 +1621,22 @@ fn test_session_viewer_pagination() {
     // Test down navigation
     let down_key = KeyEvent::new(KeyCode::Down, KeyModifiers::empty());
     search.handle_session_viewer_input(down_key).unwrap();
-    assert_eq!(search.session_index, 1);
+    assert_eq!(search.session_selected_index, 1);
 
     // Test up navigation
     let up_key = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
     search.handle_session_viewer_input(up_key).unwrap();
-    assert_eq!(search.session_index, 0);
+    assert_eq!(search.session_selected_index, 0);
 
     // Test page down
     let page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty());
     search.handle_session_viewer_input(page_down).unwrap();
-    assert!(search.session_index > 1);
+    assert!(search.session_selected_index > 1);
 
     // Test page up
     let page_up = KeyEvent::new(KeyCode::PageUp, KeyModifiers::empty());
     search.handle_session_viewer_input(page_up).unwrap();
-    assert_eq!(search.session_index, 0);
+    assert_eq!(search.session_selected_index, 0);
 }
 
 #[test]
@@ -2718,7 +2730,6 @@ fn test_async_search_channel_disconnect() {
 #[test]
 fn test_session_viewer_json_parse_error() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
-    let mut terminal = create_test_terminal();
 
     search.push_screen(Mode::SessionViewer);
     search.session_order = Some(SessionOrder::Ascending);
@@ -2766,7 +2777,7 @@ fn test_session_viewer_tool_use_display() {
 
     // Should show text content from tool use message
     assert!(find_text_in_buffer(buffer, "Let me search for that.").is_some());
-    
+
     // Should show that tool messages are displayed (content might be formatted differently)
     // Check that at least the messages are shown by checking for their timestamps/indices
     assert!(find_text_in_buffer(buffer, "1.").is_some());
