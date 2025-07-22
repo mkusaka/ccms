@@ -1014,7 +1014,7 @@ impl InteractiveSearch {
                             self.message = Some("Copied message to clipboard!".to_string());
                         }
                         Err(e) => {
-                            self.message = Some(format!("Failed to copy: {}", e));
+                            self.message = Some(format!("Failed to copy: {e}"));
                         }
                     }
                 }
@@ -1027,7 +1027,7 @@ impl InteractiveSearch {
                                 self.message = Some("Copied JSON to clipboard!".to_string());
                             }
                             Err(e) => {
-                                self.message = Some(format!("Failed to copy: {}", e));
+                                self.message = Some(format!("Failed to copy: {e}"));
                             }
                         }
                     } else {
