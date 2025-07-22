@@ -53,8 +53,6 @@ colored = "2.1"
 ratatui = "0.28"
 crossterm = "0.28"
 
-# Memory mapping for large files
-memmap2 = "0.9"
 
 # Profiling and tracing
 pprof = { version = "0.13", features = ["flamegraph", "prost-codec"], optional = true }
