@@ -101,6 +101,9 @@ The codebase is organized into five main modules:
    - `async_engine.rs`: Optional async implementation using tokio
    
 4. **interactive_ratatui** - Interactive fzf-like search interface
+   - Clean architecture with domain/application/UI layers
+   - MVU (Model-View-Update) pattern for state management
+   - Component-based UI design
    - Terminal UI using ratatui crate with crossterm backend
    - Real-time search with keyboard navigation
    
@@ -126,19 +129,33 @@ The codebase is organized into five main modules:
 7. Format and display results
 
 **Interactive Mode Architecture**:
-- Uses `ratatui` crate with crossterm backend for terminal control
-- Non-blocking input handling with event polling
-- Maintains search state and cursor position
-- Executes search with debouncing (300ms)
-- Supports role filtering via Tab key
-- Implements session viewer and clipboard operations
+- **Clean Architecture Layers**:
+  - **Domain Layer**: Core business entities and models (`Mode`, `SearchRequest`, `SessionOrder`)
+  - **Application Layer**: Business logic and services (`SearchService`, `SessionService`, `CacheService`)
+  - **UI Layer**: Presentation logic with MVU pattern (`AppState`, `Message`, `Command`)
+- **MVU (Model-View-Update) Pattern**:
+  - **Model**: Centralized state in `AppState`
+  - **View**: Component-based rendering with `Renderer`
+  - **Update**: Message-driven state updates with side effects as `Command`s
+- **Component-Based UI**:
+  - Reusable components implementing `Component` trait
+  - `SearchBar`, `ResultList`, `ResultDetail`, `SessionViewer`, `HelpDialog`
+  - Each component manages its own rendering and input handling
+- **Non-blocking Architecture**:
+  - Event polling with 50ms timeout
+  - Async search with message passing (mpsc channels)
+  - Debounced search (300ms) for better UX
+  - Visual feedback during async operations
 
 ### Critical Files
 
 - `src/main.rs` - CLI entry point and argument parsing
 - `src/search/engine.rs` - Core search implementation
 - `src/query/parser.rs` - Query syntax parser
-- `src/interactive_ratatui/mod.rs` - Interactive search UI
+- `src/interactive_ratatui/mod.rs` - Interactive search entry point and coordination
+- `src/interactive_ratatui/ui/app_state.rs` - Centralized state management with MVU pattern
+- `src/interactive_ratatui/ui/renderer.rs` - Main UI renderer coordinating components
+- `src/interactive_ratatui/domain/models.rs` - Core domain models and types
 
 ### Feature Flags
 
@@ -166,6 +183,20 @@ When adding new search features:
 2. Extend parser in `query/parser.rs`
 3. Add evaluation logic to `evaluate()` method
 4. Update CLI args in `main.rs` if needed
+
+When adding new UI features to interactive mode:
+1. **Add new Message** in `ui/events.rs` if needed
+2. **Update State** in `ui/app_state.rs`:
+   - Add new fields to relevant state structs
+   - Handle new messages in `AppState::update()`
+3. **Add Commands** in `ui/commands.rs` for side effects
+4. **Update Components**:
+   - Modify existing or create new components in `ui/components/`
+   - Implement `Component` trait
+   - Add component to `Renderer` if new
+5. **Wire up in mod.rs**:
+   - Handle commands in `execute_command()`
+   - Add key bindings in `handle_input()`
 
 When optimizing performance:
 1. Run benchmarks before changes: `cargo bench`
@@ -205,3 +236,140 @@ The interactive mode uses non-blocking input handling to prevent UI freezing:
 - Clear separation between UI modes (Search, ResultDetail, SessionViewer, Help)
 - Automatic cleanup on mode transitions (clear messages, reset scroll)
 - Comprehensive caching system to minimize file I/O
+
+### Testing Strategy
+
+**Unit Testing Approach**:
+The codebase follows a comprehensive testing strategy with tests organized by architectural layers:
+
+1. **Domain Layer Tests** (`domain/*_test.rs`):
+   - Test pure business logic and domain models
+   - Focus on data structures and domain rules
+   - Examples: `models_test.rs`, `filter_test.rs`
+
+2. **Application Layer Tests** (`application/*_test.rs`):
+   - Test service orchestration and business workflows
+   - Mock external dependencies (file system, etc.)
+   - Examples: `search_service_test.rs`, `session_service_test.rs`, `cache_service_test.rs`
+
+3. **UI Layer Tests** (`ui/*_test.rs`):
+   - Test state management and component behavior
+   - Verify MVU pattern implementation
+   - Examples: `app_state_test.rs`, component tests in `components/*_test.rs`
+
+4. **Integration Tests** (`integration_tests.rs`):
+   - Test interactions between layers
+   - Verify end-to-end workflows
+   - Test complete user scenarios
+
+**Testing Best Practices**:
+- Use descriptive test names that explain the scenario
+- Each test should be independent and isolated
+- Mock file system operations to avoid I/O dependencies
+- Use builder patterns for complex test data setup
+- Test edge cases (empty data, unicode, invalid input)
+
+**Test Organization**:
+```
+src/interactive_ratatui/
+├── domain/
+│   ├── models_test.rs      # Domain model tests
+│   └── filter_test.rs      # Filter logic tests
+├── application/
+│   ├── search_service_test.rs   # Search service tests
+│   ├── session_service_test.rs  # Session service tests
+│   └── cache_service_test.rs    # Cache service tests
+├── ui/
+│   ├── app_state_test.rs        # State management tests
+│   └── components/
+│       ├── search_bar_test.rs   # SearchBar component tests
+│       └── result_list_test.rs  # ResultList component tests
+└── integration_tests.rs         # Cross-layer integration tests
+```
+
+**Running Tests**:
+```bash
+# Run all tests
+cargo test
+
+# Run specific test module
+cargo test interactive_ratatui::
+
+# Run with output for debugging
+cargo test -- --nocapture
+
+# Run specific test function
+cargo test test_search_filter
+```
+
+**Test Coverage Goals**:
+- Critical business logic: 100% coverage
+- UI components: Key interaction paths covered
+- Error handling: All error cases tested
+- Performance: Benchmarks for search operations
+
+### Interactive Ratatui Architecture Details
+
+**Directory Structure**:
+```
+src/interactive_ratatui/
+├── mod.rs                    # Entry point, main event loop
+├── domain/                   # Domain layer (business entities)
+│   ├── models.rs            # Core types: Mode, SearchRequest, etc.
+│   └── filter.rs            # Domain logic for filtering
+├── application/             # Application layer (business logic)
+│   ├── search_service.rs    # Search orchestration
+│   ├── session_service.rs   # Session management
+│   └── cache_service.rs     # File caching
+└── ui/                      # UI layer (presentation)
+    ├── app_state.rs         # Centralized state (MVU Model)
+    ├── events.rs            # Message types (MVU Messages)
+    ├── commands.rs          # Side effects (MVU Commands)
+    ├── renderer.rs          # Main renderer
+    └── components/          # Reusable UI components
+        ├── search_bar.rs
+        ├── result_list.rs
+        ├── result_detail.rs
+        ├── session_viewer.rs
+        └── help_dialog.rs
+```
+
+**MVU Pattern Implementation**:
+
+1. **Messages** (`ui/events.rs`):
+   - User actions and system events
+   - Examples: `QueryChanged`, `SearchCompleted`, `EnterResultDetail`
+
+2. **State** (`ui/app_state.rs`):
+   - Single source of truth for UI state
+   - `AppState::update(msg)` handles all state transitions
+   - Returns `Command` for side effects
+
+3. **Commands** (`ui/commands.rs`):
+   - Side effects that can't be handled in pure update function
+   - Examples: `ExecuteSearch`, `LoadSession`, `CopyToClipboard`
+
+4. **Component Trait**:
+   ```rust
+   pub trait Component {
+       fn render(&mut self, f: &mut Frame, area: Rect);
+       fn handle_key(&mut self, key: KeyEvent) -> Option<Message>;
+   }
+   ```
+
+**Key Architectural Benefits**:
+- **Testability**: Pure functions for state updates
+- **Maintainability**: Clear separation of concerns
+- **Extensibility**: Easy to add new components or messages
+- **Performance**: Efficient state updates and rendering
+
+**Migration from Monolithic Design**:
+The interactive UI was refactored from a 1882-line monolithic file to a clean architecture:
+- **Before**: Single `InteractiveSearch` struct with 30+ fields (God Object)
+- **After**: Layered architecture with clear responsibilities
+- **Key Changes**:
+  - Extracted domain models to separate layer
+  - Created service layer for business logic
+  - Implemented MVU pattern for predictable state management
+  - Split UI into reusable components
+  - Improved testability and maintainability
