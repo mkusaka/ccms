@@ -1,6 +1,6 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
@@ -37,6 +37,7 @@ impl ResultList {
         }
     }
 
+    #[allow(dead_code)]
     pub fn selected_result(&self) -> Option<&SearchResult> {
         self.results.get(self.selected_index)
     }
@@ -57,7 +58,7 @@ impl ResultList {
             text
         } else {
             let truncated: String = chars.into_iter().take(max_width - 3).collect();
-            format!("{}...", truncated)
+            format!("{truncated}...")
         }
     }
 
@@ -112,7 +113,7 @@ impl Component for ResultList {
 
                 let spans = vec![
                     Span::styled(
-                        format!("{:16} ", timestamp),
+                        format!("{timestamp:16} "),
                         Style::default().fg(Color::DarkGray),
                     ),
                     Span::styled(

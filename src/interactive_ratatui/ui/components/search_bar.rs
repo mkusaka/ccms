@@ -1,7 +1,7 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
@@ -73,10 +73,10 @@ impl Component for SearchBar {
 
         let mut title = "Search".to_string();
         if let Some(role) = &self.role_filter {
-            title.push_str(&format!(" [role:{}]", role));
+            title.push_str(&format!(" [role:{role}]"));
         }
         if let Some(msg) = &self.message {
-            title.push_str(&format!(" - {}", msg));
+            title.push_str(&format!(" - {msg}"));
         }
 
         let input = Paragraph::new(Line::from(input_text))

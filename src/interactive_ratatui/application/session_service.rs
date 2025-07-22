@@ -29,24 +29,26 @@ impl SessionService {
         Ok(cached_file.raw_lines.clone())
     }
 
+    #[allow(dead_code)]
     pub fn filter_messages(messages: &[String], query: &str) -> Vec<usize> {
         SessionFilter::filter_messages(messages, query)
     }
 
-    pub fn sort_messages(messages: &mut Vec<SessionMessage>, order: SessionOrder) {
+    #[allow(dead_code)]
+    pub fn sort_messages(messages: &mut [SessionMessage], order: SessionOrder) {
         match order {
             SessionOrder::Ascending => {
                 messages.sort_by(|a, b| {
                     let a_ts = a.get_timestamp().unwrap_or("");
                     let b_ts = b.get_timestamp().unwrap_or("");
-                    a_ts.cmp(&b_ts)
+                    a_ts.cmp(b_ts)
                 });
             }
             SessionOrder::Descending => {
                 messages.sort_by(|a, b| {
                     let a_ts = a.get_timestamp().unwrap_or("");
                     let b_ts = b.get_timestamp().unwrap_or("");
-                    b_ts.cmp(&a_ts)
+                    b_ts.cmp(a_ts)
                 });
             }
             SessionOrder::Original => {

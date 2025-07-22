@@ -5,7 +5,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
 };
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent};
 use crate::interactive_ratatui::ui::events::Message;
 use crate::interactive_ratatui::ui::components::Component;
 use crate::interactive_ratatui::domain::models::SessionOrder;
@@ -56,11 +56,13 @@ impl SessionViewer {
         self.order = order;
     }
 
+    #[allow(dead_code)]
     pub fn start_search(&mut self) {
         self.is_searching = true;
         self.query.clear();
     }
 
+    #[allow(dead_code)]
     pub fn stop_search(&mut self) {
         self.is_searching = false;
     }
@@ -195,11 +197,7 @@ impl Component for SessionViewer {
                 KeyCode::Char('o') => Some(Message::ToggleSessionOrder),
                 KeyCode::Char('c') => {
                     if let Some(&msg_idx) = self.filtered_indices.get(self.selected_index) {
-                        if let Some(msg) = self.messages.get(msg_idx) {
-                            Some(Message::CopyToClipboard(msg.clone()))
-                        } else {
-                            None
-                        }
+                        self.messages.get(msg_idx).map(|msg| Message::CopyToClipboard(msg.clone()))
                     } else {
                         None
                     }

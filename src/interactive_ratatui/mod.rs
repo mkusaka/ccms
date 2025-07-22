@@ -207,7 +207,7 @@ impl InteractiveSearch {
             }
             Command::CopyToClipboard(text) => {
                 if let Err(e) = self.copy_to_clipboard(&text) {
-                    self.state.ui.message = Some(format!("Failed to copy: {}", e));
+                    self.state.ui.message = Some(format!("Failed to copy: {e}"));
                 } else {
                     self.state.ui.message = Some("Copied to clipboard".to_string());
                 }
@@ -251,7 +251,7 @@ impl InteractiveSearch {
                 self.state.session.filtered_indices = (0..self.state.session.messages.len()).collect();
             }
             Err(e) => {
-                self.state.ui.message = Some(format!("Failed to load session: {}", e));
+                self.state.ui.message = Some(format!("Failed to load session: {e}"));
             }
         }
     }
@@ -268,7 +268,7 @@ impl InteractiveSearch {
                         let _ = response_tx.send(response);
                     }
                     Err(e) => {
-                        eprintln!("Search error: {}", e);
+                        eprintln!("Search error: {e}");
                         let _ = response_tx.send(SearchResponse {
                             id: request.id,
                             results: Vec::new(),
@@ -325,10 +325,12 @@ impl InteractiveSearch {
     }
 
     // For compatibility with existing tests
+    #[allow(dead_code)]
     pub(crate) fn current_mode(&self) -> Mode {
         self.state.mode
     }
 
+    #[allow(dead_code)]
     pub(crate) fn push_screen(&mut self, mode: Mode) {
         self.state.mode = mode;
     }

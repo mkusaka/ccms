@@ -8,6 +8,7 @@ use crate::interactive_ratatui::domain::models::{SearchRequest, SearchResponse};
 
 pub struct SearchService {
     engine: Arc<SearchEngine>,
+    #[allow(dead_code)]
     base_options: SearchOptions,
 }
 

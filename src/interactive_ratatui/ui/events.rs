@@ -1,6 +1,7 @@
 use crate::query::condition::SearchResult;
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum Message {
     // Search events
     QueryChanged(String),
@@ -37,8 +38,8 @@ pub enum Message {
     SearchProgress(u64, String),
     
     // UI events
-    SetMessage(String),
-    ClearMessage,
+    SetStatus(String),
+    ClearStatus,
     
     // Terminal events
     Quit,

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 use anyhow::Result;
 use crate::SessionMessage;
 use crate::interactive_ratatui::domain::models::CachedFile;
@@ -61,6 +60,7 @@ impl CacheService {
         Ok(self.files.get(path).unwrap())
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.files.clear();
     }

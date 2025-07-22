@@ -12,7 +12,9 @@ pub struct AppState {
     pub search: SearchState,
     pub session: SessionState,
     pub ui: UiState,
+    #[allow(dead_code)]
     pub base_options: SearchOptions,
+    #[allow(dead_code)]
     pub max_results: usize,
 }
 
@@ -189,11 +191,11 @@ impl AppState {
                 self.update_session_filter();
                 Command::None
             }
-            Message::SetMessage(msg) => {
+            Message::SetStatus(msg) => {
                 self.ui.message = Some(msg);
                 Command::None
             }
-            Message::ClearMessage => {
+            Message::ClearStatus => {
                 self.ui.message = None;
                 Command::None
             }

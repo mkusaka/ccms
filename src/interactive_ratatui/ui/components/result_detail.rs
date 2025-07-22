@@ -27,6 +27,7 @@ impl ResultDetail {
         self.scroll_offset = 0;
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.result = None;
         self.scroll_offset = 0;
@@ -84,11 +85,7 @@ impl Component for ResultDetail {
             }
             KeyCode::Char('s') => Some(Message::EnterSessionViewer),
             KeyCode::Char('c') => {
-                if let Some(result) = &self.result {
-                    Some(Message::CopyToClipboard(result.text.clone()))
-                } else {
-                    None
-                }
+                self.result.as_ref().map(|result| Message::CopyToClipboard(result.text.clone()))
             }
             KeyCode::Char('C') => {
                 if let Some(result) = &self.result {

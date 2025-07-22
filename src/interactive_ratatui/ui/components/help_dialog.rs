@@ -5,7 +5,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 use crate::interactive_ratatui::ui::events::Message;
 use crate::interactive_ratatui::ui::components::Component;
 
