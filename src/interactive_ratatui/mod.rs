@@ -749,6 +749,9 @@ impl InteractiveSearch {
 
         let messages_block = Block::default().title(title).borders(Borders::ALL);
         let inner = messages_block.inner(area);
+        
+        // Clear the area before rendering to avoid artifacts
+        f.render_widget(Clear, area);
         f.render_widget(messages_block, area);
 
         if filtered_count == 0 {
@@ -823,9 +826,6 @@ impl InteractiveSearch {
                         self.truncate_message(&preview, available_width as usize);
 
                     let line_content = format!("{fixed_part}{truncated_preview}");
-                    
-                    // Pad the line to full width to clear any previous content
-                    let padded_content = format!("{:<width$}", line_content, width = inner.width as usize);
 
                     let style = if list_idx == self.session_selected_index {
                         Style::default()
@@ -835,10 +835,9 @@ impl InteractiveSearch {
                         Style::default()
                     };
 
-                    ListItem::new(Line::from(vec![Span::styled(padded_content, style)]))
+                    ListItem::new(Line::from(vec![Span::styled(line_content, style)]))
                 } else {
-                    let error_msg = format!("{:<width$}", "(error parsing message)", width = inner.width as usize);
-                    ListItem::new(Line::from(error_msg))
+                    ListItem::new(Line::from("(error parsing message)"))
                 }
             })
             .collect();
