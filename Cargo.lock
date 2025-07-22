@@ -245,7 +245,6 @@ dependencies = [
  "globset",
  "indicatif",
  "lru",
- "memmap2",
  "nom",
  "parse_datetime",
  "pprof",
