@@ -339,19 +339,11 @@ fn test_query_parsing_integration() {
     search.query = "Hello OR Goodbye".to_string();
     search.role_filter = None; // Clear any role filter
     search.execute_search_sync(test_file.to_str().unwrap());
-    println!("OR query results: {}", search.results.len());
-    for (i, result) in search.results.iter().enumerate() {
-        println!("  Result {}: role={}, text={}", i, result.role, result.text);
-    }
     assert_eq!(search.results.len(), 2);
 
     // Test NOT query - search for messages containing "message" but not "System"
     search.query = "message NOT System".to_string();
     search.execute_search_sync(test_file.to_str().unwrap());
-    println!("NOT query results: {}", search.results.len());
-    for (i, result) in search.results.iter().enumerate() {
-        println!("  Result {}: role={}, text={}", i, result.role, result.text);
-    }
     // Only "System message" contains both words, so it should be excluded
     // "Hello world" and "Goodbye world" don't contain "message", so they don't match
     // The query should return 0 results
@@ -368,21 +360,6 @@ fn test_execute_search_with_filters() {
     writeln!(file, r#"{{"type":"assistant","message":{{"id":"msg1","type":"message","role":"assistant","model":"claude","content":[{{"type":"text","text":"Assistant response"}}],"stop_reason":"end_turn","stop_sequence":null,"usage":{{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"s1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
     writeln!(file, r#"{{"type":"system","content":"System message","uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0","isMeta":false}}"#).unwrap();
     
-    // Debug: Read file content
-    drop(file);
-    let file_content = std::fs::read_to_string(&test_file).unwrap();
-    println!("Test file content:");
-    for (i, line) in file_content.lines().enumerate() {
-        println!("Line {}: {}", i, line);
-    }
-
-    // Try to parse each line to check for errors
-    for (i, line) in file_content.lines().enumerate() {
-        match serde_json::from_str::<crate::schemas::SessionMessage>(line) {
-            Ok(msg) => println!("Line {} parsed OK: type={}", i, msg.get_type()),
-            Err(e) => println!("Line {} parse error: {}", i, e),
-        }
-    }
     
     let mut search = InteractiveSearch::new(SearchOptions::default());
 
@@ -404,19 +381,11 @@ fn test_execute_search_with_filters() {
     search.query = "System".to_string();  // Search for "System" which is in the system message
     search.role_filter = Some("system".to_string());
     search.execute_search_sync(test_file.to_str().unwrap());
-    println!("System filter results: {}", search.results.len());
-    for result in &search.results {
-        println!("  - role: {}, text: {}", result.role, result.text);
-    }
     
     // Also try without filter to see what messages are found
     search.query = "message".to_string();
     search.role_filter = None;
     search.execute_search_sync(test_file.to_str().unwrap());
-    println!("All messages with 'message' query: {}", search.results.len());
-    for result in &search.results {
-        println!("  - role: {}, text: {}", result.role, result.text);
-    }
     
     assert_eq!(search.results.iter().filter(|r| r.role == "system").count(), 1);
     let system_msg = search.results.iter().find(|r| r.role == "system").unwrap();
