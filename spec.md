@@ -61,7 +61,7 @@ Search [role]: [query]
 | ? | Show help screen |
 | Tab | Cycle through role filters: None → user → assistant → system → summary → None |
 | Ctrl+R | Clear cache and reload all files |
-| Alt+Z | Toggle message truncation (Truncated/Full Text) |
+| Ctrl+T | Toggle message truncation (Truncated/Full Text) |
 | Esc or Ctrl+C | Exit interactive mode |
 
 ### Full Result View
@@ -274,7 +274,7 @@ Applied before other filters in the search pipeline.
 
 ### Message Truncation Toggle
 
-The Alt+Z keyboard shortcut toggles between truncated and full text display modes:
+The Ctrl+T keyboard shortcut toggles between truncated and full text display modes:
 
 #### Truncated Mode (Default)
 - Messages are truncated to fit the terminal width

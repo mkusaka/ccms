@@ -717,7 +717,7 @@ fn test_initial_results_loading() {
 }
 
 #[test]
-fn test_alt_z_truncation_toggle() {
+fn test_ctrl_t_truncation_toggle() {
     let temp_dir = tempdir().unwrap();
     let test_file = temp_dir.path().join("test.jsonl");
 
@@ -731,11 +731,11 @@ fn test_alt_z_truncation_toggle() {
     // Initially truncation should be enabled
     assert!(search.truncation_enabled);
 
-    // Simulate Ctrl+R to toggle truncation
+    // Simulate Ctrl+T to toggle truncation
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    let alt_z = KeyEvent::new(KeyCode::Char('z'), KeyModifiers::ALT);
+    let ctrl_t = KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL);
     search
-        .handle_search_input(alt_z, test_file.to_str().unwrap())
+        .handle_search_input(ctrl_t, test_file.to_str().unwrap())
         .unwrap();
 
     // Truncation should now be disabled
@@ -747,7 +747,7 @@ fn test_alt_z_truncation_toggle() {
 
     // Toggle again
     search
-        .handle_search_input(alt_z, test_file.to_str().unwrap())
+        .handle_search_input(ctrl_t, test_file.to_str().unwrap())
         .unwrap();
 
     // Truncation should be enabled again
@@ -811,14 +811,14 @@ fn test_truncation_toggle_preserves_state_across_modes() {
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    let alt_z = KeyEvent::new(KeyCode::Char('z'), KeyModifiers::ALT);
+    let ctrl_t = KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL);
 
     // Initially truncation should be enabled
     assert!(search.truncation_enabled);
 
     // Toggle in Search mode
     search
-        .handle_search_input(alt_z, test_file.to_str().unwrap())
+        .handle_search_input(ctrl_t, test_file.to_str().unwrap())
         .unwrap();
     assert!(!search.truncation_enabled);
     assert_eq!(
@@ -839,7 +839,7 @@ fn test_truncation_toggle_preserves_state_across_modes() {
     assert!(!search.truncation_enabled);
 
     // Toggle in detail mode
-    search.handle_result_detail_input(alt_z).unwrap();
+    search.handle_result_detail_input(ctrl_t).unwrap();
     assert!(search.truncation_enabled);
     assert_eq!(
         search.message,
