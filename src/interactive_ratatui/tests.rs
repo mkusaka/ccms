@@ -756,6 +756,21 @@ fn test_ctrl_t_truncation_toggle() {
         search.message,
         Some("Message display: Truncated".to_string())
     );
+
+    // Test that Ctrl+T does NOT work in result detail mode
+    search.selected_result = Some(create_test_result(
+        "user",
+        "Test message",
+        "2024-01-01T00:00:00Z",
+    ));
+    search.mode = Mode::ResultDetail;
+    search.truncation_enabled = true;
+    search.message = None;
+
+    // Try to toggle in result detail mode - should not change
+    search.handle_result_detail_input(ctrl_t).unwrap();
+    assert!(search.truncation_enabled); // Should remain true
+    assert!(search.message.is_none()); // No toggle message should appear
 }
 
 #[test]
@@ -838,8 +853,20 @@ fn test_truncation_toggle_preserves_state_across_modes() {
     search.mode = Mode::ResultDetail;
     assert!(!search.truncation_enabled);
 
-    // Toggle in detail mode
+    // Try to toggle in detail mode - should NOT change
+    search.message = None;
     search.handle_result_detail_input(ctrl_t).unwrap();
+    assert!(!search.truncation_enabled); // Should remain false
+    assert!(search.message.is_none()); // No toggle message should appear
+
+    // Go back to search mode and verify state persists
+    search.mode = Mode::Search;
+    assert!(!search.truncation_enabled);
+
+    // Toggle should work again in search mode
+    search
+        .handle_search_input(ctrl_t, test_file.to_str().unwrap())
+        .unwrap();
     assert!(search.truncation_enabled);
     assert_eq!(
         search.message,

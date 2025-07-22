@@ -432,15 +432,6 @@ impl InteractiveSearch {
                 let terminal_width = inner.width as usize;
                 let available_width = terminal_width.saturating_sub(fixed_width).saturating_sub(1); // -1 for safety
 
-                // Truncate message to fit if truncation is enabled
-                let display_message = if self.truncation_enabled {
-                    self.truncate_message(&result.text, available_width)
-                } else {
-                    result.text.replace('\n', " ")
-                };
-
-                let line_content = format!("{fixed_part}{display_message}");
-
                 let style = if actual_idx == self.selected_index {
                     Style::default()
                         .bg(Color::DarkGray)
@@ -449,7 +440,36 @@ impl InteractiveSearch {
                     Style::default()
                 };
 
-                ListItem::new(Line::from(vec![Span::styled(line_content, style)]))
+                if self.truncation_enabled {
+                    // Truncated mode: single line display
+                    let display_message = self.truncate_message(&result.text, available_width);
+                    let line_content = format!("{fixed_part}{display_message}");
+                    ListItem::new(Line::from(vec![Span::styled(line_content, style)]))
+                } else {
+                    // Full text mode: multi-line display with wrapping
+                    let mut lines = Vec::new();
+
+                    // Wrap the message text
+                    let wrapped_message = self.wrap_text(&result.text, available_width);
+
+                    if wrapped_message.is_empty() {
+                        // If no wrapped lines, just show the header
+                        lines.push(Line::from(vec![Span::styled(fixed_part.clone(), style)]));
+                    } else {
+                        // First line with metadata and first part of message
+                        let first_line = format!("{fixed_part}{}", wrapped_message[0]);
+                        lines.push(Line::from(vec![Span::styled(first_line, style)]));
+
+                        // Subsequent lines with proper indentation
+                        let indent = " ".repeat(fixed_width);
+                        for line in wrapped_message.iter().skip(1) {
+                            let indented_line = format!("{indent}{line}");
+                            lines.push(Line::from(vec![Span::styled(indented_line, style)]));
+                        }
+                    }
+
+                    ListItem::new(lines)
+                }
             })
             .collect();
 
@@ -537,22 +557,15 @@ impl InteractiveSearch {
             let header_lines = content.len();
             let mut all_lines = content;
 
-            // Split message text into lines
+            // Split message text into lines with wrapping
             let terminal_width = f.area().width as usize;
             let available_width = terminal_width.saturating_sub(4); // Account for borders
 
-            if self.truncation_enabled {
-                // In truncated mode, show each line truncated to terminal width
-                for line in result.text.lines() {
-                    let truncated_line = self.truncate_message(line, available_width);
-                    all_lines.push(Line::from(truncated_line));
-                }
-            } else {
-                // In full text mode, wrap lines at terminal width
-                let wrapped_lines = self.wrap_text(&result.text, available_width);
-                for line in wrapped_lines {
-                    all_lines.push(Line::from(line));
-                }
+            // Always use wrapped display in detail view
+            let wrapped_lines = self.wrap_text(&result.text, available_width);
+            let wrapped_line_count = wrapped_lines.len();
+            for line in wrapped_lines {
+                all_lines.push(Line::from(line));
             }
 
             // Calculate visible area
@@ -568,14 +581,9 @@ impl InteractiveSearch {
 
             let detail = Paragraph::new(display_lines).block(
                 Block::default().borders(Borders::ALL).title(format!(
-                    "Result Detail [{}] (↑/↓ or j/k to scroll, line {}/{})",
-                    if self.truncation_enabled {
-                        "Truncated"
-                    } else {
-                        "Full Text"
-                    },
+                    "Result Detail (↑/↓ or j/k to scroll, line {}/{})",
                     self.detail_scroll_offset + 1,
-                    header_lines + result.text.lines().count()
+                    header_lines + wrapped_line_count
                 )),
             );
             f.render_widget(detail, chunks[0]);
@@ -1131,15 +1139,6 @@ impl InteractiveSearch {
                 self.mode = Mode::Search;
                 self.message = None; // Clear message when returning to search
                 self.detail_scroll_offset = 0;
-            }
-            KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.truncation_enabled = !self.truncation_enabled;
-                let status = if self.truncation_enabled {
-                    "Truncated"
-                } else {
-                    "Full Text"
-                };
-                self.message = Some(format!("Message display: {status}"));
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 self.detail_scroll_offset = self.detail_scroll_offset.saturating_sub(1);

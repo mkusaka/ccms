@@ -77,7 +77,7 @@ Project: [project path]
 UUID: [uuid]
 Session: [session_id]
 ────────────────────────────────────────────────────────────────────────────────
-[Full message content - scrollable with j/k or ↑/↓ arrows]
+[Full message content with line wrapping - scrollable with j/k or ↑/↓ arrows]
 ────────────────────────────────────────────────────────────────────────────────
 
 Actions:
@@ -93,6 +93,8 @@ Actions:
   [PageUp] - Scroll up 10 lines
   [Any other key] - Continue
 ```
+
+Note: Messages are always displayed with word wrapping in the detail view to ensure full readability.
 
 #### Scrolling Behavior
 
@@ -274,15 +276,14 @@ Applied before other filters in the search pipeline.
 
 ### Message Truncation Toggle
 
-The Ctrl+T keyboard shortcut toggles between truncated and full text display modes:
+The Ctrl+T keyboard shortcut toggles between truncated and full text display modes in the search view:
 
 #### Truncated Mode (Default)
 - Messages are truncated to fit the terminal width
 - Ellipsis (...) added when text is cut off
 - Provides better overview of multiple results
 - Applies to:
-  - Search results list
-  - Result detail view (per line)
+  - Search results list (single line with ellipsis)
   - Session viewer messages
 
 #### Full Text Mode
@@ -291,14 +292,15 @@ The Ctrl+T keyboard shortcut toggles between truncated and full text display mod
 - Preserves readability while showing complete content
 - Respects Unicode character boundaries (safe for Japanese text and emojis)
 - Applies to:
-  - Result detail view (wrapped display)
+  - Search results list (multi-line with word wrapping)
   - Session viewer messages (wrapped display)
-  - Search results list (single line, no truncation)
 
 #### Visual Indicators
 - Status bar shows current mode: `[Truncated]` or `[Full Text]`
-- Mode persists across all views
+- Mode persists across search and session viewer
 - Feedback message shown when toggling
+
+Note: The Result Detail view always displays messages with word wrapping and is not affected by the truncation toggle.
 
 ### Session Viewer
 
