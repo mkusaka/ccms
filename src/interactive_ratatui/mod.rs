@@ -22,6 +22,8 @@ mod ui;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod integration_tests;
 
 use self::domain::models::{Mode, SearchRequest, SearchResponse};
 use self::application::{
@@ -320,5 +322,19 @@ impl InteractiveSearch {
         {
             Err(anyhow::anyhow!("Clipboard not supported on this platform"))
         }
+    }
+
+    // For compatibility with existing tests
+    pub(crate) fn current_mode(&self) -> Mode {
+        self.state.mode
+    }
+
+    pub(crate) fn push_screen(&mut self, mode: Mode) {
+        self.state.mode = mode;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_mode(&mut self, mode: Mode) {
+        self.state.mode = mode;
     }
 }
