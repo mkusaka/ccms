@@ -316,8 +316,7 @@ mod tests {
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied file path" || msg.starts_with("Failed to copy:"),
-                "Unexpected message: {}",
-                msg
+                "Unexpected message: {msg}"
             );
         }
 
@@ -329,8 +328,7 @@ mod tests {
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied session ID" || msg.starts_with("Failed to copy:"),
-                "Unexpected message: {}",
-                msg
+                "Unexpected message: {msg}"
             );
         }
 
@@ -340,8 +338,7 @@ mod tests {
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied: short text" || msg.starts_with("Failed to copy:"),
-                "Unexpected message: {}",
-                msg
+                "Unexpected message: {msg}"
             );
         }
 
@@ -352,8 +349,7 @@ mod tests {
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied message text" || msg.starts_with("Failed to copy:"),
-                "Unexpected message: {}",
-                msg
+                "Unexpected message: {msg}"
             );
         }
     }
