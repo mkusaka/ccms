@@ -1360,6 +1360,75 @@ fn test_full_text_mode_shows_multiple_items() {
 }
 
 #[test]
+fn test_full_text_mode_scroll_no_artifacts() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Add many messages to enable scrolling
+    let mut results = Vec::new();
+    for i in 0..50 {
+        results.push(create_test_result(
+            if i % 2 == 0 { "user" } else { "assistant" },
+            &format!("Message {} with some content that should wrap when displayed in full text mode. This is line {} of the test.", i, i),
+            &format!("2024-01-01T00:00:{:02}Z", i % 60),
+        ));
+    }
+    search.results = results;
+    
+    // Enable full text mode
+    search.truncation_enabled = false;
+    
+    // Initial draw
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw_search(f)).unwrap();
+    
+    // Simulate scrolling down
+    search.selected_index = 10;
+    search.scroll_offset = 5;
+    search.adjust_scroll_offset(terminal.size().unwrap().height - 4); // Account for header and status
+    
+    // Redraw after scroll
+    terminal.draw(|f| search.draw_search(f)).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    
+    // Check that we don't have random characters or corrupted display
+    // Look for signs of corruption like standalone numbers or letters
+    let buffer_text = buffer_to_string(buffer);
+    
+    // Check for specific artifacts from the user's screenshot
+    let lines: Vec<&str> = buffer_text.lines().collect();
+    for (i, line) in lines.iter().enumerate() {
+        // Look for standalone single characters or numbers that indicate corruption
+        let trimmed = line.trim();
+        if trimmed.len() == 1 && (trimmed.chars().all(|c| c.is_lowercase()) || trimmed.chars().all(|c| c.is_numeric())) {
+            // Skip if it's part of the UI (like borders)
+            if trimmed != "│" && trimmed != "─" && trimmed != "┌" && trimmed != "└" && trimmed != "┐" && trimmed != "┘" {
+                panic!("Found rendering artifact at line {}: standalone character '{}'", i, trimmed);
+            }
+        }
+        
+        // Check for the specific patterns from the screenshot
+        if line.contains("l                                        6") ||
+           line.contains("l                                        5") ||
+           line.contains("l                                        478") {
+            panic!("Found rendering artifact at line {}: '{}'", i, line);
+        }
+    }
+}
+
+// Helper function to convert buffer to string for debugging
+fn buffer_to_string(buffer: &ratatui::buffer::Buffer) -> String {
+    let mut result = String::new();
+    for y in 0..buffer.area.height {
+        for x in 0..buffer.area.width {
+            result.push(buffer[(x, y)].symbol().chars().next().unwrap_or(' '));
+        }
+        result.push('\n');
+    }
+    result
+}
+
+#[test]
 fn test_session_viewer_clear_area_before_render() {
     // Test that the message list area is properly cleared before each render
     let mut search = InteractiveSearch::new(SearchOptions::default());

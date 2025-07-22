@@ -398,6 +398,9 @@ impl InteractiveSearch {
     }
 
     fn draw_results(&mut self, f: &mut Frame, area: Rect) {
+        // Clear the area first to prevent rendering artifacts
+        f.render_widget(Clear, area);
+        
         let results_block = Block::default()
             .title(format!("Results ({})", self.results.len()))
             .borders(Borders::ALL);
@@ -468,7 +471,9 @@ impl InteractiveSearch {
                         lines.push(Line::from(vec![Span::styled(first_line, style)]));
 
                         // Subsequent lines with proper indentation
-                        let indent = " ".repeat(fixed_width);
+                        // Make sure indent doesn't exceed available space
+                        let indent_width = fixed_width.min(available_width.saturating_sub(10));
+                        let indent = " ".repeat(indent_width);
                         for line in wrapped_message.iter().skip(1) {
                             let indented_line = format!("{indent}{line}");
                             lines.push(Line::from(vec![Span::styled(indented_line, style)]));
@@ -480,6 +485,7 @@ impl InteractiveSearch {
             })
             .collect();
 
+        // Always use List widget, but ensure proper rendering
         let list = List::new(items).highlight_style(Style::default());
         f.render_widget(list, inner);
 
@@ -896,7 +902,9 @@ impl InteractiveSearch {
                             lines.push(Line::from(vec![Span::styled(first_line, style)]));
 
                             // Subsequent lines with proper indentation
-                            let indent = " ".repeat(fixed_part.len());
+                            // Make sure indent doesn't exceed available space
+                            let indent_width = fixed_part.len().min(available_width.saturating_sub(10));
+                            let indent = " ".repeat(indent_width);
                             for line in wrapped_preview.iter().skip(1) {
                                 let indented_line = format!("{indent}{line}");
                                 lines.push(Line::from(vec![Span::styled(indented_line, style)]));
