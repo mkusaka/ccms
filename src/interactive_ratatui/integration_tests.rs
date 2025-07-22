@@ -359,7 +359,7 @@ mod tests {
             .map(|cell| cell.symbol())
             .collect::<String>();
         if !buffer_contains(buffer, "Role: user") {
-            println!("Buffer content: {}", content);
+            println!("Buffer content: {content}");
         }
         
         assert!(buffer_contains(buffer, "Role: user"));
@@ -437,11 +437,11 @@ mod tests {
         
         for (key, expected_feedback) in shortcuts {
             app.handle_input(KeyEvent::new(KeyCode::Char(key), KeyModifiers::empty())).unwrap();
-            assert!(app.state.ui.message.is_some(), "No message after pressing '{}'", key);
+            assert!(app.state.ui.message.is_some(), "No message after pressing '{key}'");
             let actual_message = app.state.ui.message.as_ref().unwrap();
-            println!("Key '{}': expected '{}', got '{}'", key, expected_feedback, actual_message);
+            println!("Key '{key}': expected '{expected_feedback}', got '{actual_message}'");
             assert_eq!(actual_message, expected_feedback, 
-                "Message '{}' doesn't match expected feedback '{}'", actual_message, expected_feedback);
+                "Message '{actual_message}' doesn't match expected feedback '{expected_feedback}'");
         }
     }
 
