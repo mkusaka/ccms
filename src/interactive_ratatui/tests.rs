@@ -690,7 +690,7 @@ fn test_session_viewer_rendering_after_scroll_and_search() {
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // Create many messages to enable scrolling
     let mut messages = Vec::new();
     for i in 0..100 {
@@ -699,70 +699,70 @@ fn test_session_viewer_rendering_after_scroll_and_search() {
         ));
     }
     search.session_messages = messages;
-    
+
     // Initial render
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     // Simulate scrolling down
     search.session_scroll_offset = 50;
     search.session_selected_index = 50;
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     // Now search for something
     search.session_query = "Message 1".to_string();
     // Reset scroll offset when searching (this happens in the actual implementation)
     search.session_scroll_offset = 0;
     search.session_selected_index = 0;
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // Verify that we only see filtered results, no artifacts from previous render
     // The search should filter to messages containing "Message 1" (10-19, 100)
     assert!(find_text_in_buffer(buffer, "Message 1").is_some());
-    
+
     // Should not see messages that don't match the filter
     assert!(find_text_in_buffer(buffer, "Message 50").is_none());
     assert!(find_text_in_buffer(buffer, "Message 75").is_none());
-    
+
     // Clear search and verify clean render
     search.session_query.clear();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     // Now we should see messages again (after clearing search)
     let buffer = terminal.backend().buffer();
     assert!(find_text_in_buffer(buffer, "Message").is_some());
 }
 
-#[test] 
+#[test]
 fn test_session_viewer_clear_area_before_render() {
     // Test that the message list area is properly cleared before each render
     let mut search = InteractiveSearch::new(SearchOptions::default());
     search.mode = Mode::SessionViewer;
     search.session_order = Some(SessionOrder::Ascending);
     search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
-    
+
     // First render with long messages
     search.session_messages = vec![
         r#"{"type":"user","message":{"role":"user","content":"This is a very long message that should fill the entire width of the terminal"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
     ];
-    
+
     let mut terminal = create_test_terminal();
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     // Now render with shorter messages
     search.session_messages = vec![
         r#"{"type":"user","message":{"role":"user","content":"Short"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
     ];
     terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
-    
+
     let buffer = terminal.backend().buffer();
-    
+
     // The long message content should not be visible
     assert!(find_text_in_buffer(buffer, "very long message").is_none());
     assert!(find_text_in_buffer(buffer, "entire width").is_none());
-    
+
     // Only the short message should be visible
     assert!(find_text_in_buffer(buffer, "Short").is_some());
 }

@@ -847,7 +847,15 @@ impl InteractiveSearch {
         let list = List::new(items);
         f.render_widget(list, inner);
 
-        // Show scroll indicator if needed
+        // Always define the indicator area
+        let indicator_area = Rect {
+            x: inner.x,
+            y: inner.y + inner.height.saturating_sub(1),
+            width: inner.width,
+            height: 1,
+        };
+
+        // Show scroll indicator if needed, otherwise clear the area
         if filtered_count > visible_height {
             let scroll_text = format!(
                 "Showing {}-{} of {} messages ↑/↓ to scroll",
@@ -860,14 +868,10 @@ impl InteractiveSearch {
                 .style(Style::default().fg(Color::DarkGray))
                 .alignment(Alignment::Center);
 
-            let indicator_area = Rect {
-                x: inner.x,
-                y: inner.y + inner.height.saturating_sub(1),
-                width: inner.width,
-                height: 1,
-            };
-
             f.render_widget(scroll_indicator, indicator_area);
+        } else {
+            // Clear the indicator area when not scrolling
+            f.render_widget(Clear, indicator_area);
         }
     }
 
