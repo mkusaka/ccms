@@ -1325,6 +1325,41 @@ fn test_full_text_mode_with_scroll() {
 }
 
 #[test]
+fn test_full_text_mode_shows_multiple_items() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Add several messages
+    search.results = vec![
+        create_test_result("user", "First message", "2024-01-01T00:00:00Z"),
+        create_test_result("assistant", "Second message response", "2024-01-01T00:00:01Z"),
+        create_test_result("user", "Third message from user", "2024-01-01T00:00:02Z"),
+        create_test_result("assistant", "Fourth message response", "2024-01-01T00:00:03Z"),
+    ];
+    
+    // Enable full text mode
+    search.truncation_enabled = false;
+    
+    // Draw the search view
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw_search(f)).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    
+    // Debug: print what's actually rendered
+    let mut found_messages = Vec::new();
+    for msg in &["First message", "Second message", "Third message", "Fourth message"] {
+        if find_text_in_buffer(buffer, msg).is_some() {
+            found_messages.push(msg);
+        }
+    }
+    eprintln!("Found messages in full text mode: {:?}", found_messages);
+    
+    // Should show at least 2 messages in full text mode on standard terminal
+    assert!(found_messages.len() >= 2, 
+        "Full text mode should show at least 2 messages, but only found: {:?}", found_messages);
+}
+
+#[test]
 fn test_session_viewer_clear_area_before_render() {
     // Test that the message list area is properly cleared before each render
     let mut search = InteractiveSearch::new(SearchOptions::default());

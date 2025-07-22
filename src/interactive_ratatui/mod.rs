@@ -1160,13 +1160,32 @@ impl InteractiveSearch {
             (start, end)
         } else {
             // In full text mode, we need to calculate how many items fit
-            // For now, use a simple approach: show fewer items to account for wrapping
-            // Always show at least 2 items if possible, more if space allows
-            let min_items = 2.min(self.results.len() - self.scroll_offset);
-            let calculated_items = (height_for_items as usize / 3).max(min_items);
-            let visible_count = calculated_items.min(self.results.len() - self.scroll_offset);
+            // Each item typically takes 2-4 lines when wrapped
+            // Use a more generous calculation to ensure multiple items are visible
+            let remaining_items = self.results.len().saturating_sub(self.scroll_offset);
+            
+            // Calculate based on available height
+            // Be more aggressive about showing multiple items
+            let calculated_items = if height_for_items >= 15 {
+                // For larger terminals, show 4-5 items
+                5.min(remaining_items)
+            } else if height_for_items >= 10 {
+                // For medium-large terminals, show 3-4 items
+                4.min(remaining_items)
+            } else if height_for_items >= 7 {
+                // For medium terminals, show 2-3 items  
+                3.min(remaining_items)
+            } else if height_for_items >= 4 {
+                // For smaller terminals, show at least 2 items
+                2.min(remaining_items)
+            } else {
+                // For very small terminals, show at least 1 item
+                1
+            };
+            
+            let visible_count = calculated_items.min(remaining_items);
             let start = self.scroll_offset;
-            let end = (start + visible_count).min(self.results.len());
+            let end = start + visible_count;
             (start, end)
         }
     }
