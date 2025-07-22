@@ -89,6 +89,7 @@ impl MessageCache {
         Ok(self.files.get(path).unwrap())
     }
 
+    #[allow(dead_code)]
     fn clear(&mut self) {
         self.files.clear();
     }
@@ -914,7 +915,7 @@ impl InteractiveSearch {
                 } else {
                     "Full Text"
                 };
-                self.message = Some(format!("Message display: {}", status));
+                self.message = Some(format!("Message display: {status}"));
             }
             KeyCode::Char('?') => {
                 self.mode = Mode::Help;
@@ -1016,7 +1017,7 @@ impl InteractiveSearch {
                 } else {
                     "Full Text"
                 };
-                self.message = Some(format!("Message display: {}", status));
+                self.message = Some(format!("Message display: {status}"));
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 self.detail_scroll_offset = self.detail_scroll_offset.saturating_sub(1);
@@ -1144,7 +1145,7 @@ impl InteractiveSearch {
                     } else {
                         "Full Text"
                     };
-                    self.message = Some(format!("Message display: {}", status));
+                    self.message = Some(format!("Message display: {status}"));
                 }
                 _ => {}
             }
@@ -1175,7 +1176,7 @@ impl InteractiveSearch {
                     } else {
                         "Full Text"
                     };
-                    self.message = Some(format!("Message display: {}", status));
+                    self.message = Some(format!("Message display: {status}"));
                 }
                 _ => {}
             }
