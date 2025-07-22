@@ -1152,10 +1152,23 @@ impl InteractiveSearch {
             available_height
         };
 
-        let visible_count = (height_for_items as usize).min(self.results.len());
-        let start = self.scroll_offset;
-        let end = (start + visible_count).min(self.results.len());
-        (start, end)
+        if self.truncation_enabled {
+            // In truncated mode, each item takes 1 line
+            let visible_count = (height_for_items as usize).min(self.results.len());
+            let start = self.scroll_offset;
+            let end = (start + visible_count).min(self.results.len());
+            (start, end)
+        } else {
+            // In full text mode, we need to calculate how many items fit
+            // For now, use a simple approach: show fewer items to account for wrapping
+            // Always show at least 2 items if possible, more if space allows
+            let min_items = 2.min(self.results.len() - self.scroll_offset);
+            let calculated_items = (height_for_items as usize / 3).max(min_items);
+            let visible_count = calculated_items.min(self.results.len() - self.scroll_offset);
+            let start = self.scroll_offset;
+            let end = (start + visible_count).min(self.results.len());
+            (start, end)
+        }
     }
 
     fn adjust_scroll_offset(&mut self, available_height: u16) {
@@ -1166,15 +1179,34 @@ impl InteractiveSearch {
             available_height
         };
 
-        let visible_count = (height_for_items as usize).min(self.results.len());
+        if self.truncation_enabled {
+            // In truncated mode, each item takes 1 line
+            let visible_count = (height_for_items as usize).min(self.results.len());
 
-        // If selected index is above the visible range, scroll up
-        if self.selected_index < self.scroll_offset {
-            self.scroll_offset = self.selected_index;
-        }
-        // If selected index is below the visible range, scroll down
-        else if self.selected_index >= self.scroll_offset + visible_count {
-            self.scroll_offset = self.selected_index.saturating_sub(visible_count - 1);
+            // If selected index is above the visible range, scroll up
+            if self.selected_index < self.scroll_offset {
+                self.scroll_offset = self.selected_index;
+            }
+            // If selected index is below the visible range, scroll down
+            else if self.selected_index >= self.scroll_offset + visible_count {
+                self.scroll_offset = self.selected_index.saturating_sub(visible_count - 1);
+            }
+        } else {
+            // In full text mode, use the calculate_visible_range to determine
+            // if we need to adjust scroll
+            let (current_start, current_end) = self.calculate_visible_range(height_for_items);
+            
+            // If selected index is before the visible range, scroll up
+            if self.selected_index < current_start {
+                self.scroll_offset = self.selected_index;
+            }
+            // If selected index is at or after the visible range, scroll down
+            else if self.selected_index >= current_end {
+                // Find a scroll offset that includes the selected item
+                self.scroll_offset = self.selected_index.saturating_sub(
+                    (current_end - current_start).saturating_sub(1).max(0)
+                );
+            }
         }
     }
 

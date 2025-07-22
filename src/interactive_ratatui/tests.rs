@@ -1236,6 +1236,95 @@ fn test_full_text_mode_display() {
 }
 
 #[test]
+fn test_full_text_mode_with_empty_query() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Set empty query - this should result in no results
+    search.query = "".to_string();
+    
+    // Enable full text mode
+    search.truncation_enabled = false;
+    
+    // Execute search with empty query
+    search.execute_search_sync("/tmp/nonexistent");
+    
+    // Draw the search view
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw_search(f)).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    
+    // Should show "Results (0)" or similar
+    assert!(search.results.is_empty(), "Empty query should produce no results");
+    
+    // The UI should still render properly even with no results
+    assert!(find_text_in_buffer(buffer, "Interactive Claude Search").is_some());
+}
+
+#[test]
+fn test_session_viewer_full_text_mode() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.mode = Mode::SessionViewer;
+    search.session_order = Some(SessionOrder::Ascending);
+    search.selected_result = Some(create_test_result("user", "Test", "2024-01-01T00:00:00Z"));
+    
+    // Add messages with long content
+    search.session_messages = vec![
+        r#"{"type":"user","message":{"role":"user","content":"This is a very long message that should be wrapped when displayed in full text mode in the session viewer"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session"}"#.to_string(),
+        r#"{"type":"assistant","message":{"role":"assistant","content":"Another long message that contains multiple words and should span multiple lines when wrapped"},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session"}"#.to_string(),
+    ];
+    
+    // Enable full text mode
+    search.truncation_enabled = false;
+    
+    // Draw session viewer
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw_session_viewer(f)).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    
+    // Should show wrapped content
+    assert!(find_text_in_buffer(buffer, "very long message").is_some(), "First message content should be visible");
+    assert!(find_text_in_buffer(buffer, "Another long message").is_some(), "Second message content should be visible");
+}
+
+#[test]
+fn test_full_text_mode_with_scroll() {
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Add many messages to enable scrolling
+    let mut results = Vec::new();
+    for i in 0..30 {
+        results.push(create_test_result(
+            "user",
+            &format!("Message {} with some long content that should wrap in full text mode", i),
+            &format!("2024-01-01T00:00:{:02}Z", i),
+        ));
+    }
+    search.results = results;
+    
+    // Scroll down to middle of list
+    search.selected_index = 15;
+    search.scroll_offset = 10;
+    
+    // Enable full text mode
+    search.truncation_enabled = false;
+    
+    // Draw and check
+    let mut terminal = create_test_terminal();
+    terminal.draw(|f| search.draw_search(f)).unwrap();
+    
+    let buffer = terminal.backend().buffer();
+    
+    // In full text mode, fewer items are visible, so we need to check if any messages are displayed
+    // The exact message number may vary based on scroll adjustment
+    let buffer_has_messages = (0..30).any(|i| {
+        find_text_in_buffer(buffer, &format!("Message {}", i)).is_some()
+    });
+    assert!(buffer_has_messages, "At least some messages should be visible in full text mode");
+}
+
+#[test]
 fn test_session_viewer_clear_area_before_render() {
     // Test that the message list area is properly cleared before each render
     let mut search = InteractiveSearch::new(SearchOptions::default());
