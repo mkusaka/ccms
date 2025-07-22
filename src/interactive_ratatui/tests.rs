@@ -141,7 +141,7 @@ fn test_cache_functionality() {
 
     // Modify file - need to wait much longer for filesystem timestamp granularity
     // Some filesystems have 1-second granularity
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(2)); // Increase sleep time
     let mut file = File::options().append(true).open(&test_file).unwrap();
     writeln!(
         file,
@@ -150,6 +150,14 @@ fn test_cache_functionality() {
     .unwrap();
     file.sync_all().unwrap(); // Force sync
     drop(file); // Ensure file is closed
+    
+    // Touch the file to ensure timestamp is updated
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&test_file)
+        .unwrap()
+        .sync_all()
+        .unwrap();
 
     // Should reload due to modification time change
     let cached3 = cache.get_messages(&test_file).unwrap();
@@ -2192,6 +2200,15 @@ fn test_truncate_message_edge_cases_new() {
         search.truncate_message("👋🌍🎉🎊🎈🎆🎇🎀🎁", 8),
         "👋🌍🎉🎊🎈..."
     ); // 9 emojis, truncate to 5 + ...
+}
+
+#[test]
+fn test_copy_to_clipboard_empty_text() {
+    let search = InteractiveSearch::new(SearchOptions::default());
+    
+    // Test empty text
+    let _ = search.copy_to_clipboard("");
+    assert_eq!(search.message, Some("Nothing to copy".to_string()));
 }
 
 #[test]

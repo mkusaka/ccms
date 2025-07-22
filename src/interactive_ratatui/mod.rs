@@ -200,6 +200,11 @@ impl InteractiveSearch {
         }
     }
 
+    #[cfg(test)]
+    #[allow(dead_code)]
+    pub(crate) fn set_mode(&mut self, mode: Mode) {
+        self.screen_stack = vec![mode];
+    }
     pub fn run(&mut self, pattern: &str) -> Result<()> {
         // Initialize async search channel
         let (sender, receiver) = mpsc::channel::<SearchRequest>();
