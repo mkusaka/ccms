@@ -97,7 +97,7 @@ mod tests {
         let mut list = ResultList::new();
         let mut results = vec![];
         for i in 0..20 {
-            results.push(create_test_result("user", &format!("Message {}", i)));
+            results.push(create_test_result("user", &format!("Message {i}")));
         }
 
         list.update_results(results, 0);

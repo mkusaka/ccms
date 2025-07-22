@@ -6,18 +6,21 @@ mod tests {
 
     #[test]
     fn test_search_service_creation() {
-        let mut options = SearchOptions::default();
-        options.project_path = Some("/nonexistent/test/path".to_string());
+        let options = SearchOptions {
+            project_path: Some("/nonexistent/test/path".to_string()),
+            ..Default::default()
+        };
         let _service = SearchService::new(options);
 
         // Just ensure it can be created
-        assert!(true);
     }
 
     #[test]
     fn test_empty_query_returns_empty_results() {
-        let mut options = SearchOptions::default();
-        options.project_path = Some("/nonexistent/test/path".to_string());
+        let options = SearchOptions {
+            project_path: Some("/nonexistent/test/path".to_string()),
+            ..Default::default()
+        };
         let service = SearchService::new(options);
 
         let request = SearchRequest {
@@ -35,8 +38,10 @@ mod tests {
 
     #[test]
     fn test_search_with_role_filter() {
-        let mut options = SearchOptions::default();
-        options.project_path = Some("/nonexistent/test/path".to_string());
+        let options = SearchOptions {
+            project_path: Some("/nonexistent/test/path".to_string()),
+            ..Default::default()
+        };
         let service = SearchService::new(options);
 
         let request = SearchRequest {
@@ -55,8 +60,10 @@ mod tests {
 
     #[test]
     fn test_search_request_id_propagation() {
-        let mut options = SearchOptions::default();
-        options.project_path = Some("/nonexistent/test/path".to_string());
+        let options = SearchOptions {
+            project_path: Some("/nonexistent/test/path".to_string()),
+            ..Default::default()
+        };
         let service = SearchService::new(options);
 
         let test_ids = vec![1, 42, 100, 999];
@@ -76,8 +83,10 @@ mod tests {
 
     #[test]
     fn test_search_with_invalid_pattern() {
-        let mut options = SearchOptions::default();
-        options.project_path = Some("/nonexistent/test/path".to_string());
+        let options = SearchOptions {
+            project_path: Some("/nonexistent/test/path".to_string()),
+            ..Default::default()
+        };
         let service = SearchService::new(options);
 
         let request = SearchRequest {

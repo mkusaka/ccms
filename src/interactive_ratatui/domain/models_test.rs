@@ -20,9 +20,9 @@ mod tests {
 
         for order in orders {
             match order {
-                SessionOrder::Ascending => assert!(true),
-                SessionOrder::Descending => assert!(true),
-                SessionOrder::Original => assert!(true),
+                SessionOrder::Ascending => {}
+                SessionOrder::Descending => {}
+                SessionOrder::Original => {}
             }
         }
     }
@@ -92,11 +92,11 @@ mod tests {
     fn test_mode_debug_display() {
         // Ensure Mode can be printed for debugging
         let mode = Mode::Search;
-        let debug_str = format!("{:?}", mode);
+        let debug_str = format!("{mode:?}");
         assert!(debug_str.contains("Search"));
 
         let mode = Mode::Help;
-        let debug_str = format!("{:?}", mode);
+        let debug_str = format!("{mode:?}");
         assert!(debug_str.contains("Help"));
     }
 

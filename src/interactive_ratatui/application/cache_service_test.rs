@@ -7,7 +7,6 @@ mod tests {
     fn test_cache_service_creation() {
         let _cache = CacheService::new();
         // Ensure it can be created
-        assert!(true);
     }
 
     #[test]

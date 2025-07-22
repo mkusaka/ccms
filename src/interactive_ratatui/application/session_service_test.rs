@@ -13,7 +13,6 @@ mod tests {
     fn test_session_service_creation() {
         let _service = create_test_session_service();
         // Ensure it can be created
-        assert!(true);
     }
 
     #[test]
@@ -62,6 +61,5 @@ mod tests {
         // SessionService::sort_messages is an internal implementation detail
         // It sorts messages by timestamp in ascending, descending, or original order
         // This test documents the expected behavior for future reference
-        assert!(true);
     }
 }
