@@ -46,7 +46,6 @@ fn benchmark_file_reading(c: &mut Criterion) {
                 });
             },
         );
-
     }
     group.finish();
 }
