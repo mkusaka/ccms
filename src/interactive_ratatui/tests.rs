@@ -2234,9 +2234,10 @@ fn test_truncate_message_edge_cases_new() {
 fn test_copy_to_clipboard_empty_text() {
     let search = InteractiveSearch::new(SearchOptions::default());
     
-    // Test empty text
-    let _ = search.copy_to_clipboard("");
-    assert_eq!(search.message, Some("Nothing to copy".to_string()));
+    // Test that copy_to_clipboard handles empty text without error
+    // Note: copy_to_clipboard itself doesn't set messages - that's done by callers
+    let result = search.copy_to_clipboard("");
+    assert!(result.is_ok(), "copy_to_clipboard should handle empty text");
 }
 
 #[test]
