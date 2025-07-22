@@ -365,8 +365,14 @@ impl InteractiveSearch {
         let status = if let Some(ref msg) = self.message {
             msg.clone()
         } else {
-            format!("Tab: Filter | ↑/↓: Navigate | Enter: Select | Ctrl+R: Toggle [{}] | Esc: Exit", 
-                    if self.truncation_enabled { "Truncated" } else { "Full Text" })
+            format!(
+                "Tab: Filter | ↑/↓: Navigate | Enter: Select | Ctrl+R: Toggle [{}] | Esc: Exit",
+                if self.truncation_enabled {
+                    "Truncated"
+                } else {
+                    "Full Text"
+                }
+            )
         };
         let status_bar = Paragraph::new(status).style(Style::default().fg(Color::DarkGray));
         f.render_widget(status_bar, chunks[3]);
@@ -536,7 +542,7 @@ impl InteractiveSearch {
                 // In truncated mode, show each line truncated to terminal width
                 let terminal_width = f.area().width as usize;
                 let available_width = terminal_width.saturating_sub(4); // Account for borders
-                
+
                 for line in result.text.lines() {
                     let truncated_line = self.truncate_message(line, available_width);
                     all_lines.push(Line::from(truncated_line));
@@ -562,7 +568,11 @@ impl InteractiveSearch {
             let detail = Paragraph::new(display_lines).block(
                 Block::default().borders(Borders::ALL).title(format!(
                     "Result Detail [{}] (↑/↓ or j/k to scroll, line {}/{})",
-                    if self.truncation_enabled { "Truncated" } else { "Full Text" },
+                    if self.truncation_enabled {
+                        "Truncated"
+                    } else {
+                        "Full Text"
+                    },
                     self.detail_scroll_offset + 1,
                     header_lines + result.text.lines().count()
                 )),
@@ -714,7 +724,7 @@ impl InteractiveSearch {
                         if self.truncation_enabled {
                             let terminal_width = f.area().width as usize;
                             let available_width = terminal_width.saturating_sub(4); // Account for borders
-                            
+
                             for line in text.lines() {
                                 let truncated_line = self.truncate_message(line, available_width);
                                 content.push(Line::from(truncated_line));
@@ -730,9 +740,10 @@ impl InteractiveSearch {
                                 if self.truncation_enabled {
                                     let terminal_width = f.area().width as usize;
                                     let available_width = terminal_width.saturating_sub(4); // Account for borders
-                                    
+
                                     for line in text.lines() {
-                                        let truncated_line = self.truncate_message(line, available_width);
+                                        let truncated_line =
+                                            self.truncate_message(line, available_width);
                                         content.push(Line::from(truncated_line));
                                     }
                                 } else {
@@ -750,7 +761,11 @@ impl InteractiveSearch {
                         "Message {}/{} [{}]",
                         self.session_index + 1,
                         total,
-                        if self.truncation_enabled { "Truncated" } else { "Full Text" }
+                        if self.truncation_enabled {
+                            "Truncated"
+                        } else {
+                            "Full Text"
+                        }
                     )),
                 );
                 f.render_widget(message, chunks[1]);

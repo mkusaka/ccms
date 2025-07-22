@@ -727,29 +727,35 @@ fn test_ctrl_r_truncation_toggle() {
     drop(file);
 
     let mut search = InteractiveSearch::new(SearchOptions::default());
-    
+
     // Initially truncation should be enabled
     assert!(search.truncation_enabled);
-    
+
     // Simulate Ctrl+R to toggle truncation
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     let ctrl_r = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL);
     search
         .handle_search_input(ctrl_r, test_file.to_str().unwrap())
         .unwrap();
-    
+
     // Truncation should now be disabled
     assert!(!search.truncation_enabled);
-    assert_eq!(search.message, Some("Message display: Full Text".to_string()));
-    
+    assert_eq!(
+        search.message,
+        Some("Message display: Full Text".to_string())
+    );
+
     // Toggle again
     search
         .handle_search_input(ctrl_r, test_file.to_str().unwrap())
         .unwrap();
-    
+
     // Truncation should be enabled again
     assert!(search.truncation_enabled);
-    assert_eq!(search.message, Some("Message display: Truncated".to_string()));
+    assert_eq!(
+        search.message,
+        Some("Message display: Truncated".to_string())
+    );
 }
 
 #[test]
@@ -757,7 +763,7 @@ fn test_truncation_toggle_preserves_state_across_modes() {
     let temp_dir = tempdir().unwrap();
     let test_file = temp_dir.path().join("test.jsonl");
 
-    // Create test file 
+    // Create test file
     let mut file = File::create(&test_file).unwrap();
     writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Test message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
     drop(file);
@@ -765,15 +771,20 @@ fn test_truncation_toggle_preserves_state_across_modes() {
     let mut search = InteractiveSearch::new(SearchOptions::default());
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     let ctrl_r = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL);
-    
+
     // Initially truncation should be enabled
     assert!(search.truncation_enabled);
-    
+
     // Toggle in Search mode
-    search.handle_search_input(ctrl_r, test_file.to_str().unwrap()).unwrap();
+    search
+        .handle_search_input(ctrl_r, test_file.to_str().unwrap())
+        .unwrap();
     assert!(!search.truncation_enabled);
-    assert_eq!(search.message, Some("Message display: Full Text".to_string()));
-    
+    assert_eq!(
+        search.message,
+        Some("Message display: Full Text".to_string())
+    );
+
     // Load a result to test mode transitions
     search.query = "Test".to_string();
     search.execute_search_sync(test_file.to_str().unwrap());
@@ -781,15 +792,18 @@ fn test_truncation_toggle_preserves_state_across_modes() {
     if !search.results.is_empty() {
         search.selected_result = Some(search.results[0].clone());
     }
-    
+
     // Transition to detail mode - truncation state should persist
     search.mode = Mode::ResultDetail;
     assert!(!search.truncation_enabled);
-    
+
     // Toggle in detail mode
     search.handle_result_detail_input(ctrl_r).unwrap();
     assert!(search.truncation_enabled);
-    assert_eq!(search.message, Some("Message display: Truncated".to_string()));
+    assert_eq!(
+        search.message,
+        Some("Message display: Truncated".to_string())
+    );
 }
 
 #[test]
