@@ -142,7 +142,7 @@ fn test_cache_functionality() {
     // Clear cache and reload with modified file
     drop(file); // Close file first
     thread::sleep(Duration::from_secs(2)); // Increase sleep time for filesystem timestamp granularity
-    
+
     // Append a new message
     let mut file = File::options().append(true).open(&test_file).unwrap();
     writeln!(
@@ -152,7 +152,7 @@ fn test_cache_functionality() {
     .unwrap();
     file.sync_all().unwrap(); // Force sync
     drop(file); // Ensure file is closed
-    
+
     // Touch the file to ensure timestamp is updated
     std::fs::OpenOptions::new()
         .write(true)
@@ -160,10 +160,10 @@ fn test_cache_functionality() {
         .unwrap()
         .sync_all()
         .unwrap();
-    
+
     // Clear cache to force reload
     cache.clear();
-    
+
     // Now reload - should get 2 messages
     let cached3 = cache.get_messages(&test_file).unwrap();
     assert_eq!(cached3.messages.len(), 2);
@@ -359,8 +359,7 @@ fn test_execute_search_with_filters() {
     writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"User message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
     writeln!(file, r#"{{"type":"assistant","message":{{"id":"msg1","type":"message","role":"assistant","model":"claude","content":[{{"type":"text","text":"Assistant response"}}],"stop_reason":"end_turn","stop_sequence":null,"usage":{{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":5}}}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"s1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
     writeln!(file, r#"{{"type":"system","content":"System message","uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0","isMeta":false}}"#).unwrap();
-    
-    
+
     let mut search = InteractiveSearch::new(SearchOptions::default());
 
     // Test role filter
@@ -378,16 +377,19 @@ fn test_execute_search_with_filters() {
     assert_eq!(search.results[0].role, "assistant");
 
     // Test system filter - Debug
-    search.query = "System".to_string();  // Search for "System" which is in the system message
+    search.query = "System".to_string(); // Search for "System" which is in the system message
     search.role_filter = Some("system".to_string());
     search.execute_search_sync(test_file.to_str().unwrap());
-    
+
     // Also try without filter to see what messages are found
     search.query = "message".to_string();
     search.role_filter = None;
     search.execute_search_sync(test_file.to_str().unwrap());
-    
-    assert_eq!(search.results.iter().filter(|r| r.role == "system").count(), 1);
+
+    assert_eq!(
+        search.results.iter().filter(|r| r.role == "system").count(),
+        1
+    );
     let system_msg = search.results.iter().find(|r| r.role == "system").unwrap();
     assert!(system_msg.text.contains("System message"));
 }
@@ -556,7 +558,7 @@ fn test_ctrl_r_cache_reload() {
 
     // Ctrl+R only clears cache, need to search again manually
     search.execute_search_sync(test_file.to_str().unwrap());
-    
+
     // Now results should be updated
     assert_eq!(search.results.len(), 2);
 }
@@ -593,7 +595,7 @@ fn test_session_viewer_order_selection() {
         .unwrap();
 
     // Set up session viewer without order initially
-    search.session_order = None;  // Start with no order
+    search.session_order = None; // Start with no order
     search.push_screen(Mode::SessionViewer);
 
     // Initially no order
@@ -1267,9 +1269,9 @@ fn test_more_results_display_duplicate() {
     // Should indicate there are results - check for any number display
     // The UI might show "25 results" or "Limited to 25" or similar
     assert!(
-        buffer_content.contains("25") || 
-        buffer_content.contains("results") ||
-        buffer_content.contains("Found")
+        buffer_content.contains("25")
+            || buffer_content.contains("results")
+            || buffer_content.contains("Found")
     );
 }
 
@@ -1409,7 +1411,10 @@ fn test_search_results_scrolling() {
         .handle_search_input(page_up, test_file.to_str().unwrap())
         .unwrap();
     // PageUp moves 10 items up
-    assert_eq!(search.selected_index, index_before_pageup.saturating_sub(10));
+    assert_eq!(
+        search.selected_index,
+        index_before_pageup.saturating_sub(10)
+    );
 }
 
 #[test]
@@ -1700,7 +1705,7 @@ fn test_help_mode_key_binding() {
         .unwrap();
     assert_eq!(search.current_mode(), Mode::Help);
 
-    // Any key should return from help  
+    // Any key should return from help
     // In help mode, any key triggers pop_screen
     search.pop_screen();
     assert_eq!(search.current_mode(), Mode::Search);
@@ -2235,7 +2240,7 @@ fn test_truncate_message_edge_cases_new() {
 #[ignore] // Clipboard commands not available in CI
 fn test_copy_to_clipboard_empty_text() {
     let search = InteractiveSearch::new(SearchOptions::default());
-    
+
     // Test that copy_to_clipboard handles empty text without error
     // Note: copy_to_clipboard itself doesn't set messages - that's done by callers
     let result = search.copy_to_clipboard("");
