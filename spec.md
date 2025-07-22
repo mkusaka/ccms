@@ -91,7 +91,7 @@ Actions:
   [K/↑] - Scroll up
   [PageDown] - Scroll down 10 lines
   [PageUp] - Scroll up 10 lines
-  [Any other key] - Continue
+  [Esc] - Return to search results
 ```
 
 Note: Messages are always displayed with word wrapping in the detail view to ensure full readability.
@@ -125,6 +125,8 @@ When 'S' is pressed in the full result view:
 └────────────────────────────────────────────────────────────────────────────────┘
 Enter: View | ↑/↓: Navigate | /: Search | Esc: Clear search | Q: Back
 ```
+
+**Navigation**: Pressing Q or Esc returns to the previous screen (typically ResultDetail), not directly to Search.
 
 #### Session Viewer Features
 
@@ -340,10 +342,14 @@ Note: The Result Detail view always displays messages with word wrapping and is 
 
 ## Exit Behavior
 
-On exit (Esc or Ctrl+C):
+On exit (Esc or Ctrl+C from Search screen, or 'q' key):
 1. Clears search area from screen
 2. Displays "Goodbye!" message
 3. Returns control to terminal
+
+**Note**: Esc key behavior depends on the current screen:
+- From Search screen: Exits the application
+- From other screens: Returns to the previous screen in the navigation stack
 
 ## Error Handling
 
@@ -402,7 +408,7 @@ struct InteractiveSearch {
     base_options: SearchOptions,     // Filters and configuration
     max_results: usize,             // Result limit
     cache: MessageCache,            // File cache
-    mode: Mode,                     // Current UI mode
+    screen_stack: Vec<Mode>,        // Navigation history stack
     query: String,                  // Current search query
     role_filter: Option<String>,    // Active role filter
     results: Vec<SearchResult>,     // Current search results
@@ -423,15 +429,25 @@ struct InteractiveSearch {
 }
 ```
 
+### Navigation Stack
+
+The interactive mode maintains a navigation history stack that allows users to return to the previous screen:
+
+- `screen_stack: Vec<Mode>` stores the navigation history
+- `push_screen(mode)` navigates to a new screen
+- `pop_screen()` returns to the previous screen
+- Always maintains at least one screen (Search) in the stack
+
 ### Mode Transitions
 
-- Search → ResultDetail: Enter key on result
-- ResultDetail → Search: Esc or other keys (clears message and scroll offset)
-- ResultDetail → SessionViewer: S key
-- SessionViewer → ResultDetail: Q key or Enter on message
-- SessionViewer → Search: Never directly (must go through ResultDetail)
-- Any → Help: ? key in search mode
-- Help → Search: Any key
+- Search → ResultDetail: Enter key on result (pushes to stack)
+- ResultDetail → Search: Esc or other keys (pops from stack, clears message and scroll offset)
+- ResultDetail → SessionViewer: S key (pushes to stack)
+- SessionViewer → ResultDetail: Q/Esc (pops from stack, returns to previous screen)
+- Any → Help: ? key (pushes to stack)
+- Help → Previous Screen: Any key (pops from stack)
+
+**Important**: Esc/Q always returns to the previous screen in the navigation history, not directly to Search. This provides a more intuitive navigation experience when moving through multiple screens.
 
 ### Session Viewer State Management
 
