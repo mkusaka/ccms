@@ -93,31 +93,28 @@ impl Component for SessionViewer {
             .split(area);
 
         // Header with metadata
-        let mut header_lines = vec![
-            Line::from(vec![Span::styled(
-                "Session Viewer",
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )]),
-        ];
-        
+        let mut header_lines = vec![Line::from(vec![Span::styled(
+            "Session Viewer",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )])];
+
         if let Some(ref session_id) = self.session_id {
             header_lines.push(Line::from(vec![
                 Span::styled("Session: ", Style::default().fg(Color::Yellow)),
                 Span::raw(session_id),
             ]));
         }
-        
+
         if let Some(ref file_path) = self.file_path {
             header_lines.push(Line::from(vec![
                 Span::styled("File: ", Style::default().fg(Color::Yellow)),
                 Span::raw(file_path),
             ]));
         }
-        
-        let header = Paragraph::new(header_lines)
-            .block(Block::default().borders(Borders::BOTTOM));
+
+        let header = Paragraph::new(header_lines).block(Block::default().borders(Borders::BOTTOM));
         f.render_widget(header, chunks[0]);
 
         // Render search bar
@@ -154,7 +151,7 @@ impl Component for SessionViewer {
             // If there are messages but no filtered indices, show all messages
             self.filtered_indices = (0..self.messages.len()).collect();
         }
-        
+
         if self.messages.is_empty() {
             let empty_msg = Paragraph::new("No messages in session")
                 .block(
@@ -164,14 +161,14 @@ impl Component for SessionViewer {
                 )
                 .style(Style::default().fg(Color::DarkGray));
             f.render_widget(empty_msg, chunks[2]);
-            
+
             // Status bar
             let status = "No messages | I: Copy Session ID | Esc: Back";
             let status_bar = Paragraph::new(status).style(Style::default().fg(Color::DarkGray));
             f.render_widget(status_bar, chunks[3]);
             return;
         }
-        
+
         if self.filtered_indices.is_empty() {
             let empty_msg = Paragraph::new("No messages match the search")
                 .block(
@@ -181,7 +178,7 @@ impl Component for SessionViewer {
                 )
                 .style(Style::default().fg(Color::DarkGray));
             f.render_widget(empty_msg, chunks[2]);
-            
+
             // Status bar
             let status = "No matches | I: Copy Session ID | Esc: Back";
             let status_bar = Paragraph::new(status).style(Style::default().fg(Color::DarkGray));
@@ -217,40 +214,58 @@ impl Component for SessionViewer {
 
                 // Format the message for display
                 let msg = &self.messages[msg_idx];
-                let display_text = if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(msg) {
-                    // Try to extract meaningful information from JSON
-                    let role = json_value.get("type")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("unknown");
-                    let timestamp = json_value.get("timestamp")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    let content = json_value.get("message")
-                        .and_then(|m| m.get("content"))
-                        .and_then(|c| c.as_str())
-                        .or_else(|| json_value.get("message")
+                let display_text =
+                    if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(msg) {
+                        // Try to extract meaningful information from JSON
+                        let role = json_value
+                            .get("type")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("unknown");
+                        let timestamp = json_value
+                            .get("timestamp")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        let content = json_value
+                            .get("message")
                             .and_then(|m| m.get("content"))
-                            .and_then(|c| c.as_array())
-                            .and_then(|arr| arr.first())
-                            .and_then(|item| item.get("text"))
-                            .and_then(|t| t.as_str()))
-                        .unwrap_or("");
-                    
-                    let display_timestamp = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
-                        dt.format("%m/%d %H:%M").to_string()
+                            .and_then(|c| c.as_str())
+                            .or_else(|| {
+                                json_value
+                                    .get("message")
+                                    .and_then(|m| m.get("content"))
+                                    .and_then(|c| c.as_array())
+                                    .and_then(|arr| arr.first())
+                                    .and_then(|item| item.get("text"))
+                                    .and_then(|t| t.as_str())
+                            })
+                            .unwrap_or("");
+
+                        let display_timestamp =
+                            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+                                dt.format("%m/%d %H:%M").to_string()
+                            } else {
+                                timestamp.chars().take(16).collect()
+                            };
+
+                        let truncated_content = content.chars().take(100).collect::<String>();
+                        let suffix = if content.chars().count() > 100 {
+                            "..."
+                        } else {
+                            ""
+                        };
+
+                        format!(
+                            "[{:9}] {} {}{}",
+                            role,
+                            display_timestamp,
+                            truncated_content.replace('\n', " "),
+                            suffix
+                        )
                     } else {
-                        timestamp.chars().take(16).collect()
+                        // If not valid JSON, just show the raw message
+                        msg.chars().take(120).collect::<String>()
                     };
-                    
-                    let truncated_content = content.chars().take(100).collect::<String>();
-                    let suffix = if content.chars().count() > 100 { "..." } else { "" };
-                    
-                    format!("[{:9}] {} {}{}", role, display_timestamp, truncated_content.replace('\n', " "), suffix)
-                } else {
-                    // If not valid JSON, just show the raw message
-                    msg.chars().take(120).collect::<String>()
-                };
-                
+
                 ListItem::new(display_text).style(style)
             })
             .collect();
@@ -266,7 +281,7 @@ impl Component for SessionViewer {
         let list = List::new(items).block(Block::default().title(title).borders(Borders::ALL));
 
         f.render_widget(list, chunks[2]);
-        
+
         // Status bar
         let status = "↑/↓: Navigate | o: Sort | c: Copy | C: Copy All | I: Copy Session ID | /: Search | Esc: Back";
         let status_bar = Paragraph::new(status).style(Style::default().fg(Color::DarkGray));
@@ -327,9 +342,7 @@ impl Component for SessionViewer {
                     Some(Message::CopyToClipboard(filtered_messages.join("\n\n")))
                 }
                 KeyCode::Char('i') | KeyCode::Char('I') => {
-                    self.session_id
-                        .clone()
-                        .map(Message::CopyToClipboard)
+                    self.session_id.clone().map(Message::CopyToClipboard)
                 }
                 KeyCode::Backspace | KeyCode::Esc => Some(Message::ExitToSearch),
                 _ => None,

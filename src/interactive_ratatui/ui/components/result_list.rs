@@ -173,7 +173,7 @@ impl ResultList {
             let available_text_width = available_width.saturating_sub(35) as usize;
             let mut current_index = 0;
             let mut current_height = 0;
-            
+
             // Find which item should be at the top to show selected_index
             while current_index <= self.selected_index && current_index < self.results.len() {
                 if current_index == self.selected_index {
@@ -183,18 +183,19 @@ impl ResultList {
                     }
                     break;
                 }
-                
+
                 let result = &self.results[current_index];
                 let wrapped_lines = Self::wrap_text(&result.text, available_text_width);
                 let item_height = wrapped_lines.len().max(1);
                 current_height += item_height;
-                
+
                 // If we've exceeded the available height and haven't reached selected_index
-                if current_height > available_height as usize && current_index < self.selected_index {
+                if current_height > available_height as usize && current_index < self.selected_index
+                {
                     self.scroll_offset = current_index + 1;
                     current_height = 0;
                 }
-                
+
                 current_index += 1;
             }
         }

@@ -221,7 +221,9 @@ impl InteractiveSearch {
                     // Determine what was copied for better feedback
                     let copy_message = if text.starts_with("File: ") && text.contains("\nUUID: ") {
                         "✓ Copied full result details"
-                    } else if text.starts_with('/') && (text.ends_with(".jsonl") || text.contains('/')) {
+                    } else if text.starts_with('/')
+                        && (text.ends_with(".jsonl") || text.contains('/'))
+                    {
                         "✓ Copied file path"
                     } else if text.len() == 36 && text.chars().filter(|&c| c == '-').count() == 4 {
                         // UUID format check

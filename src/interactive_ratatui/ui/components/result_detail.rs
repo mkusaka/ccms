@@ -111,12 +111,12 @@ impl Component for ResultDetail {
                 let mut remaining = line;
                 while !remaining.is_empty() {
                     let mut end_idx = remaining.len().min(available_width);
-                    
+
                     // Find safe break point at character boundary
                     while end_idx > 0 && !remaining.is_char_boundary(end_idx) {
                         end_idx -= 1;
                     }
-                    
+
                     // If we're not at the end, try to break at a word boundary
                     if end_idx < remaining.len() && end_idx > 0 {
                         if let Some(space_pos) = remaining[..end_idx].rfind(' ') {
@@ -125,7 +125,7 @@ impl Component for ResultDetail {
                             }
                         }
                     }
-                    
+
                     all_lines.push(Line::from(&remaining[..end_idx]));
                     remaining = &remaining[end_idx..];
                 }
