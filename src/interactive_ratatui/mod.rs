@@ -105,7 +105,6 @@ enum Mode {
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum SessionOrder {
     Ascending,
-    Descending,
 }
 
 // Search request and response for async communication
