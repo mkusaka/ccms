@@ -105,7 +105,6 @@ enum Mode {
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum SessionOrder {
     Ascending,
-    Descending,
 }
 
 // Search request and response for async communication
@@ -139,6 +138,10 @@ pub struct InteractiveSearch {
     session_messages: Vec<String>,
     session_index: usize,
     session_order: Option<SessionOrder>,
+    session_query: String,
+    session_filtered_indices: Vec<usize>,
+    session_scroll_offset: usize,
+    session_selected_index: usize,
 
     // For result detail
     selected_result: Option<SearchResult>,
@@ -173,6 +176,10 @@ impl InteractiveSearch {
             session_messages: Vec::new(),
             session_index: 0,
             session_order: None,
+            session_query: String::new(),
+            session_filtered_indices: Vec::new(),
+            session_scroll_offset: 0,
+            session_selected_index: 0,
             selected_result: None,
             detail_scroll_offset: 0,
             scroll_offset: 0,
@@ -618,7 +625,8 @@ impl InteractiveSearch {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(5), // Header
-                Constraint::Min(0),    // Content
+                Constraint::Length(3), // Search box
+                Constraint::Min(0),    // Message list
                 Constraint::Length(2), // Status
             ])
             .split(f.area());
@@ -628,7 +636,9 @@ impl InteractiveSearch {
             let header_text = vec![
                 Line::from(vec![Span::styled(
                     "Session Viewer",
-                    Style::default().fg(Color::Cyan),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
                 )]),
                 Line::from(vec![
                     Span::styled("Session: ", Style::default().fg(Color::Yellow)),
@@ -645,98 +655,224 @@ impl InteractiveSearch {
             f.render_widget(header, chunks[0]);
         }
 
-        // Content
-        if self.session_order.is_none() {
-            let prompt = Paragraph::new("[A]scending / [D]escending / [Q]uit")
-                .style(Style::default().fg(Color::DarkGray))
-                .alignment(Alignment::Center)
-                .block(Block::default().borders(Borders::ALL));
-            f.render_widget(prompt, chunks[1]);
-        } else if !self.session_messages.is_empty() {
-            let total = self.session_messages.len();
-            let current_msg = &self.session_messages[self.session_index];
+        // Search box
+        let search_label = format!("Filter: {}", self.session_query);
+        let search_box = Paragraph::new(search_label.as_str())
+            .style(Style::default())
+            .block(Block::default().borders(Borders::ALL).title("Search"));
+        f.render_widget(search_box, chunks[1]);
 
-            if let Ok(msg) = serde_json::from_str::<serde_json::Value>(current_msg) {
-                let mut content = vec![Line::from(format!(
-                    "Message {}/{}",
-                    self.session_index + 1,
-                    total
-                ))];
-
-                if let Some(role) = msg.get("type").and_then(|v| v.as_str()) {
-                    content.push(Line::from(vec![
-                        Span::styled("Role: ", Style::default().fg(Color::Yellow)),
-                        Span::raw(role),
-                    ]));
-                }
-
-                if let Some(ts) = msg.get("timestamp").and_then(|v| v.as_str()) {
-                    content.push(Line::from(vec![
-                        Span::styled("Time: ", Style::default().fg(Color::Yellow)),
-                        Span::raw(ts),
-                    ]));
-                }
-
-                content.push(Line::from(""));
-
-                // Extract message content - handle both direct content and message.content
-                let message_content = msg
-                    .get("message")
-                    .and_then(|m| m.get("content"))
-                    .or_else(|| msg.get("content"));
-
-                if let Some(content_val) = message_content {
-                    if let Some(text) = content_val.as_str() {
-                        // Split text into lines for proper display
-                        for line in text.lines() {
-                            content.push(Line::from(line));
-                        }
-                    } else if let Some(parts) = content_val.as_array() {
-                        for part in parts {
-                            if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
-                                for line in text.lines() {
-                                    content.push(Line::from(line));
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let message = Paragraph::new(content).wrap(Wrap { trim: false }).block(
-                    Block::default().borders(Borders::ALL).title(format!(
-                        "Message {}/{}",
-                        self.session_index + 1,
-                        total
-                    )),
-                );
-                f.render_widget(message, chunks[1]);
-            } else {
-                // Failed to parse JSON
-                let error_msg = Paragraph::new("Error: Unable to parse message JSON")
-                    .style(Style::default().fg(Color::Red))
-                    .alignment(Alignment::Center)
-                    .block(Block::default().borders(Borders::ALL));
-                f.render_widget(error_msg, chunks[1]);
-            }
+        // Message list
+        if !self.session_messages.is_empty() {
+            self.draw_session_message_list(f, chunks[2]);
         } else {
-            // No messages
             let empty_msg = Paragraph::new("No messages in session")
                 .style(Style::default().fg(Color::Yellow))
                 .alignment(Alignment::Center)
                 .block(Block::default().borders(Borders::ALL));
-            f.render_widget(empty_msg, chunks[1]);
+            f.render_widget(empty_msg, chunks[2]);
         }
 
-        // Status
-        let status = if self.session_order.is_some() {
-            "↑/↓: Navigate | Space: Next Page | Q: Quit"
+        // Status bar
+        let status = if self.session_messages.is_empty() {
+            "No messages | Q: Quit"
         } else {
-            "Choose display order"
+            "Enter: View | ↑/↓: Navigate | /: Search | Esc: Clear search | Q: Back"
         };
         let status_bar = Paragraph::new(status)
             .style(Style::default().fg(Color::DarkGray))
             .alignment(Alignment::Center);
-        f.render_widget(status_bar, chunks[2]);
+        f.render_widget(status_bar, chunks[3]);
+
+        // Position cursor in search box if typing
+        if !self.session_query.is_empty() || self.mode == Mode::SessionViewer {
+            let cursor_x =
+                chunks[1].x + 1 + "Filter: ".len() as u16 + self.session_query.len() as u16;
+            let cursor_y = chunks[1].y + 1;
+            f.set_cursor_position((cursor_x.min(chunks[1].x + chunks[1].width - 2), cursor_y));
+        }
+    }
+
+    fn draw_session_message_list(&mut self, f: &mut Frame, area: Rect) {
+        // First, filter messages if there's a search query
+        if self.session_query.is_empty() {
+            // No filter, show all messages
+            self.session_filtered_indices = (0..self.session_messages.len()).collect();
+        } else {
+            // Filter messages based on search query
+            self.session_filtered_indices = self
+                .session_messages
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, msg)| {
+                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(msg) {
+                        // Extract text content
+                        let content = parsed
+                            .get("message")
+                            .and_then(|m| m.get("content"))
+                            .or_else(|| parsed.get("content"));
+
+                        if let Some(content_val) = content {
+                            let text = if let Some(text_str) = content_val.as_str() {
+                                text_str.to_lowercase()
+                            } else if let Some(parts) = content_val.as_array() {
+                                parts
+                                    .iter()
+                                    .filter_map(|part| part.get("text").and_then(|v| v.as_str()))
+                                    .collect::<Vec<_>>()
+                                    .join(" ")
+                                    .to_lowercase()
+                            } else {
+                                String::new()
+                            };
+
+                            if text.contains(&self.session_query.to_lowercase()) {
+                                return Some(idx);
+                            }
+                        }
+                    }
+                    None
+                })
+                .collect();
+        }
+
+        let filtered_count = self.session_filtered_indices.len();
+        let title = if self.session_query.is_empty() {
+            format!("Messages ({} total)", self.session_messages.len())
+        } else {
+            format!(
+                "Messages ({} total, {} filtered)",
+                self.session_messages.len(),
+                filtered_count
+            )
+        };
+
+        let messages_block = Block::default().title(title).borders(Borders::ALL);
+        let inner = messages_block.inner(area);
+
+        // Clear the area before rendering to avoid artifacts
+        // Note: While Ratatui should automatically clear, we experienced
+        // rendering artifacts in practice, so explicit Clear is used
+        f.render_widget(Clear, area);
+        f.render_widget(messages_block, area);
+
+        if filtered_count == 0 {
+            let no_results = Paragraph::new("No messages match filter")
+                .style(Style::default().fg(Color::Yellow))
+                .alignment(Alignment::Center);
+            f.render_widget(no_results, inner);
+            return;
+        }
+
+        // Calculate visible range
+        let visible_height = inner.height as usize;
+        let start_idx = self.session_scroll_offset;
+        let end_idx = (start_idx + visible_height).min(filtered_count);
+
+        // Build list items
+        let items: Vec<ListItem> = self.session_filtered_indices[start_idx..end_idx]
+            .iter()
+            .enumerate()
+            .map(|(display_idx, &actual_idx)| {
+                let list_idx = start_idx + display_idx;
+                if let Ok(msg) =
+                    serde_json::from_str::<serde_json::Value>(&self.session_messages[actual_idx])
+                {
+                    let role = msg
+                        .get("type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown");
+                    let timestamp = msg.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
+
+                    // Extract message preview
+                    let content = msg
+                        .get("message")
+                        .and_then(|m| m.get("content"))
+                        .or_else(|| msg.get("content"));
+
+                    let preview = if let Some(content_val) = content {
+                        if let Some(text) = content_val.as_str() {
+                            text.replace('\n', " ")
+                        } else if let Some(parts) = content_val.as_array() {
+                            parts
+                                .iter()
+                                .filter_map(|part| part.get("text").and_then(|v| v.as_str()))
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                        } else {
+                            "(no content)".to_string()
+                        }
+                    } else {
+                        "(no content)".to_string()
+                    };
+
+                    // Format timestamp
+                    let short_time = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp)
+                    {
+                        dt.format("%m/%d %H:%M").to_string()
+                    } else {
+                        timestamp.to_string()
+                    };
+
+                    // Format line
+                    let index_str = format!("{:3}. ", actual_idx + 1);
+                    let role_str = format!("[{:^9}]", role.to_uppercase());
+                    let fixed_part = format!("{index_str}{role_str} {short_time} ");
+
+                    // Calculate available width for preview
+                    let available_width = inner
+                        .width
+                        .saturating_sub(fixed_part.len() as u16)
+                        .saturating_sub(1);
+                    let truncated_preview =
+                        self.truncate_message(&preview, available_width as usize);
+
+                    let line_content = format!("{fixed_part}{truncated_preview}");
+
+                    let style = if list_idx == self.session_selected_index {
+                        Style::default()
+                            .bg(Color::DarkGray)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                    };
+
+                    ListItem::new(Line::from(vec![Span::styled(line_content, style)]))
+                } else {
+                    ListItem::new(Line::from("(error parsing message)"))
+                }
+            })
+            .collect();
+
+        let list = List::new(items);
+        f.render_widget(list, inner);
+
+        // Always define the indicator area
+        let indicator_area = Rect {
+            x: inner.x,
+            y: inner.y + inner.height.saturating_sub(1),
+            width: inner.width,
+            height: 1,
+        };
+
+        // Show scroll indicator if needed, otherwise clear the area
+        if filtered_count > visible_height {
+            let scroll_text = format!(
+                "Showing {}-{} of {} messages ↑/↓ to scroll",
+                start_idx + 1,
+                end_idx,
+                filtered_count
+            );
+
+            let scroll_indicator = Paragraph::new(scroll_text)
+                .style(Style::default().fg(Color::DarkGray))
+                .alignment(Alignment::Center);
+
+            f.render_widget(scroll_indicator, indicator_area);
+        } else {
+            // Clear the indicator area when not scrolling
+            f.render_widget(Clear, indicator_area);
+        }
     }
 
     fn draw_help(&mut self, f: &mut Frame) {
@@ -758,6 +894,26 @@ impl InteractiveSearch {
             Line::from("  Enter       - View result detail"),
             Line::from("  Ctrl+R      - Clear cache & reload"),
             Line::from("  Esc         - Exit"),
+            Line::from(""),
+            Line::from(vec![Span::styled(
+                "Result Detail:",
+                Style::default().fg(Color::Yellow),
+            )]),
+            Line::from("  S           - View full session"),
+            Line::from("  F/I/P/M/R   - Copy to clipboard"),
+            Line::from("  ↑/↓ or j/k  - Scroll content"),
+            Line::from("  Esc         - Back to search"),
+            Line::from(""),
+            Line::from(vec![Span::styled(
+                "Session Viewer:",
+                Style::default().fg(Color::Yellow),
+            )]),
+            Line::from("  Type        - Filter messages"),
+            Line::from("  /           - Start search"),
+            Line::from("  ↑/↓         - Navigate messages"),
+            Line::from("  Enter       - View message detail"),
+            Line::from("  Esc         - Clear search/Go back"),
+            Line::from("  Q           - Back to result detail"),
             Line::from(""),
             Line::from(vec![Span::styled(
                 "Query Syntax:",
@@ -1015,7 +1171,12 @@ impl InteractiveSearch {
                     match self.load_session_messages(&full_path) {
                         Ok(_) => {
                             self.session_index = 0;
-                            self.session_order = None;
+                            self.session_order = Some(SessionOrder::Ascending); // Default to ascending
+                            self.session_query.clear();
+                            self.session_filtered_indices =
+                                (0..self.session_messages.len()).collect();
+                            self.session_scroll_offset = 0;
+                            self.session_selected_index = 0;
                             self.mode = Mode::SessionViewer;
                         }
                         Err(e) => {
@@ -1069,44 +1230,141 @@ impl InteractiveSearch {
     }
 
     fn handle_session_viewer_input(&mut self, key: KeyEvent) -> Result<()> {
-        if self.session_order.is_none() {
-            match key.code {
-                KeyCode::Char('a') | KeyCode::Char('A') => {
-                    self.session_order = Some(SessionOrder::Ascending);
-                }
-                KeyCode::Char('d') | KeyCode::Char('D') => {
-                    self.session_order = Some(SessionOrder::Descending);
-                    self.session_messages.reverse();
-                }
-                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
-                    self.mode = Mode::Search;
-                }
-                _ => {}
+        match key.code {
+            KeyCode::Char('q') | KeyCode::Char('Q') => {
+                self.mode = Mode::ResultDetail;
+                // Clear session viewer state
+                self.session_messages.clear();
+                self.session_query.clear();
+                self.session_filtered_indices.clear();
+                self.session_scroll_offset = 0;
+                self.session_selected_index = 0;
             }
-        } else {
-            match key.code {
-                KeyCode::Up => {
-                    self.session_index = self.session_index.saturating_sub(1);
+            KeyCode::Esc => {
+                if !self.session_query.is_empty() {
+                    // Clear search if active
+                    self.session_query.clear();
+                    self.session_selected_index = 0;
+                    self.session_scroll_offset = 0;
+                } else {
+                    // Go back to result detail
+                    self.mode = Mode::ResultDetail;
+                    self.session_messages.clear();
+                    self.session_query.clear();
+                    self.session_filtered_indices.clear();
+                    self.session_scroll_offset = 0;
+                    self.session_selected_index = 0;
                 }
-                KeyCode::Down => {
-                    if self.session_index < self.session_messages.len().saturating_sub(1) {
-                        self.session_index += 1;
+            }
+            KeyCode::Char('/') => {
+                // Start search mode - cursor will be positioned automatically
+            }
+            KeyCode::Char(c) => {
+                self.session_query.push(c);
+                self.session_selected_index = 0;
+                self.session_scroll_offset = 0;
+            }
+            KeyCode::Backspace => {
+                self.session_query.pop();
+                self.session_selected_index = 0;
+                self.session_scroll_offset = 0;
+            }
+            KeyCode::Up => {
+                if !self.session_filtered_indices.is_empty() && self.session_selected_index > 0 {
+                    self.session_selected_index -= 1;
+                    self.adjust_session_scroll_offset();
+                }
+            }
+            KeyCode::Down => {
+                if !self.session_filtered_indices.is_empty() {
+                    let max_index = self.session_filtered_indices.len().saturating_sub(1);
+                    if self.session_selected_index < max_index {
+                        self.session_selected_index += 1;
+                        self.adjust_session_scroll_offset();
                     }
                 }
-                KeyCode::PageUp => {
-                    self.session_index = self.session_index.saturating_sub(3);
-                }
-                KeyCode::PageDown | KeyCode::Char(' ') => {
-                    self.session_index =
-                        (self.session_index + 3).min(self.session_messages.len().saturating_sub(1));
-                }
-                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
-                    self.mode = Mode::Search;
-                }
-                _ => {}
             }
+            KeyCode::PageUp => {
+                if !self.session_filtered_indices.is_empty() {
+                    self.session_selected_index = self.session_selected_index.saturating_sub(10);
+                    self.adjust_session_scroll_offset();
+                }
+            }
+            KeyCode::PageDown => {
+                if !self.session_filtered_indices.is_empty() {
+                    let max_index = self.session_filtered_indices.len().saturating_sub(1);
+                    self.session_selected_index = (self.session_selected_index + 10).min(max_index);
+                    self.adjust_session_scroll_offset();
+                }
+            }
+            KeyCode::Enter => {
+                // View selected message in detail
+                if !self.session_filtered_indices.is_empty() {
+                    let actual_idx = self.session_filtered_indices[self.session_selected_index];
+                    if let Ok(msg) = serde_json::from_str::<serde_json::Value>(
+                        &self.session_messages[actual_idx],
+                    ) {
+                        // Create a pseudo SearchResult for detail view
+                        let role = msg
+                            .get("type")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("unknown");
+                        let timestamp = msg.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
+                        let uuid = msg.get("uuid").and_then(|v| v.as_str()).unwrap_or("");
+
+                        let content = msg
+                            .get("message")
+                            .and_then(|m| m.get("content"))
+                            .or_else(|| msg.get("content"));
+
+                        let text = if let Some(content_val) = content {
+                            if let Some(text) = content_val.as_str() {
+                                text.to_string()
+                            } else if let Some(parts) = content_val.as_array() {
+                                parts
+                                    .iter()
+                                    .filter_map(|part| part.get("text").and_then(|v| v.as_str()))
+                                    .collect::<Vec<_>>()
+                                    .join("\n")
+                            } else {
+                                "(no content)".to_string()
+                            }
+                        } else {
+                            "(no content)".to_string()
+                        };
+
+                        if let Some(ref mut result) = self.selected_result {
+                            // Update the selected result with this message's details
+                            result.role = role.to_string();
+                            result.timestamp = timestamp.to_string();
+                            result.text = text;
+                            result.uuid = uuid.to_string();
+                            result.raw_json = Some(self.session_messages[actual_idx].clone());
+                        }
+
+                        self.mode = Mode::ResultDetail;
+                        self.detail_scroll_offset = 0;
+                    }
+                }
+            }
+            _ => {}
         }
         Ok(())
+    }
+
+    fn adjust_session_scroll_offset(&mut self) {
+        // This will be called after updating session_selected_index
+        // to ensure the selected item is visible
+        // We'll implement this similar to adjust_scroll_offset but for session viewer
+        let visible_height = 20; // Approximate visible height, will be calculated properly in draw
+
+        if self.session_selected_index < self.session_scroll_offset {
+            self.session_scroll_offset = self.session_selected_index;
+        } else if self.session_selected_index >= self.session_scroll_offset + visible_height {
+            self.session_scroll_offset = self
+                .session_selected_index
+                .saturating_sub(visible_height - 1);
+        }
     }
 
     fn execute_search(&mut self, pattern: &str) {
