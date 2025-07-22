@@ -2085,3 +2085,80 @@ fn test_async_search_response_handling() {
     assert_eq!(responses[1].results.len(), 0); // "nomatch"
     assert_eq!(responses[2].results.len(), 1); // "Hello"
 }
+
+#[test]
+fn test_wrap_text_basic() {
+    let search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test basic word wrapping
+    let text = "This is a long line that should be wrapped at word boundaries";
+    let wrapped = search.wrap_text(text, 20);
+    assert_eq!(wrapped.len(), 4);
+    assert_eq!(wrapped[0], "This is a long line");
+    assert_eq!(wrapped[1], "that should be");
+    assert_eq!(wrapped[2], "wrapped at word");
+    assert_eq!(wrapped[3], "boundaries");
+}
+
+#[test]
+fn test_wrap_text_long_word() {
+    let search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test wrapping with a word longer than max width
+    let text = "This verylongwordthatexceedsthemaximumwidth should wrap";
+    let wrapped = search.wrap_text(text, 10);
+    assert_eq!(wrapped[0], "This");
+    assert_eq!(wrapped[1], "verylongwo");
+    assert_eq!(wrapped[2], "rdthatexce");
+    assert_eq!(wrapped[3], "edsthemaxi");
+    assert_eq!(wrapped[4], "mumwidth");
+    assert_eq!(wrapped[5], "should");
+    assert_eq!(wrapped[6], "wrap");
+}
+
+#[test]
+fn test_wrap_text_multiline() {
+    let search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test wrapping with existing newlines
+    let text = "First line\nSecond line that is long\nThird";
+    let wrapped = search.wrap_text(text, 15);
+    assert_eq!(wrapped[0], "First line");
+    assert_eq!(wrapped[1], "Second line");
+    assert_eq!(wrapped[2], "that is long");
+    assert_eq!(wrapped[3], "Third");
+}
+
+#[test]
+fn test_wrap_text_multibyte() {
+    let search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test wrapping with multibyte characters
+    let text = "こんにちは世界 Hello World 日本語テスト";
+    let wrapped = search.wrap_text(text, 15);
+    assert!(wrapped.len() > 1);
+
+    // Verify no character boundaries are broken
+    for line in &wrapped {
+        assert!(line.is_char_boundary(0));
+        assert!(line.is_char_boundary(line.len()));
+    }
+}
+
+#[test]
+fn test_wrap_text_edge_cases() {
+    let search = InteractiveSearch::new(SearchOptions::default());
+
+    // Test empty string
+    let wrapped = search.wrap_text("", 10);
+    assert_eq!(wrapped.len(), 0);
+
+    // Test zero width
+    let wrapped = search.wrap_text("Hello", 0);
+    assert_eq!(wrapped.len(), 0);
+
+    // Test exact width
+    let wrapped = search.wrap_text("Hello", 5);
+    assert_eq!(wrapped.len(), 1);
+    assert_eq!(wrapped[0], "Hello");
+}

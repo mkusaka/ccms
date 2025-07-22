@@ -286,10 +286,14 @@ The Ctrl+T keyboard shortcut toggles between truncated and full text display mod
   - Session viewer messages
 
 #### Full Text Mode
-- Messages display complete text
-- May extend beyond terminal width
-- Useful for reading complete messages
-- Terminal handles text wrapping
+- Messages are wrapped at word boundaries to fit terminal width
+- Long words that exceed terminal width are broken at character boundaries
+- Preserves readability while showing complete content
+- Respects Unicode character boundaries (safe for Japanese text and emojis)
+- Applies to:
+  - Result detail view (wrapped display)
+  - Session viewer messages (wrapped display)
+  - Search results list (single line, no truncation)
 
 #### Visual Indicators
 - Status bar shows current mode: `[Truncated]` or `[Full Text]`

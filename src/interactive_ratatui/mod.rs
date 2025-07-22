@@ -538,18 +538,19 @@ impl InteractiveSearch {
             let mut all_lines = content;
 
             // Split message text into lines
+            let terminal_width = f.area().width as usize;
+            let available_width = terminal_width.saturating_sub(4); // Account for borders
+
             if self.truncation_enabled {
                 // In truncated mode, show each line truncated to terminal width
-                let terminal_width = f.area().width as usize;
-                let available_width = terminal_width.saturating_sub(4); // Account for borders
-
                 for line in result.text.lines() {
                     let truncated_line = self.truncate_message(line, available_width);
                     all_lines.push(Line::from(truncated_line));
                 }
             } else {
-                // In full text mode, show complete lines
-                for line in result.text.lines() {
+                // In full text mode, wrap lines at terminal width
+                let wrapped_lines = self.wrap_text(&result.text, available_width);
+                for line in wrapped_lines {
                     all_lines.push(Line::from(line));
                 }
             }
@@ -721,33 +722,35 @@ impl InteractiveSearch {
                 if let Some(content_val) = message_content {
                     if let Some(text) = content_val.as_str() {
                         // Split text into lines for proper display
-                        if self.truncation_enabled {
-                            let terminal_width = f.area().width as usize;
-                            let available_width = terminal_width.saturating_sub(4); // Account for borders
+                        let terminal_width = f.area().width as usize;
+                        let available_width = terminal_width.saturating_sub(4); // Account for borders
 
+                        if self.truncation_enabled {
                             for line in text.lines() {
                                 let truncated_line = self.truncate_message(line, available_width);
                                 content.push(Line::from(truncated_line));
                             }
                         } else {
-                            for line in text.lines() {
+                            let wrapped_lines = self.wrap_text(text, available_width);
+                            for line in wrapped_lines {
                                 content.push(Line::from(line));
                             }
                         }
                     } else if let Some(parts) = content_val.as_array() {
+                        let terminal_width = f.area().width as usize;
+                        let available_width = terminal_width.saturating_sub(4); // Account for borders
+
                         for part in parts {
                             if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
                                 if self.truncation_enabled {
-                                    let terminal_width = f.area().width as usize;
-                                    let available_width = terminal_width.saturating_sub(4); // Account for borders
-
                                     for line in text.lines() {
                                         let truncated_line =
                                             self.truncate_message(line, available_width);
                                         content.push(Line::from(truncated_line));
                                     }
                                 } else {
-                                    for line in text.lines() {
+                                    let wrapped_lines = self.wrap_text(text, available_width);
+                                    for line in wrapped_lines {
                                         content.push(Line::from(line));
                                     }
                                 }
@@ -880,6 +883,104 @@ impl InteractiveSearch {
             let truncated: String = cleaned.chars().take(truncate_at).collect();
             format!("{truncated}...")
         }
+    }
+
+    fn wrap_text(&self, text: &str, max_width: usize) -> Vec<String> {
+        if max_width == 0 {
+            return vec![];
+        }
+
+        let mut lines = Vec::new();
+
+        for line in text.lines() {
+            if line.chars().count() <= max_width {
+                lines.push(line.to_string());
+            } else {
+                // Wrap long lines at word boundaries where possible
+                let mut current_line = String::new();
+                let mut current_width = 0;
+
+                for word in line.split_whitespace() {
+                    let word_width = word.chars().count();
+
+                    if current_width == 0 {
+                        // First word on the line
+                        if word_width > max_width {
+                            // Word is too long, need to break it
+                            let mut chars = word.chars();
+                            let mut chunk = String::new();
+                            let mut chunk_width = 0;
+
+                            for ch in chars.by_ref() {
+                                chunk.push(ch);
+                                chunk_width += 1;
+
+                                if chunk_width >= max_width {
+                                    lines.push(chunk.clone());
+                                    chunk.clear();
+                                    chunk_width = 0;
+                                }
+                            }
+
+                            if !chunk.is_empty() {
+                                current_line = chunk;
+                                current_width = chunk_width;
+                            }
+                        } else {
+                            current_line = word.to_string();
+                            current_width = word_width;
+                        }
+                    } else if current_width + 1 + word_width <= max_width {
+                        // Word fits on current line with space
+                        current_line.push(' ');
+                        current_line.push_str(word);
+                        current_width += 1 + word_width;
+                    } else {
+                        // Word doesn't fit, start new line
+                        lines.push(current_line);
+
+                        if word_width > max_width {
+                            // Word is too long for a single line
+                            current_line = String::new();
+                            current_width = 0;
+
+                            let mut chars = word.chars();
+                            let mut chunk = String::new();
+                            let mut chunk_width = 0;
+
+                            for ch in chars.by_ref() {
+                                chunk.push(ch);
+                                chunk_width += 1;
+
+                                if chunk_width >= max_width {
+                                    lines.push(chunk.clone());
+                                    chunk.clear();
+                                    chunk_width = 0;
+                                }
+                            }
+
+                            if !chunk.is_empty() {
+                                current_line = chunk;
+                                current_width = chunk_width;
+                            }
+                        } else {
+                            current_line = word.to_string();
+                            current_width = word_width;
+                        }
+                    }
+                }
+
+                if !current_line.is_empty() {
+                    lines.push(current_line);
+                }
+            }
+        }
+
+        if lines.is_empty() && !text.is_empty() {
+            lines.push(String::new());
+        }
+
+        lines
     }
 
     fn calculate_visible_range(&self, available_height: u16) -> (usize, usize) {
@@ -1159,7 +1260,7 @@ impl InteractiveSearch {
                 KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
                     self.mode = Mode::Search;
                 }
-                KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     self.truncation_enabled = !self.truncation_enabled;
                     let status = if self.truncation_enabled {
                         "Truncated"
@@ -1190,7 +1291,7 @@ impl InteractiveSearch {
                 KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
                     self.mode = Mode::Search;
                 }
-                KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     self.truncation_enabled = !self.truncation_enabled;
                     let status = if self.truncation_enabled {
                         "Truncated"
