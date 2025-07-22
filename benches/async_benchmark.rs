@@ -1,13 +1,21 @@
+use criterion::{Criterion, criterion_group, criterion_main};
+
+#[cfg(feature = "async")]
 use ccms::parse_query;
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+#[cfg(feature = "async")]
+use criterion::{BenchmarkId, black_box};
+#[cfg(feature = "async")]
 use std::fs::File;
+#[cfg(feature = "async")]
 use std::io::Write;
+#[cfg(feature = "async")]
 use tempfile::tempdir;
 
 #[cfg(feature = "async")]
 use ccms::{AsyncSearchEngine, AsyncSearchOptions};
 
 // Create test JSONL files for benchmarking
+#[cfg(feature = "async")]
 fn create_test_jsonl(num_lines: usize, line_size: usize) -> (tempfile::TempDir, String) {
     let temp_dir = tempdir().unwrap();
     let test_file = temp_dir.path().join("test.jsonl");
