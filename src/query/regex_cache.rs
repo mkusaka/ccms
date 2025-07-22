@@ -1,20 +1,22 @@
 use lru::LruCache;
 use regex::Regex;
 use std::num::NonZeroUsize;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
-lazy_static::lazy_static! {
-    static ref REGEX_CACHE: Mutex<LruCache<String, Regex>> = {
+static REGEX_CACHE: OnceLock<Mutex<LruCache<String, Regex>>> = OnceLock::new();
+
+fn get_cache() -> &'static Mutex<LruCache<String, Regex>> {
+    REGEX_CACHE.get_or_init(|| {
         let capacity = NonZeroUsize::new(128).unwrap();
         Mutex::new(LruCache::new(capacity))
-    };
+    })
 }
 
 pub fn get_or_compile_regex(pattern: &str, flags: &str) -> Result<Regex, regex::Error> {
     let cache_key = format!("{pattern}\0{flags}");
 
     // Try to get from cache first
-    if let Ok(mut cache) = REGEX_CACHE.try_lock() {
+    if let Ok(mut cache) = get_cache().try_lock() {
         if let Some(regex) = cache.get(&cache_key) {
             return Ok(regex.clone());
         }
@@ -36,7 +38,7 @@ pub fn get_or_compile_regex(pattern: &str, flags: &str) -> Result<Regex, regex::
     let regex = regex_builder.build()?;
 
     // Try to cache it
-    if let Ok(mut cache) = REGEX_CACHE.try_lock() {
+    if let Ok(mut cache) = get_cache().try_lock() {
         cache.put(cache_key, regex.clone());
     }
 
