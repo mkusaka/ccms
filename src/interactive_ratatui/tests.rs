@@ -759,6 +759,47 @@ fn test_alt_z_truncation_toggle() {
 }
 
 #[test]
+fn test_ctrl_r_cache_reload() {
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.jsonl");
+
+    // Create initial file
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Original message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+    drop(file);
+
+    let mut search = InteractiveSearch::new(SearchOptions::default());
+    search.query = "Original".to_string();
+    search.execute_search_sync(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+
+    // Modify file
+    thread::sleep(Duration::from_millis(10));
+    let mut file = File::create(&test_file).unwrap();
+    writeln!(file, r#"{{"type":"user","message":{{"role":"user","content":"Updated message"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#).unwrap();
+    drop(file);
+
+    // Simulate Ctrl+R
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let ctrl_r = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL);
+    search
+        .handle_search_input(ctrl_r, test_file.to_str().unwrap())
+        .unwrap();
+
+    // Cache should be cleared and search re-executed
+    assert_eq!(
+        search.message,
+        Some("Cache cleared and reloaded".to_string())
+    );
+
+    // Search for updated content
+    search.query = "Updated".to_string();
+    search.execute_search_sync(test_file.to_str().unwrap());
+    assert_eq!(search.results.len(), 1);
+    assert!(search.results[0].text.contains("Updated"));
+}
+
+#[test]
 fn test_truncation_toggle_preserves_state_across_modes() {
     let temp_dir = tempdir().unwrap();
     let test_file = temp_dir.path().join("test.jsonl");
