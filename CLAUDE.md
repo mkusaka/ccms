@@ -237,6 +237,77 @@ The interactive mode uses non-blocking input handling to prevent UI freezing:
 - Automatic cleanup on mode transitions (clear messages, reset scroll)
 - Comprehensive caching system to minimize file I/O
 
+### Testing Strategy
+
+**Unit Testing Approach**:
+The codebase follows a comprehensive testing strategy with tests organized by architectural layers:
+
+1. **Domain Layer Tests** (`domain/*_test.rs`):
+   - Test pure business logic and domain models
+   - Focus on data structures and domain rules
+   - Examples: `models_test.rs`, `filter_test.rs`
+
+2. **Application Layer Tests** (`application/*_test.rs`):
+   - Test service orchestration and business workflows
+   - Mock external dependencies (file system, etc.)
+   - Examples: `search_service_test.rs`, `session_service_test.rs`, `cache_service_test.rs`
+
+3. **UI Layer Tests** (`ui/*_test.rs`):
+   - Test state management and component behavior
+   - Verify MVU pattern implementation
+   - Examples: `app_state_test.rs`, component tests in `components/*_test.rs`
+
+4. **Integration Tests** (`integration_tests.rs`):
+   - Test interactions between layers
+   - Verify end-to-end workflows
+   - Test complete user scenarios
+
+**Testing Best Practices**:
+- Use descriptive test names that explain the scenario
+- Each test should be independent and isolated
+- Mock file system operations to avoid I/O dependencies
+- Use builder patterns for complex test data setup
+- Test edge cases (empty data, unicode, invalid input)
+
+**Test Organization**:
+```
+src/interactive_ratatui/
+├── domain/
+│   ├── models_test.rs      # Domain model tests
+│   └── filter_test.rs      # Filter logic tests
+├── application/
+│   ├── search_service_test.rs   # Search service tests
+│   ├── session_service_test.rs  # Session service tests
+│   └── cache_service_test.rs    # Cache service tests
+├── ui/
+│   ├── app_state_test.rs        # State management tests
+│   └── components/
+│       ├── search_bar_test.rs   # SearchBar component tests
+│       └── result_list_test.rs  # ResultList component tests
+└── integration_tests.rs         # Cross-layer integration tests
+```
+
+**Running Tests**:
+```bash
+# Run all tests
+cargo test
+
+# Run specific test module
+cargo test interactive_ratatui::
+
+# Run with output for debugging
+cargo test -- --nocapture
+
+# Run specific test function
+cargo test test_search_filter
+```
+
+**Test Coverage Goals**:
+- Critical business logic: 100% coverage
+- UI components: Key interaction paths covered
+- Error handling: All error cases tested
+- Performance: Benchmarks for search operations
+
 ### Interactive Ratatui Architecture Details
 
 **Directory Structure**:
