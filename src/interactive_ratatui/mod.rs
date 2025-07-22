@@ -1218,8 +1218,9 @@ impl InteractiveSearch {
                     let fixed_width = fixed_part.chars().count();
 
                     // Estimate available width (conservative)
-                    let available_width =
-                        available_width_estimate.saturating_sub(fixed_width).saturating_sub(4); // Extra margin
+                    let available_width = available_width_estimate
+                        .saturating_sub(fixed_width)
+                        .saturating_sub(4); // Extra margin
 
                     // Calculate wrapped lines
                     let wrapped_lines = self.wrap_text(&result.text, available_width);
@@ -1231,7 +1232,7 @@ impl InteractiveSearch {
 
                     // Check if this item fits (with stricter safety margin)
                     let required_height = item_height; // No separator in List widget
-                    
+
                     // Be more conservative - ensure we never exceed the actual height
                     if current_height + required_height <= height_for_items as usize {
                         current_height += required_height;
