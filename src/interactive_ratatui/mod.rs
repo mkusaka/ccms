@@ -823,6 +823,9 @@ impl InteractiveSearch {
                         self.truncate_message(&preview, available_width as usize);
 
                     let line_content = format!("{fixed_part}{truncated_preview}");
+                    
+                    // Pad the line to full width to clear any previous content
+                    let padded_content = format!("{:<width$}", line_content, width = inner.width as usize);
 
                     let style = if list_idx == self.session_selected_index {
                         Style::default()
@@ -832,9 +835,10 @@ impl InteractiveSearch {
                         Style::default()
                     };
 
-                    ListItem::new(Line::from(vec![Span::styled(line_content, style)]))
+                    ListItem::new(Line::from(vec![Span::styled(padded_content, style)]))
                 } else {
-                    ListItem::new(Line::from("(error parsing message)"))
+                    let error_msg = format!("{:<width$}", "(error parsing message)", width = inner.width as usize);
+                    ListItem::new(Line::from(error_msg))
                 }
             })
             .collect();
