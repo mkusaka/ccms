@@ -1,10 +1,10 @@
-use std::sync::{Arc, Mutex};
-use anyhow::Result;
 use crate::SessionMessage;
 use crate::interactive_ratatui::application::cache_service::CacheService;
 use crate::interactive_ratatui::domain::filter::SessionFilter;
 use crate::interactive_ratatui::domain::models::SessionOrder;
+use anyhow::Result;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 pub struct SessionService {
     cache: Arc<Mutex<CacheService>>,

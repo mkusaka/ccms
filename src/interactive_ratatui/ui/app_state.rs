@@ -1,8 +1,8 @@
 use crate::SearchOptions;
-use crate::query::condition::SearchResult;
-use crate::interactive_ratatui::domain::models::{SessionOrder};
-use crate::interactive_ratatui::ui::events::Message;
+use crate::interactive_ratatui::domain::models::SessionOrder;
 use crate::interactive_ratatui::ui::commands::Command;
+use crate::interactive_ratatui::ui::events::Message;
+use crate::query::condition::SearchResult;
 
 // Re-export Mode
 pub use crate::interactive_ratatui::domain::models::Mode;
@@ -199,9 +199,7 @@ impl AppState {
                 self.ui.message = None;
                 Command::None
             }
-            Message::CopyToClipboard(text) => {
-                Command::CopyToClipboard(text)
-            }
+            Message::CopyToClipboard(text) => Command::CopyToClipboard(text),
             Message::Quit => {
                 Command::None // Handle in main loop
             }
@@ -217,7 +215,7 @@ impl AppState {
         // This would be calculated based on terminal height
         // For now, keep it simple
         let visible_height = 20; // This should come from terminal size
-        
+
         if self.search.selected_index < self.search.scroll_offset {
             self.search.scroll_offset = self.search.selected_index;
         } else if self.search.selected_index >= self.search.scroll_offset + visible_height {
@@ -227,7 +225,7 @@ impl AppState {
 
     fn adjust_session_scroll_offset(&mut self) {
         let visible_height = 20; // This should come from terminal size
-        
+
         if self.session.selected_index < self.session.scroll_offset {
             self.session.scroll_offset = self.session.selected_index;
         } else if self.session.selected_index >= self.session.scroll_offset + visible_height {
@@ -237,12 +235,10 @@ impl AppState {
 
     fn update_session_filter(&mut self) {
         use crate::interactive_ratatui::domain::filter::SessionFilter;
-        
-        self.session.filtered_indices = SessionFilter::filter_messages(
-            &self.session.messages,
-            &self.session.query
-        );
-        
+
+        self.session.filtered_indices =
+            SessionFilter::filter_messages(&self.session.messages, &self.session.query);
+
         // Reset selection if current selection is out of bounds
         if self.session.selected_index >= self.session.filtered_indices.len() {
             self.session.selected_index = 0;

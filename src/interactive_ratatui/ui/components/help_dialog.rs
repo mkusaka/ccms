@@ -1,3 +1,6 @@
+use crate::interactive_ratatui::ui::components::Component;
+use crate::interactive_ratatui::ui::events::Message;
+use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
     layout::{Alignment, Rect},
@@ -5,9 +8,6 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
-use crossterm::event::KeyEvent;
-use crate::interactive_ratatui::ui::events::Message;
-use crate::interactive_ratatui::ui::components::Component;
 
 pub struct HelpDialog;
 
@@ -86,30 +86,30 @@ impl HelpDialog {
 impl Component for HelpDialog {
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let help_text = Self::get_help_text();
-        
+
         // Calculate dimensions for the help dialog
         let width = 80.min(area.width - 4);
         let height = (help_text.len() as u16 + 4).min(area.height - 4);
-        
+
         // Center the dialog
         let x = (area.width - width) / 2;
         let y = (area.height - height) / 2;
-        
+
         let dialog_area = Rect::new(x, y, width, height);
-        
+
         // Clear the area behind the dialog
         f.render_widget(Clear, dialog_area);
-        
+
         let help = Paragraph::new(help_text)
             .block(
                 Block::default()
                     .title(" Help ")
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Cyan))
+                    .border_style(Style::default().fg(Color::Cyan)),
             )
             .style(Style::default().fg(Color::White))
             .alignment(Alignment::Left);
-        
+
         f.render_widget(help, dialog_area);
     }
 

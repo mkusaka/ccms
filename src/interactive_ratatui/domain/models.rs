@@ -1,6 +1,6 @@
-use std::time::SystemTime;
 use crate::SessionMessage;
 use crate::query::condition::SearchResult;
+use std::time::SystemTime;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Mode {

@@ -56,13 +56,17 @@ mod tests {
 
         // Test search mode rendering
         app.set_mode(Mode::Search);
-        terminal.draw(|f| app.renderer.render(f, &app.state)).unwrap();
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
         let buffer = terminal.backend().buffer();
         assert!(buffer_contains(buffer, "Search"));
 
         // Test help mode rendering
         app.push_screen(Mode::Help);
-        terminal.draw(|f| app.renderer.render(f, &app.state)).unwrap();
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
         let buffer = terminal.backend().buffer();
         assert!(buffer_contains(buffer, "Help"));
 
@@ -72,7 +76,9 @@ mod tests {
             create_test_result("user", "Hello world", "2024-01-01T12:00:00Z"),
             create_test_result("assistant", "Hi there!", "2024-01-01T12:01:00Z"),
         ];
-        terminal.draw(|f| app.renderer.render(f, &app.state)).unwrap();
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
     }
 
     /// Test error handling in various scenarios
@@ -109,14 +115,18 @@ mod tests {
     #[test]
     fn test_session_viewer_behavior() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
-        
+
         // Simulate having a selected result
-        app.state.search.results = vec![create_test_result("user", "Test message", "2024-01-01T00:00:00Z")];
+        app.state.search.results = vec![create_test_result(
+            "user",
+            "Test message",
+            "2024-01-01T00:00:00Z",
+        )];
         app.state.search.selected_index = 0;
-        
+
         // Transition to session viewer
         app.state.mode = Mode::SessionViewer;
-        
+
         // Verify session viewer state initialization
         assert_eq!(app.current_mode(), Mode::SessionViewer);
     }
@@ -125,13 +135,13 @@ mod tests {
     #[test]
     fn test_search_integration() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
-        
+
         // Set a search query
         app.state.search.query = "test query".to_string();
-        
+
         // Execute search
         app.execute_search();
-        
+
         // Verify search state
         assert!(app.state.search.is_searching);
         assert_eq!(app.state.search.current_search_id, 1);
@@ -141,20 +151,20 @@ mod tests {
     #[test]
     fn test_role_filter_cycling() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
-        
+
         // Initial state - no filter
         assert_eq!(app.state.search.role_filter, None);
-        
+
         // Cycle through filters
         app.handle_message(Message::ToggleRoleFilter);
         assert_eq!(app.state.search.role_filter, Some("user".to_string()));
-        
+
         app.handle_message(Message::ToggleRoleFilter);
         assert_eq!(app.state.search.role_filter, Some("assistant".to_string()));
-        
+
         app.handle_message(Message::ToggleRoleFilter);
         assert_eq!(app.state.search.role_filter, Some("system".to_string()));
-        
+
         app.handle_message(Message::ToggleRoleFilter);
         assert_eq!(app.state.search.role_filter, None);
     }
@@ -164,7 +174,7 @@ mod tests {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     fn test_clipboard_operations() {
         let app = InteractiveSearch::new(SearchOptions::default());
-        
+
         // Test clipboard copy (this might fail in CI environments without clipboard access)
         let result = app.copy_to_clipboard("test text");
         // We don't assert success as clipboard might not be available in test environment
@@ -196,7 +206,7 @@ mod tests {
     fn buffer_contains(buffer: &Buffer, text: &str) -> bool {
         let content = buffer.area.x..buffer.area.x + buffer.area.width;
         let lines = buffer.area.y..buffer.area.y + buffer.area.height;
-        
+
         for y in lines {
             let mut line = String::new();
             for x in content.clone() {

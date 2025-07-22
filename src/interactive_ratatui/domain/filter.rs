@@ -12,9 +12,7 @@ impl SearchFilter {
 
     pub fn apply(&self, results: &mut Vec<SearchResult>) -> Result<()> {
         if let Some(role) = &self.role_filter {
-            results.retain(|result| {
-                result.role.to_lowercase() == role.to_lowercase()
-            });
+            results.retain(|result| result.role.to_lowercase() == role.to_lowercase());
         }
         Ok(())
     }

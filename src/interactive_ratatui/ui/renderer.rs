@@ -1,15 +1,11 @@
+use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
+use crate::interactive_ratatui::ui::components::{
+    Component, help_dialog::HelpDialog, result_detail::ResultDetail, result_list::ResultList,
+    search_bar::SearchBar, session_viewer::SessionViewer,
+};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-};
-use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
-use crate::interactive_ratatui::ui::components::{
-    Component,
-    search_bar::SearchBar,
-    result_list::ResultList,
-    result_detail::ResultDetail,
-    session_viewer::SessionViewer,
-    help_dialog::HelpDialog,
 };
 
 pub struct Renderer {
@@ -53,11 +49,13 @@ impl Renderer {
         self.search_bar.set_query(state.search.query.clone());
         self.search_bar.set_searching(state.search.is_searching);
         self.search_bar.set_message(state.ui.message.clone());
-        self.search_bar.set_role_filter(state.search.role_filter.clone());
+        self.search_bar
+            .set_role_filter(state.search.role_filter.clone());
 
         // Update result list state
         self.result_list.set_results(state.search.results.clone());
-        self.result_list.set_selected_index(state.search.selected_index);
+        self.result_list
+            .set_selected_index(state.search.selected_index);
 
         // Render components
         self.search_bar.render(f, chunks[0]);
@@ -73,8 +71,10 @@ impl Renderer {
 
     fn render_session_mode(&mut self, f: &mut Frame, state: &AppState) {
         // Update session viewer state
-        self.session_viewer.set_messages(state.session.messages.clone());
-        self.session_viewer.set_filtered_indices(state.session.filtered_indices.clone());
+        self.session_viewer
+            .set_messages(state.session.messages.clone());
+        self.session_viewer
+            .set_filtered_indices(state.session.filtered_indices.clone());
         self.session_viewer.set_query(state.session.query.clone());
         self.session_viewer.set_order(state.session.order);
 
@@ -84,7 +84,7 @@ impl Renderer {
     fn render_help_mode(&mut self, f: &mut Frame, state: &AppState) {
         // First render the search mode underneath
         self.render_search_mode(f, state);
-        
+
         // Then render the help dialog on top
         self.help_dialog.render(f, f.area());
     }

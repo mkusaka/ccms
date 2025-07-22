@@ -1,3 +1,7 @@
+use crate::interactive_ratatui::ui::components::Component;
+use crate::interactive_ratatui::ui::events::Message;
+use crate::query::condition::SearchResult;
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -5,10 +9,6 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
 };
-use crossterm::event::{KeyCode, KeyEvent};
-use crate::query::condition::SearchResult;
-use crate::interactive_ratatui::ui::events::Message;
-use crate::interactive_ratatui::ui::components::Component;
 
 pub struct ResultList {
     results: Vec<SearchResult>,
@@ -53,7 +53,7 @@ impl ResultList {
     fn truncate_message(text: &str, max_width: usize) -> String {
         let text = text.replace('\n', " ");
         let chars: Vec<char> = text.chars().collect();
-        
+
         if chars.len() <= max_width {
             text
         } else {
@@ -71,7 +71,7 @@ impl ResultList {
 
     fn adjust_scroll_offset(&mut self, available_height: u16) {
         let visible_count = available_height as usize;
-        
+
         if self.selected_index < self.scroll_offset {
             self.scroll_offset = self.selected_index;
         } else if self.selected_index >= self.scroll_offset + visible_count {
@@ -124,7 +124,9 @@ impl Component for ResultList {
                 ];
 
                 let style = if is_selected {
-                    Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .bg(Color::DarkGray)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default()
                 };
@@ -176,7 +178,8 @@ impl Component for ResultList {
                 }
             }
             KeyCode::PageDown => {
-                let new_index = (self.selected_index + 10).min(self.results.len().saturating_sub(1));
+                let new_index =
+                    (self.selected_index + 10).min(self.results.len().saturating_sub(1));
                 if new_index != self.selected_index {
                     self.selected_index = new_index;
                     Some(Message::SelectResult(self.selected_index))

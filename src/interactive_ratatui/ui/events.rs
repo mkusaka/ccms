@@ -10,14 +10,14 @@ pub enum Message {
     SelectResult(usize),
     ScrollUp,
     ScrollDown,
-    
+
     // Mode changes
     EnterResultDetail,
     EnterSessionViewer,
     ExitToSearch,
     ShowHelp,
     CloseHelp,
-    
+
     // Session events
     LoadSession(String),
     SessionQueryChanged(String),
@@ -26,21 +26,21 @@ pub enum Message {
     SessionSelectUp,
     SessionSelectDown,
     ToggleSessionOrder,
-    
+
     // Role filter
     ToggleRoleFilter,
-    
+
     // Clipboard
     CopyToClipboard(String),
-    
+
     // Async events
     SearchStarted(u64),
     SearchProgress(u64, String),
-    
+
     // UI events
     SetStatus(String),
     ClearStatus,
-    
+
     // Terminal events
     Quit,
     Refresh,

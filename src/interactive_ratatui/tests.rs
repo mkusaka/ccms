@@ -1,8 +1,8 @@
 use super::*;
 use crate::SearchOptions;
 use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
-use crate::interactive_ratatui::ui::events::Message;
 use crate::interactive_ratatui::ui::commands::Command;
+use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
 
 #[test]
@@ -25,12 +25,12 @@ fn test_app_state_creation() {
 fn test_message_handling() {
     let options = SearchOptions::default();
     let mut state = AppState::new(options, 100);
-    
+
     // Test query change
     let command = state.update(Message::QueryChanged("test query".to_string()));
     assert_eq!(state.search.query, "test query");
     assert!(matches!(command, Command::ScheduleSearch(_)));
-    
+
     // Test mode change
     state.search.results = vec![SearchResult {
         file: "test.jsonl".to_string(),
@@ -42,14 +42,14 @@ fn test_message_handling() {
         has_tools: false,
         has_thinking: false,
         message_type: "user".to_string(),
-        query: crate::query::condition::QueryCondition::Literal { 
-            pattern: "test".to_string(), 
-            case_sensitive: false 
+        query: crate::query::condition::QueryCondition::Literal {
+            pattern: "test".to_string(),
+            case_sensitive: false,
         },
         project_path: "/test".to_string(),
         raw_json: None,
     }];
-    
+
     let command = state.update(Message::EnterResultDetail);
     assert_eq!(state.mode, Mode::ResultDetail);
     assert!(matches!(command, Command::None));
@@ -59,7 +59,7 @@ fn test_message_handling() {
 fn test_search_filter() {
     use crate::interactive_ratatui::domain::filter::SearchFilter;
     use crate::query::condition::SearchResult;
-    
+
     let mut results = vec![
         SearchResult {
             file: "test1.jsonl".to_string(),
@@ -71,9 +71,9 @@ fn test_search_filter() {
             has_tools: false,
             has_thinking: false,
             message_type: "user".to_string(),
-            query: crate::query::condition::QueryCondition::Literal { 
-                pattern: "test".to_string(), 
-                case_sensitive: false 
+            query: crate::query::condition::QueryCondition::Literal {
+                pattern: "test".to_string(),
+                case_sensitive: false,
             },
             project_path: "/test".to_string(),
             raw_json: None,
@@ -88,18 +88,18 @@ fn test_search_filter() {
             has_tools: false,
             has_thinking: false,
             message_type: "assistant".to_string(),
-            query: crate::query::condition::QueryCondition::Literal { 
-                pattern: "test".to_string(), 
-                case_sensitive: false 
+            query: crate::query::condition::QueryCondition::Literal {
+                pattern: "test".to_string(),
+                case_sensitive: false,
             },
             project_path: "/test".to_string(),
             raw_json: None,
         },
     ];
-    
+
     let filter = SearchFilter::new(Some("user".to_string()));
     filter.apply(&mut results).unwrap();
-    
+
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].role, "user");
 }

@@ -1,3 +1,6 @@
+use crate::interactive_ratatui::ui::components::Component;
+use crate::interactive_ratatui::ui::events::Message;
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -5,9 +8,6 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
-use crossterm::event::{KeyCode, KeyEvent};
-use crate::interactive_ratatui::ui::events::Message;
-use crate::interactive_ratatui::ui::components::Component;
 
 pub struct SearchBar {
     query: String,
@@ -49,13 +49,15 @@ impl SearchBar {
 impl Component for SearchBar {
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let input_text = if self.cursor_position < self.query.chars().count() {
-            let (before, after) = self.query.chars()
+            let (before, after) = self
+                .query
+                .chars()
                 .enumerate()
                 .partition::<Vec<_>, _>(|(i, _)| *i < self.cursor_position);
-            
+
             let before: String = before.into_iter().map(|(_, c)| c).collect();
             let after: String = after.into_iter().map(|(_, c)| c).collect();
-            
+
             vec![
                 Span::raw(before),
                 Span::styled(
@@ -90,11 +92,13 @@ impl Component for SearchBar {
         match key.code {
             KeyCode::Char(c) => {
                 let char_pos = self.cursor_position;
-                let byte_pos = self.query.chars()
+                let byte_pos = self
+                    .query
+                    .chars()
                     .take(char_pos)
                     .map(|c| c.len_utf8())
                     .sum::<usize>();
-                
+
                 self.query.insert(byte_pos, c);
                 self.cursor_position += 1;
                 Some(Message::QueryChanged(self.query.clone()))
@@ -102,13 +106,15 @@ impl Component for SearchBar {
             KeyCode::Backspace => {
                 if self.cursor_position > 0 {
                     let char_pos = self.cursor_position - 1;
-                    let byte_start = self.query.chars()
+                    let byte_start = self
+                        .query
+                        .chars()
                         .take(char_pos)
                         .map(|c| c.len_utf8())
                         .sum::<usize>();
                     let ch = self.query.chars().nth(char_pos).unwrap();
                     let byte_end = byte_start + ch.len_utf8();
-                    
+
                     self.query.drain(byte_start..byte_end);
                     self.cursor_position -= 1;
                     Some(Message::QueryChanged(self.query.clone()))
@@ -118,13 +124,15 @@ impl Component for SearchBar {
             }
             KeyCode::Delete => {
                 if self.cursor_position < self.query.chars().count() {
-                    let byte_start = self.query.chars()
+                    let byte_start = self
+                        .query
+                        .chars()
                         .take(self.cursor_position)
                         .map(|c| c.len_utf8())
                         .sum::<usize>();
                     let ch = self.query.chars().nth(self.cursor_position).unwrap();
                     let byte_end = byte_start + ch.len_utf8();
-                    
+
                     self.query.drain(byte_start..byte_end);
                     Some(Message::QueryChanged(self.query.clone()))
                 } else {

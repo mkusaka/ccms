@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use anyhow::Result;
 use crate::SessionMessage;
 use crate::interactive_ratatui::domain::models::CachedFile;
+use anyhow::Result;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 pub struct CacheService {
     files: HashMap<PathBuf, CachedFile>,

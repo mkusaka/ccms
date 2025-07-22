@@ -1,12 +1,12 @@
-pub mod search_bar;
-pub mod result_list;
-pub mod result_detail;
-pub mod session_viewer;
 pub mod help_dialog;
+pub mod result_detail;
+pub mod result_list;
+pub mod search_bar;
+pub mod session_viewer;
 
-use ratatui::{Frame, layout::Rect};
-use crossterm::event::KeyEvent;
 use crate::interactive_ratatui::ui::events::Message;
+use crossterm::event::KeyEvent;
+use ratatui::{Frame, layout::Rect};
 
 pub trait Component {
     fn render(&mut self, f: &mut Frame, area: Rect);

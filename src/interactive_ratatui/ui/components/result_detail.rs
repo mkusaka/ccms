@@ -1,13 +1,13 @@
+use crate::interactive_ratatui::ui::components::Component;
+use crate::interactive_ratatui::ui::events::Message;
+use crate::query::condition::SearchResult;
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::Rect,
     style::{Color, Style},
     widgets::{Block, Borders, Paragraph, Wrap},
 };
-use crossterm::event::{KeyCode, KeyEvent};
-use crate::query::condition::SearchResult;
-use crate::interactive_ratatui::ui::events::Message;
-use crate::interactive_ratatui::ui::components::Component;
 
 pub struct ResultDetail {
     result: Option<SearchResult>,
@@ -45,8 +45,13 @@ impl Component for ResultDetail {
         } else {
             format!(
                 "File: {}\nUUID: {}\nTimestamp: {}\nSession ID: {}\nRole: {}\nText: {}\nProject: {}",
-                result.file, result.uuid, result.timestamp, result.session_id, 
-                result.role, result.text, result.project_path
+                result.file,
+                result.uuid,
+                result.timestamp,
+                result.session_id,
+                result.role,
+                result.text,
+                result.project_path
             )
         };
 
@@ -54,7 +59,7 @@ impl Component for ResultDetail {
             .block(
                 Block::default()
                     .title(format!(" Result Detail - {} ", result.file))
-                    .borders(Borders::ALL)
+                    .borders(Borders::ALL),
             )
             .style(Style::default().fg(Color::White))
             .wrap(Wrap { trim: false })
@@ -84,9 +89,10 @@ impl Component for ResultDetail {
                 None
             }
             KeyCode::Char('s') => Some(Message::EnterSessionViewer),
-            KeyCode::Char('c') => {
-                self.result.as_ref().map(|result| Message::CopyToClipboard(result.text.clone()))
-            }
+            KeyCode::Char('c') => self
+                .result
+                .as_ref()
+                .map(|result| Message::CopyToClipboard(result.text.clone())),
             KeyCode::Char('C') => {
                 if let Some(result) = &self.result {
                     if let Some(raw_json) = &result.raw_json {
@@ -94,8 +100,13 @@ impl Component for ResultDetail {
                     } else {
                         let formatted = format!(
                             "File: {}\nUUID: {}\nTimestamp: {}\nSession ID: {}\nRole: {}\nText: {}\nProject: {}",
-                            result.file, result.uuid, result.timestamp, result.session_id, 
-                            result.role, result.text, result.project_path
+                            result.file,
+                            result.uuid,
+                            result.timestamp,
+                            result.session_id,
+                            result.role,
+                            result.text,
+                            result.project_path
                         );
                         Some(Message::CopyToClipboard(formatted))
                     }

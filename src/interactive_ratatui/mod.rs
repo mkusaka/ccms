@@ -4,39 +4,31 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{
-    Terminal,
-    backend::CrosstermBackend,
-};
+use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io::{self, Stdout};
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 use crate::SearchOptions;
 
-mod domain;
 mod application;
+mod domain;
 mod ui;
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod integration_tests;
+#[cfg(test)]
+mod tests;
 
-use self::domain::models::{Mode, SearchRequest, SearchResponse};
 use self::application::{
-    cache_service::CacheService,
-    search_service::SearchService,
-    session_service::SessionService,
+    cache_service::CacheService, search_service::SearchService, session_service::SessionService,
 };
+use self::domain::models::{Mode, SearchRequest, SearchResponse};
 use self::ui::{
-    app_state::AppState,
-    events::Message,
-    commands::Command,
+    app_state::AppState, commands::Command, components::Component, events::Message,
     renderer::Renderer,
-    components::Component,
 };
 
 pub struct InteractiveSearch {
@@ -56,10 +48,10 @@ impl InteractiveSearch {
     pub fn new(options: SearchOptions) -> Self {
         let max_results = options.max_results.unwrap_or(100);
         let cache = Arc::new(Mutex::new(CacheService::new()));
-        
+
         let search_service = Arc::new(SearchService::new(options.clone()));
         let session_service = Arc::new(SessionService::new(cache));
-        
+
         Self {
             state: AppState::new(options, max_results),
             renderer: Renderer::new(),
@@ -77,20 +69,20 @@ impl InteractiveSearch {
     pub fn run(&mut self, pattern: &str) -> Result<()> {
         self.pattern = pattern.to_string();
         let mut terminal = self.setup_terminal()?;
-        
+
         // Start search worker thread
         let (tx, rx) = self.start_search_worker();
         self.search_sender = Some(tx);
         self.search_receiver = Some(rx);
-        
+
         // Initial search if pattern provided
         if !pattern.is_empty() {
             self.state.search.query = pattern.to_string();
             self.execute_command(Command::ExecuteSearch);
         }
-        
+
         let result = self.run_app(&mut terminal, pattern);
-        
+
         self.cleanup_terminal(&mut terminal)?;
         result
     }
@@ -111,7 +103,11 @@ impl InteractiveSearch {
         Ok(())
     }
 
-    fn run_app(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>, _pattern: &str) -> Result<()> {
+    fn run_app(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+        _pattern: &str,
+    ) -> Result<()> {
         loop {
             terminal.draw(|f| {
                 self.renderer.render(f, &self.state);
@@ -179,11 +175,15 @@ impl InteractiveSearch {
     fn handle_search_mode_input(&mut self, key: KeyEvent) -> Option<Message> {
         match key.code {
             KeyCode::Tab => Some(Message::ToggleRoleFilter),
-            KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown |
-            KeyCode::Home | KeyCode::End | KeyCode::Enter | KeyCode::Char('s') => {
-                self.renderer.get_result_list_mut().handle_key(key)
-            }
-            _ => self.renderer.get_search_bar_mut().handle_key(key)
+            KeyCode::Up
+            | KeyCode::Down
+            | KeyCode::PageUp
+            | KeyCode::PageDown
+            | KeyCode::Home
+            | KeyCode::End
+            | KeyCode::Enter
+            | KeyCode::Char('s') => self.renderer.get_result_list_mut().handle_key(key),
+            _ => self.renderer.get_search_bar_mut().handle_key(key),
         }
     }
 
@@ -246,9 +246,13 @@ impl InteractiveSearch {
     fn load_session_messages(&mut self, file_path: &str) {
         match self.session_service.load_session(file_path) {
             Ok(_messages) => {
-                let raw_lines = self.session_service.get_raw_lines(file_path).unwrap_or_default();
+                let raw_lines = self
+                    .session_service
+                    .get_raw_lines(file_path)
+                    .unwrap_or_default();
                 self.state.session.messages = raw_lines;
-                self.state.session.filtered_indices = (0..self.state.session.messages.len()).collect();
+                self.state.session.filtered_indices =
+                    (0..self.state.session.messages.len()).collect();
             }
             Err(e) => {
                 self.state.ui.message = Some(format!("Failed to load session: {e}"));
@@ -292,7 +296,9 @@ impl InteractiveSearch {
 
             if let Some(mut stdin) = child.stdin.take() {
                 use std::io::Write;
-                stdin.write_all(text.as_bytes()).context("Failed to write to pbcopy")?;
+                stdin
+                    .write_all(text.as_bytes())
+                    .context("Failed to write to pbcopy")?;
             }
 
             child.wait().context("Failed to wait for pbcopy")?;
@@ -311,7 +317,9 @@ impl InteractiveSearch {
 
             if let Some(mut stdin) = child.stdin.take() {
                 use std::io::Write;
-                stdin.write_all(text.as_bytes()).context("Failed to write to xclip")?;
+                stdin
+                    .write_all(text.as_bytes())
+                    .context("Failed to write to xclip")?;
             }
 
             child.wait().context("Failed to wait for xclip")?;
