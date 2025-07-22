@@ -46,18 +46,6 @@ fn benchmark_file_reading(c: &mut Criterion) {
                 });
             },
         );
-
-        group.bench_with_input(
-            BenchmarkId::new("mmap_read", size),
-            &test_file,
-            |b, test_file| {
-                b.iter(|| {
-                    let file = File::open(test_file).unwrap();
-                    let mmap = unsafe { memmap2::MmapOptions::new().map(&file).unwrap() };
-                    black_box(mmap.len())
-                });
-            },
-        );
     }
     group.finish();
 }

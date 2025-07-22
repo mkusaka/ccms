@@ -14,6 +14,7 @@ High-performance CLI for searching Claude session JSONL files with an interactiv
 - 📊 **Multiple Output Formats**: Text, JSON, or JSONL with customizable formatting
 - 🎨 **Beautiful Output**: Colored terminal output with match highlighting
 - 🔧 **Robust Testing**: Comprehensive test suite with cargo-nextest support
+- 🚀 **Shell Completion**: Auto-completion support for bash, zsh, and fish shells
 
 ## Installation
 
@@ -49,6 +50,45 @@ cp target/release/ccms ~/.local/bin/
 # or
 sudo cp target/release/ccms /usr/local/bin/
 ```
+
+## Shell Completion
+
+CCMS supports shell completion for bash, zsh, and fish. To enable it:
+
+### Bash
+
+```bash
+# Generate completion script to file
+ccms --completion bash > ~/.bash_completion.d/ccms
+
+# Or add to .bashrc for persistent completion
+echo 'source <(ccms --completion bash)' >> ~/.bashrc
+
+# Or enable completion immediately in current shell
+source <(ccms --completion bash)
+```
+
+### Zsh
+
+```bash
+# Generate completion script to file
+ccms --completion zsh > ~/.zsh/completions/_ccms
+
+# Or add to .zshrc for persistent completion
+echo 'source <(ccms --completion zsh)' >> ~/.zshrc
+
+# Or enable completion immediately in current shell
+source <(ccms --completion zsh)
+```
+
+### Fish
+
+```bash
+# Generate completion script
+ccms --completion fish > ~/.config/fish/completions/ccms.fish
+```
+
+After installation, restart your shell or source your configuration file to enable completions.
 
 ## Usage
 
@@ -187,6 +227,35 @@ ccms -f jsonl "query" > results.jsonl
 # Verbose output with debug info
 ccms -v "query"
 ```
+
+## CLI Options
+
+### General Options
+- `-p, --pattern <PATTERN>` - File pattern to search (default: `~/.claude/projects/**/*.jsonl`)
+- `-n, --max-results <N>` - Maximum number of results to return (default: 50)
+- `-f, --format <FORMAT>` - Output format: `text`, `json`, or `jsonl` (default: text)
+- `-v, --verbose` - Enable verbose output
+- `--no-color` - Disable colored output
+- `--full-text` - Show full message text without truncation
+- `--raw` - Show raw JSON of matched messages
+
+### Filtering Options
+- `-r, --role <ROLE>` - Filter by message role: `user`, `assistant`, `system`, or `summary`
+- `-s, --session-id <ID>` - Filter by session ID
+- `--project <PATH>` - Filter by project path (e.g., current directory: `$(pwd)`)
+- `--before <TIMESTAMP>` - Filter messages before this timestamp (RFC3339 format)
+- `--after <TIMESTAMP>` - Filter messages after this timestamp (RFC3339 format)
+- `--since <TIME>` - Filter messages since this time (relative time like "1 day ago" or Unix timestamp)
+
+### Interactive Mode
+- `-i, --interactive` - Launch interactive search mode (fzf-like TUI)
+
+### Other Options
+- `--help-query` - Show query syntax help
+- `--completion <SHELL>` - Generate shell completion script for bash, zsh, or fish
+- `--profile <NAME>` - Generate profiling report (requires --features profiling)
+- `-h, --help` - Print help information
+- `-V, --version` - Print version information
 
 ## Query Syntax Reference
 

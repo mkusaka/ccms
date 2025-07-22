@@ -18,7 +18,7 @@ use std::io::{self, Write};
 )]
 struct Cli {
     /// Search query (supports literal, regex, AND/OR/NOT operators)
-    #[arg(required_unless_present = "interactive")]
+    #[arg(required_unless_present_any = ["interactive", "generator"])]
     query: Option<String>,
 
     /// File pattern to search (default: ~/.claude/projects/**/*.jsonl)
