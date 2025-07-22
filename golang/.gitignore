@@ -1,0 +1,29 @@
+# Binaries
+search_final
+search_fullparse
+search_jsonparser_optimized
+search_optimized
+search_simd
+search_simdjson
+search_sonic
+search_ultra
+search_ultra_safe
+search_fast
+search
+benchmark
+compare_search
+profile
+profile_detailed
+search_profile
+debug_search
+
+# Test binary
+*.test
+
+# Output files
+*.out
+*.prof
+
+# IDE
+.idea/
+.vscode/
