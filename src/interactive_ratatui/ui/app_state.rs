@@ -9,6 +9,7 @@ pub use crate::interactive_ratatui::domain::models::Mode;
 
 pub struct AppState {
     pub mode: Mode,
+    pub mode_stack: Vec<Mode>,
     pub search: SearchState,
     pub session: SessionState,
     pub ui: UiState,
@@ -36,6 +37,7 @@ pub struct SessionState {
     pub scroll_offset: usize,
     pub order: Option<SessionOrder>,
     pub file_path: Option<String>,
+    pub session_id: Option<String>,
 }
 
 pub struct UiState {
@@ -49,6 +51,7 @@ impl AppState {
     pub fn new(base_options: SearchOptions, max_results: usize) -> Self {
         Self {
             mode: Mode::Search,
+            mode_stack: Vec::new(),
             search: SearchState {
                 query: String::new(),
                 results: Vec::new(),
@@ -66,6 +69,7 @@ impl AppState {
                 scroll_offset: 0,
                 order: None,
                 file_path: None,
+                session_id: None,
             },
             ui: UiState {
                 message: None,
@@ -123,15 +127,25 @@ impl AppState {
                 if let Some(result) = self.get_selected_result() {
                     self.ui.selected_result = Some(result.clone());
                     self.ui.detail_scroll_offset = 0;
+                    self.mode_stack.push(self.mode);
                     self.mode = Mode::ResultDetail;
                 }
                 Command::None
             }
             Message::EnterSessionViewer => {
-                if let Some(result) = self.search.results.get(self.search.selected_index) {
+                // Try to get result from selected result (when in detail view) or search results
+                let result = if self.mode == Mode::ResultDetail {
+                    self.ui.selected_result.as_ref()
+                } else {
+                    self.search.results.get(self.search.selected_index)
+                };
+
+                if let Some(result) = result {
                     let file = result.file.clone();
+                    self.mode_stack.push(self.mode);
                     self.mode = Mode::SessionViewer;
                     self.session.file_path = Some(file.clone());
+                    self.session.session_id = Some(result.session_id.clone());
                     self.session.query.clear();
                     self.session.selected_index = 0;
                     self.session.scroll_offset = 0;
@@ -141,9 +155,13 @@ impl AppState {
                 }
             }
             Message::ExitToSearch => {
-                self.mode = Mode::Search;
+                // Pop mode from stack if available, otherwise go to Search
+                self.mode = self.mode_stack.pop().unwrap_or(Mode::Search);
+                if self.mode == Mode::Search {
+                    // Only clear session messages when returning to search
+                    self.session.messages.clear();
+                }
                 self.ui.detail_scroll_offset = 0;
-                self.session.messages.clear();
                 Command::None
             }
             Message::ShowHelp => {

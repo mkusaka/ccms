@@ -159,13 +159,44 @@ impl ResultList {
         }
     }
 
-    fn adjust_scroll_offset(&mut self, available_height: u16) {
-        let visible_count = available_height as usize;
-
-        if self.selected_index < self.scroll_offset {
-            self.scroll_offset = self.selected_index;
-        } else if self.selected_index >= self.scroll_offset + visible_count {
-            self.scroll_offset = self.selected_index - visible_count + 1;
+    fn adjust_scroll_offset(&mut self, available_height: u16, available_width: u16) {
+        if self.truncation_enabled {
+            // In truncated mode, each item takes 1 line
+            let visible_count = available_height as usize;
+            if self.selected_index < self.scroll_offset {
+                self.scroll_offset = self.selected_index;
+            } else if self.selected_index >= self.scroll_offset + visible_count {
+                self.scroll_offset = self.selected_index - visible_count + 1;
+            }
+        } else {
+            // In full text mode, calculate which items are visible
+            let available_text_width = available_width.saturating_sub(35) as usize;
+            let mut current_index = 0;
+            let mut current_height = 0;
+            
+            // Find which item should be at the top to show selected_index
+            while current_index <= self.selected_index && current_index < self.results.len() {
+                if current_index == self.selected_index {
+                    // If selected item is above current scroll offset, scroll up
+                    if current_index < self.scroll_offset {
+                        self.scroll_offset = current_index;
+                    }
+                    break;
+                }
+                
+                let result = &self.results[current_index];
+                let wrapped_lines = Self::wrap_text(&result.text, available_text_width);
+                let item_height = wrapped_lines.len().max(1);
+                current_height += item_height;
+                
+                // If we've exceeded the available height and haven't reached selected_index
+                if current_height > available_height as usize && current_index < self.selected_index {
+                    self.scroll_offset = current_index + 1;
+                    current_height = 0;
+                }
+                
+                current_index += 1;
+            }
         }
     }
 }
@@ -181,7 +212,7 @@ impl Component for ResultList {
         }
 
         let available_height = area.height.saturating_sub(2); // Account for borders
-        self.adjust_scroll_offset(available_height);
+        self.adjust_scroll_offset(available_height, area.width);
         let (start, end) = self.calculate_visible_range(available_height, area.width);
 
         let items: Vec<ListItem> = self.results[start..end]

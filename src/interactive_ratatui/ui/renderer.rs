@@ -82,6 +82,7 @@ impl Renderer {
     fn render_detail_mode(&mut self, f: &mut Frame, state: &AppState) {
         if let Some(result) = &state.ui.selected_result {
             self.result_detail.set_result(result.clone());
+            self.result_detail.set_message(state.ui.message.clone());
             self.result_detail.render(f, f.area());
         }
     }
@@ -94,6 +95,10 @@ impl Renderer {
             .set_filtered_indices(state.session.filtered_indices.clone());
         self.session_viewer.set_query(state.session.query.clone());
         self.session_viewer.set_order(state.session.order);
+        self.session_viewer
+            .set_file_path(state.session.file_path.clone());
+        self.session_viewer
+            .set_session_id(state.session.session_id.clone());
 
         self.session_viewer.render(f, f.area());
     }
