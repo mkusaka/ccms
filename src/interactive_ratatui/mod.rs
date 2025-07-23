@@ -190,8 +190,7 @@ impl InteractiveSearch {
             | KeyCode::PageDown
             | KeyCode::Home
             | KeyCode::End
-            | KeyCode::Enter
-            | KeyCode::Char('s') => self.renderer.get_result_list_mut().handle_key(key),
+            | KeyCode::Enter => self.renderer.get_result_list_mut().handle_key(key),
             _ => self.renderer.get_search_bar_mut().handle_key(key),
         }
     }

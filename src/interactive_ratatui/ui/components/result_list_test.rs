@@ -138,7 +138,7 @@ mod tests {
     }
 
     #[test]
-    fn test_enter_and_s_keys() {
+    fn test_enter_key() {
         let mut list = ResultList::new();
         let results = vec![create_test_result("user", "Test")];
         list.update_results(results, 0);
@@ -146,10 +146,6 @@ mod tests {
         // Enter should open detail view
         let msg = list.handle_key(create_key_event(KeyCode::Enter));
         assert!(matches!(msg, Some(Message::EnterResultDetail)));
-
-        // 's' should open session viewer
-        let msg = list.handle_key(create_key_event(KeyCode::Char('s')));
-        assert!(matches!(msg, Some(Message::EnterSessionViewer)));
     }
 
     #[test]
