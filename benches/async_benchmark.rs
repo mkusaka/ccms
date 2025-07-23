@@ -1,9 +1,9 @@
-use criterion::{Criterion, criterion_group, criterion_main};
+use codspeed_criterion_compat::{Criterion, criterion_group, criterion_main};
 
 #[cfg(feature = "async")]
 use ccms::parse_query;
 #[cfg(feature = "async")]
-use criterion::{BenchmarkId, black_box};
+use codspeed_criterion_compat::{BenchmarkId, black_box};
 #[cfg(feature = "async")]
 use std::fs::File;
 #[cfg(feature = "async")]
