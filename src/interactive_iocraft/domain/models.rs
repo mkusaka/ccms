@@ -18,6 +18,7 @@ pub enum SessionOrder {
     Original,
 }
 
+#[derive(Debug)]
 pub struct CachedFile {
     pub messages: Vec<SessionMessage>,
     pub raw_lines: Vec<String>,

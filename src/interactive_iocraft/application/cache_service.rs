@@ -65,7 +65,9 @@ impl CacheService {
             );
         }
 
-        self.files.get(path).ok_or_else(|| anyhow::anyhow!("File not found in cache"))
+        self.files
+            .get(path)
+            .ok_or_else(|| anyhow::anyhow!("File not found in cache"))
     }
 
     #[allow(dead_code)]

@@ -1,13 +1,13 @@
-pub mod components;
 pub mod clipboard;
+pub mod components;
 
+use self::clipboard::copy_to_clipboard;
 use self::components::help_view::HelpView;
 use self::components::result_detail_view::ResultDetailView;
 use self::components::search_view::SearchView;
 use self::components::session_viewer_view::SessionViewerView;
-use self::clipboard::copy_to_clipboard;
 use crate::SearchOptions;
-use crate::interactive_iocraft::application::{SearchService, SessionService, CacheService};
+use crate::interactive_iocraft::application::{CacheService, SearchService, SessionService};
 use crate::interactive_iocraft::domain::{Mode, SearchRequest};
 use crate::query::condition::SearchResult;
 use iocraft::prelude::*;
@@ -333,19 +333,20 @@ fn handle_detail_input(
                 session_write.query.clear();
                 session_write.selected_index = 0;
                 session_write.scroll_offset = 0;
-                
+
                 // Load session messages
                 match session_service.get_raw_lines(&result.file) {
                     Ok(lines) => {
                         session_write.messages = lines;
-                        session_write.filtered_indices = (0..session_write.messages.len()).collect();
+                        session_write.filtered_indices =
+                            (0..session_write.messages.len()).collect();
                     }
                     Err(e) => {
                         ui_state.write().message = Some(format!("Failed to load session: {e}"));
                         return;
                     }
                 }
-                
+
                 drop(session_write);
                 let mut ui_write = ui_state.write();
                 let current_mode = ui_write.mode;
@@ -458,7 +459,10 @@ fn handle_session_input(
         }
         KeyCode::Char('c') => {
             let session_read = session_state.read();
-            if let Some(&msg_idx) = session_read.filtered_indices.get(session_read.selected_index) {
+            if let Some(&msg_idx) = session_read
+                .filtered_indices
+                .get(session_read.selected_index)
+            {
                 if let Some(msg) = session_read.messages.get(msg_idx) {
                     if let Err(e) = copy_to_clipboard(msg) {
                         ui_state.write().message = Some(format!("Failed to copy: {e}"));
@@ -530,7 +534,7 @@ fn handle_session_input(
 
 fn handle_help_input(ui_state: &mut iocraft::hooks::State<UIState>, key: iocraft::KeyEvent) {
     use iocraft::KeyCode;
-    
+
     match key.code {
         KeyCode::Esc | KeyCode::Char('?') | KeyCode::Enter => {
             let mut ui_write = ui_state.write();
