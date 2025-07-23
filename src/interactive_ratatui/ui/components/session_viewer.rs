@@ -80,6 +80,10 @@ impl SessionViewer {
         self.list_viewer.set_scroll_offset(offset);
     }
 
+    pub fn set_truncation_enabled(&mut self, enabled: bool) {
+        self.list_viewer.set_truncation_enabled(enabled);
+    }
+
     #[allow(dead_code)]
     pub fn start_search(&mut self) {
         self.is_searching = true;
