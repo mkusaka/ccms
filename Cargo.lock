@@ -254,7 +254,7 @@ dependencies = [
  "globset",
  "indicatif",
  "lru 0.16.0",
- "nom",
+ "nom 8.0.0",
  "parse_datetime",
  "pprof",
  "ratatui",
@@ -1313,6 +1313,15 @@ checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 dependencies = [
  "memchr",
  "minimal-lexical",
+]
+
+[[package]]
+name = "nom"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df9761775871bdef83bee530e60050f7e54b1105350d6884eb0fb4f46c2f9405"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
