@@ -20,6 +20,8 @@ mod ui;
 #[cfg(test)]
 mod integration_tests;
 #[cfg(test)]
+mod session_view_integration_test;
+#[cfg(test)]
 mod tests;
 
 use self::application::{
