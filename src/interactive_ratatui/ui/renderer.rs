@@ -104,6 +104,8 @@ impl Renderer {
             .set_selected_index(state.session.selected_index);
         self.session_viewer
             .set_scroll_offset(state.session.scroll_offset);
+        self.session_viewer
+            .set_truncation_enabled(state.ui.truncation_enabled);
 
         self.session_viewer.render(f, f.area());
     }
