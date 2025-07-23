@@ -11,6 +11,13 @@ pub struct SessionListItem {
 }
 
 impl SessionListItem {
+    /// Generates searchable text that matches what the user sees in the display
+    /// Format: "{formatted_timestamp} {role} {content}"
+    pub fn to_search_text(&self) -> String {
+        let formatted_timestamp = self.format_timestamp();
+        format!("{} {} {}", formatted_timestamp, self.role, self.content)
+    }
+
     pub fn from_json_line(index: usize, json_line: &str) -> Option<Self> {
         if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(json_line) {
             // Extract role/type

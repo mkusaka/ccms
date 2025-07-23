@@ -167,9 +167,9 @@ mod tests {
     fn test_session_query_update() {
         let mut state = create_test_state();
         state.session.messages = vec![
-            "Hello world".to_string(),
-            "Goodbye world".to_string(),
-            "Hello again".to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"Hello world"},"uuid":"1","timestamp":"2024-12-25T14:30:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
+            r#"{"type":"assistant","message":{"role":"assistant","content":"Goodbye world"},"uuid":"2","timestamp":"2024-12-25T14:31:00Z","sessionId":"session1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"Hello again"},"uuid":"3","timestamp":"2024-12-25T14:32:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
         ];
 
         let command = state.update(Message::SessionQueryChanged("Hello".to_string()));

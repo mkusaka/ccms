@@ -2,6 +2,7 @@ use crate::SessionMessage;
 use crate::interactive_ratatui::application::cache_service::CacheService;
 use crate::interactive_ratatui::domain::filter::SessionFilter;
 use crate::interactive_ratatui::domain::models::SessionOrder;
+use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
 use anyhow::Result;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -31,7 +32,14 @@ impl SessionService {
 
     #[allow(dead_code)]
     pub fn filter_messages(messages: &[String], query: &str) -> Vec<usize> {
-        SessionFilter::filter_messages(messages, query)
+        // Convert raw JSON strings to SessionListItems for search
+        let items: Vec<SessionListItem> = messages
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .collect();
+
+        SessionFilter::filter_messages(&items, query)
     }
 
     #[allow(dead_code)]
