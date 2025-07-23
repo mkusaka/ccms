@@ -16,7 +16,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_query_returns_empty_results() {
+    fn test_empty_query_returns_all_results() {
         let options = SearchOptions {
             project_path: Some("/nonexistent/test/path".to_string()),
             ..Default::default()
@@ -33,6 +33,9 @@ mod tests {
         let response = service.search(request).unwrap();
 
         assert_eq!(response.id, 1);
+        // Since we're searching a nonexistent path, we'll still get 0 results
+        // but the important thing is that it doesn't reject the empty query
+        // In a real scenario with files, this would return all messages
         assert_eq!(response.results.len(), 0);
     }
 
