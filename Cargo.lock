@@ -1370,13 +1370,14 @@ dependencies = [
 
 [[package]]
 name = "parse_datetime"
-version = "0.6.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8720474e3dd4af20cea8716703498b9f3b690f318fa9d9d9e2e38eaf44b96d0"
+checksum = "c7fd5a149584170040e54b129821667f86f3cd2b16d8c275e8b39a6c9474efd3"
 dependencies = [
  "chrono",
- "nom",
+ "num-traits",
  "regex",
+ "winnow",
 ]
 
 [[package]]
@@ -2611,6 +2612,15 @@ name = "windows_x86_64_msvc"
 version = "0.53.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
+
+[[package]]
+name = "winnow"
+version = "0.7.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3edebf492c8125044983378ecb5766203ad3b4c2f7a922bd7dd207f6d443e95"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "wit-bindgen-rt"

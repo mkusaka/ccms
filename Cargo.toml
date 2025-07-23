@@ -38,7 +38,7 @@ anyhow = "1.0"
 
 # Date/time handling
 chrono = "0.4"
-parse_datetime = "0.6"
+parse_datetime = "0.10"
 
 # Query parsing
 nom = "7.1"
