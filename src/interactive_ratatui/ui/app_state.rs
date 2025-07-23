@@ -250,14 +250,15 @@ impl AppState {
         use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
 
         // Convert raw JSON strings to SessionListItems for search
-        let items: Vec<SessionListItem> = self.session.messages
+        let items: Vec<SessionListItem> = self
+            .session
+            .messages
             .iter()
             .enumerate()
             .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
             .collect();
 
-        self.session.filtered_indices =
-            SessionFilter::filter_messages(&items, &self.session.query);
+        self.session.filtered_indices = SessionFilter::filter_messages(&items, &self.session.query);
 
         // Reset selection if current selection is out of bounds
         if self.session.selected_index >= self.session.filtered_indices.len() {

@@ -38,7 +38,7 @@ impl SessionService {
             .enumerate()
             .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
             .collect();
-        
+
         SessionFilter::filter_messages(&items, query)
     }
 

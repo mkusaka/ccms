@@ -1,5 +1,5 @@
-use crate::query::condition::SearchResult;
 use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
+use crate::query::condition::SearchResult;
 use anyhow::Result;
 
 pub struct SearchFilter {
