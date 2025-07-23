@@ -244,7 +244,7 @@ dependencies = [
  "futures",
  "globset",
  "indicatif",
- "lru",
+ "lru 0.16.0",
  "nom",
  "parse_datetime",
  "pprof",
@@ -1191,6 +1191,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lru"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86ea4e65087ff52f3862caff188d489f1fab49a0cb09e01b2e3f1a617b10aaed"
+dependencies = [
+ "hashbrown",
+]
+
+[[package]]
 name = "matchers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1565,7 +1574,7 @@ dependencies = [
  "crossterm 0.28.1",
  "instability",
  "itertools 0.13.0",
- "lru",
+ "lru 0.12.5",
  "paste",
  "strum",
  "strum_macros",
