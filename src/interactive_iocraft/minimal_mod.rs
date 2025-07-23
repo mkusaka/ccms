@@ -1,31 +1,26 @@
 use anyhow::Result;
 use iocraft::prelude::*;
 
-#[component]
-pub fn MinimalApp(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
-    let counter = hooks.use_state(|| 0);
+pub async fn run_minimal_interactive() -> Result<()> {
+    println!("Starting minimal interactive mode...");
+    println!("Press any key to exit.");
     
-    // Handle any key press to exit
-    hooks.use_terminal_events({
-        move |event| {
-            if let TerminalEvent::Key(_) = event {
-                std::process::exit(0);
-            }
-        }
-    });
+    // Just read one key and exit
+    use crossterm::{
+        event::{read, Event},
+        terminal::{disable_raw_mode, enable_raw_mode},
+    };
     
-    let count = *counter.read();
+    enable_raw_mode()?;
     
-    element! {
-        View {
-            Text(content: "Minimal Test App")
-            Text(content: format!("Counter: {}", count))
-            Text(content: "Press any key to exit")
+    loop {
+        if let Event::Key(_) = read()? {
+            break;
         }
     }
-}
-
-pub async fn run_minimal_interactive() -> Result<()> {
-    element! { MinimalApp() }.render_loop().await?;
+    
+    disable_raw_mode()?;
+    println!("\nExiting...");
+    
     Ok(())
 }
