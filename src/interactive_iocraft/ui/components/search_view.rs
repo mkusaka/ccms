@@ -99,18 +99,20 @@ pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
                     // Preview text - respect truncation mode
                     let preview = if props.ui_state.truncation_enabled {
                         // Truncated mode - show limited preview
+                        let char_count = result.text.chars().count();
                         let text = result.text.chars().take(80).collect::<String>()
                             .replace('\n', " ");
-                        if result.text.len() > 80 {
+                        if char_count > 80 {
                             format!("{text}...")
                         } else {
                             text
                         }
                     } else {
                         // Full text mode - show more content
+                        let char_count = result.text.chars().count();
                         let text = result.text.chars().take(200).collect::<String>()
                             .replace('\n', " ");
-                        if result.text.len() > 200 {
+                        if char_count > 200 {
                             format!("{text}...")
                         } else {
                             text

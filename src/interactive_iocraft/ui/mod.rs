@@ -1,5 +1,9 @@
 pub mod clipboard;
 pub mod components;
+#[cfg(test)]
+mod display_size_test;
+#[cfg(test)]
+mod multibyte_test;
 
 use self::clipboard::copy_to_clipboard;
 use self::components::help_view::HelpView;
@@ -467,7 +471,7 @@ fn handle_session_input(
                     if let Err(e) = copy_to_clipboard(msg) {
                         ui_state.write().message = Some(format!("Failed to copy: {e}"));
                     } else {
-                        let preview = if msg.len() <= 50 {
+                        let preview = if msg.chars().count() <= 50 {
                             format!("✓ Copied: {msg}")
                         } else {
                             "✓ Copied message text".to_string()
