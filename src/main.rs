@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ccms::{
-    SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
-    parse_query, profiling,
+    SearchEngine, SearchOptions, default_claude_pattern, format_search_result, parse_query,
+    profiling,
 };
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
@@ -76,7 +76,6 @@ struct Cli {
     /// Interactive search mode (fzf-like)
     #[arg(short = 'i', long)]
     interactive: bool,
-
 
     /// Filter by project path (e.g., current directory: $(pwd))
     #[arg(long = "project")]

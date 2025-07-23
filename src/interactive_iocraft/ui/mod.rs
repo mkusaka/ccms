@@ -283,7 +283,7 @@ pub struct AppProps {
 
 #[component]
 pub fn App(props: &AppProps, mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
-    let search_state = hooks.use_state(SearchState::default);
+    let mut search_state = hooks.use_state(SearchState::default);
     let detail_state = hooks.use_state(DetailState::default);
     let session_state = hooks.use_state(SessionState::default);
     let ui_state = hooks.use_state(UIState::default);
@@ -292,25 +292,46 @@ pub fn App(props: &AppProps, mut hooks: Hooks) -> impl Into<AnyElement<'static>>
     let cache_service = Arc::new(Mutex::new(CacheService::new()));
     let session_service = Arc::new(SessionService::new(cache_service.clone()));
 
-    // Perform initial search
-    {
-        let mut search_state_copy = search_state;
-        let search_service_copy = search_service.clone();
-        let pattern_copy = props.pattern.clone();
-        perform_search(&mut search_state_copy, &search_service_copy, &pattern_copy);
+    // Perform initial search with the query passed as pattern
+    if !props.pattern.is_empty() {
+        let mut search_write = search_state.write();
+        search_write.query = props.pattern.clone();
+        search_write.is_searching = true;
+        drop(search_write);
+
+        let request = SearchRequest {
+            id: 0,
+            query: props.pattern.clone(),
+            role_filter: None,
+            pattern: crate::default_claude_pattern(),
+        };
+
+        match search_service.search(request) {
+            Ok(response) => {
+                let mut search_write = search_state.write();
+                search_write.results = response.results;
+                search_write.selected_index = 0;
+                search_write.scroll_offset = 0;
+                search_write.is_searching = false;
+            }
+            Err(_) => {
+                let mut search_write = search_state.write();
+                search_write.results = vec![];
+                search_write.is_searching = false;
+            }
+        }
     }
 
     // Handle terminal events
-    hooks.use_terminal_events({
-        let mut search_state = search_state;
-        let mut detail_state = detail_state;
-        let mut session_state = session_state;
-        let mut ui_state = ui_state;
+    {
         let search_service = search_service.clone();
         let session_service = session_service.clone();
-        let pattern = props.pattern.clone();
+        let mut search_state_copy = search_state.clone();
+        let mut detail_state_copy = detail_state.clone();
+        let mut session_state_copy = session_state.clone();
+        let mut ui_state_copy = ui_state.clone();
 
-        move |event| {
+        hooks.use_terminal_events(move |event| {
             if let TerminalEvent::Key(key) = event {
                 // Global key handling - works in all modes
                 match key.code {
@@ -319,34 +340,33 @@ pub fn App(props: &AppProps, mut hooks: Hooks) -> impl Into<AnyElement<'static>>
                     }
                     _ => {}
                 }
-                
-                let current_mode = ui_state.read().mode;
+
+                let current_mode = ui_state_copy.read().mode;
                 match current_mode {
                     Mode::Search => handle_search_input(
-                        &mut search_state,
-                        &mut ui_state,
-                        &mut detail_state,
-                        &mut session_state,
+                        &mut search_state_copy,
+                        &mut ui_state_copy,
+                        &mut detail_state_copy,
+                        &mut session_state_copy,
                         key,
                         &search_service,
                         &session_service,
-                        &pattern,
                     ),
                     Mode::ResultDetail => handle_detail_input(
-                        &mut detail_state,
-                        &mut ui_state,
-                        &mut session_state,
+                        &mut detail_state_copy,
+                        &mut ui_state_copy,
+                        &mut session_state_copy,
                         key,
                         &session_service,
                     ),
                     Mode::SessionViewer => {
-                        handle_session_input(&mut session_state, &mut ui_state, key)
+                        handle_session_input(&mut session_state_copy, &mut ui_state_copy, key)
                     }
-                    Mode::Help => handle_help_input(&mut ui_state, key),
+                    Mode::Help => handle_help_input(&mut ui_state_copy, key),
                 }
             }
-        }
-    });
+        });
+    }
 
     let current_mode = ui_state.read().mode;
 
@@ -385,14 +405,13 @@ fn handle_search_input(
     key: iocraft::KeyEvent,
     search_service: &Arc<SearchService>,
     session_service: &Arc<SessionService>,
-    pattern: &str,
 ) {
     use iocraft::{KeyCode, KeyModifiers};
 
     match key.code {
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             ui_state.write().message = Some("Cache cleared. Reloading...".to_string());
-            perform_search(search_state, search_service, pattern);
+            perform_search(search_state, search_service);
         }
         KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             let mut ui_write = ui_state.write();
@@ -456,7 +475,7 @@ fn handle_search_input(
                 _ => None,
             };
             drop(search_write);
-            perform_search(search_state, search_service, pattern);
+            perform_search(search_state, search_service);
         }
         KeyCode::Char('y') | KeyCode::Char('Y') => {
             let search_read = search_state.read();
@@ -490,15 +509,15 @@ fn handle_search_input(
         }
         KeyCode::Char(c) => {
             search_state.write().insert_char_at_cursor(c);
-            perform_search(search_state, search_service, pattern);
+            perform_search(search_state, search_service);
         }
         KeyCode::Backspace => {
             search_state.write().delete_char_before_cursor();
-            perform_search(search_state, search_service, pattern);
+            perform_search(search_state, search_service);
         }
         KeyCode::Delete => {
             search_state.write().delete_char_at_cursor();
-            perform_search(search_state, search_service, pattern);
+            perform_search(search_state, search_service);
         }
         KeyCode::Left => {
             if key.modifiers.contains(KeyModifiers::CONTROL) {
@@ -854,7 +873,6 @@ fn handle_help_input(ui_state: &mut iocraft::hooks::State<UIState>, key: iocraft
 fn perform_search(
     search_state: &mut iocraft::hooks::State<SearchState>,
     search_service: &Arc<SearchService>,
-    pattern: &str,
 ) {
     search_state.write().is_searching = true;
 
@@ -863,7 +881,7 @@ fn perform_search(
         id: 0,
         query: search_read.query.clone(),
         role_filter: search_read.role_filter.clone(),
-        pattern: pattern.to_string(),
+        pattern: crate::default_claude_pattern(),
     };
     drop(search_read);
 
