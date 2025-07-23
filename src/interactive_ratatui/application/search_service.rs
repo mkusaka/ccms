@@ -1,6 +1,6 @@
 use crate::interactive_ratatui::domain::filter::SearchFilter;
 use crate::interactive_ratatui::domain::models::{SearchRequest, SearchResponse};
-use crate::query::condition::SearchResult;
+use crate::query::condition::{QueryCondition, SearchResult};
 use crate::search::engine::SearchEngine;
 use crate::{SearchOptions, parse_query};
 use anyhow::Result;
@@ -35,11 +35,13 @@ impl SearchService {
     }
 
     fn execute_search(&self, query: &str, pattern: &str) -> Result<Vec<SearchResult>> {
-        if query.trim().is_empty() {
-            return Ok(Vec::new());
-        }
+        let query_condition = if query.trim().is_empty() {
+            // Empty query means "match all" - use empty AND condition
+            QueryCondition::And { conditions: vec![] }
+        } else {
+            parse_query(query)?
+        };
 
-        let query_condition = parse_query(query)?;
         let (mut results, _, _) = self.engine.search(pattern, query_condition)?;
 
         // Sort by timestamp descending
