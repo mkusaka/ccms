@@ -238,15 +238,15 @@ mod tests {
         let messages = vec![
             r#"{"type":"user","message":{"content":"This is a very long message that should be truncated when truncation is enabled but shown in full when truncation is disabled"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
         ];
-        
+
         viewer.set_messages(messages);
-        
+
         // Test with truncation enabled (default)
         viewer.set_truncation_enabled(true);
         let buffer = render_component(&mut viewer, 80, 24);
         // The message should be truncated (ListViewer shows truncated line)
         assert!(buffer_contains(&buffer, "user"));
-        
+
         // Test with truncation disabled
         viewer.set_truncation_enabled(false);
         let buffer = render_component(&mut viewer, 80, 24);
