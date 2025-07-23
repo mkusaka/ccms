@@ -7,6 +7,8 @@ pub mod search_bar;
 pub mod session_viewer;
 
 #[cfg(test)]
+mod list_item_test;
+#[cfg(test)]
 mod result_detail_test;
 #[cfg(test)]
 mod result_list_test;

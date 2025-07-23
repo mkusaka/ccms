@@ -12,10 +12,7 @@ pub struct ResultList {
 impl ResultList {
     pub fn new() -> Self {
         Self {
-            list_viewer: ListViewer::new(
-                "Results".to_string(),
-                "No results found".to_string(),
-            ),
+            list_viewer: ListViewer::new("Results".to_string(), "No results found".to_string()),
         }
     }
 
@@ -46,8 +43,6 @@ impl ResultList {
     pub fn update_selection(&mut self, index: usize) {
         self.list_viewer.set_selected_index(index);
     }
-    
-
 }
 
 impl Component for ResultList {

@@ -5,13 +5,13 @@ use ratatui::text::{Line, Span};
 pub trait ListItem: Clone {
     /// Returns the role/type of the item (e.g., "user", "assistant", "system")
     fn get_role(&self) -> &str;
-    
+
     /// Returns the timestamp as a string
     fn get_timestamp(&self) -> &str;
-    
+
     /// Returns the main content text
     fn get_content(&self) -> &str;
-    
+
     /// Returns the color for the role
     fn get_role_color(&self) -> Color {
         match self.get_role() {
@@ -22,7 +22,7 @@ pub trait ListItem: Clone {
             _ => Color::White,
         }
     }
-    
+
     /// Formats the timestamp for display
     fn format_timestamp(&self) -> String {
         let timestamp = self.get_timestamp();
@@ -34,12 +34,12 @@ pub trait ListItem: Clone {
             "N/A".to_string()
         }
     }
-    
+
     /// Creates the display lines for truncated mode
     fn create_truncated_line(&self, max_width: usize) -> Line {
         let timestamp = self.format_timestamp();
         let content = truncate_message(self.get_content(), max_width);
-        
+
         vec![
             Span::styled(
                 format!("{timestamp:16} "),
@@ -50,15 +50,16 @@ pub trait ListItem: Clone {
                 Style::default().fg(self.get_role_color()),
             ),
             Span::raw(content),
-        ].into()
+        ]
+        .into()
     }
-    
+
     /// Creates the display lines for full text mode
     fn create_full_lines(&self, max_width: usize) -> Vec<Line> {
         let timestamp = self.format_timestamp();
         let wrapped_lines = wrap_text(self.get_content(), max_width);
         let mut lines = Vec::new();
-        
+
         // First line with metadata
         let first_line_spans = vec![
             Span::styled(
@@ -72,21 +73,21 @@ pub trait ListItem: Clone {
             Span::raw(wrapped_lines.first().cloned().unwrap_or_default()),
         ];
         lines.push(Line::from(first_line_spans));
-        
+
         // Additional lines (indented)
         for line in wrapped_lines.iter().skip(1) {
             let indent = " ".repeat(29); // 16 + 1 + 10 + 1 + 1 spaces
             lines.push(Line::from(format!("{indent}{line}")));
         }
-        
+
         lines
     }
 }
 
-fn truncate_message(text: &str, max_width: usize) -> String {
+pub fn truncate_message(text: &str, max_width: usize) -> String {
     let text = text.replace('\n', " ");
     let chars: Vec<char> = text.chars().collect();
-    
+
     if chars.len() <= max_width {
         text
     } else {
@@ -95,19 +96,19 @@ fn truncate_message(text: &str, max_width: usize) -> String {
     }
 }
 
-fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
+pub fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
     if max_width == 0 {
         return vec![];
     }
-    
+
     let text = text.replace('\n', " ");
     let mut lines = Vec::new();
     let mut current_line = String::new();
     let mut current_width = 0;
-    
+
     for word in text.split_whitespace() {
         let word_width = word.chars().count();
-        
+
         if current_width > 0 && current_width + 1 + word_width > max_width {
             // Start a new line
             lines.push(current_line.clone());
@@ -123,11 +124,11 @@ fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
             current_width += word_width;
         }
     }
-    
+
     if !current_line.is_empty() {
         lines.push(current_line);
     }
-    
+
     if lines.is_empty() {
         vec![String::new()]
     } else {

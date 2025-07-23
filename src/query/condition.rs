@@ -156,11 +156,11 @@ impl ListItem for SearchResult {
     fn get_role(&self) -> &str {
         &self.role
     }
-    
+
     fn get_timestamp(&self) -> &str {
         &self.timestamp
     }
-    
+
     fn get_content(&self) -> &str {
         &self.text
     }

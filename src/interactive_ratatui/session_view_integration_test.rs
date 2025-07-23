@@ -145,9 +145,9 @@ mod tests {
         println!("=== End of content ===");
 
         // Verify messages are displayed in UI
-        assert!(content.contains("[user"), "Should display user role");
+        assert!(content.contains("user"), "Should display user role");
         assert!(
-            content.contains("[assistant"),
+            content.contains("assistant"),
             "Should display assistant role"
         );
         assert!(content.contains("01/01 12:00"), "Should display timestamp");
@@ -298,15 +298,12 @@ mod tests {
             content.contains("Session Messages (1/4)"),
             "Should show 4 messages"
         );
-        assert!(content.contains("[user"), "Should display user messages");
+        assert!(content.contains("user"), "Should display user messages");
         assert!(
-            content.contains("[assistant"),
+            content.contains("assistant"),
             "Should display assistant messages"
         );
-        assert!(
-            content.contains("[system"),
-            "Should display system messages"
-        );
+        assert!(content.contains("system"), "Should display system messages");
         assert!(
             content.contains("Help me implement"),
             "Should display user content"

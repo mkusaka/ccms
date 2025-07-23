@@ -235,7 +235,6 @@ impl AppState {
         self.search.results.get(self.search.selected_index)
     }
 
-
     fn adjust_session_scroll_offset(&mut self) {
         let visible_height = 20; // This should come from terminal size
 

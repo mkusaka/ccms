@@ -40,14 +40,15 @@ impl SessionViewer {
 
     pub fn set_messages(&mut self, messages: Vec<String>) {
         self.raw_messages = messages;
-        
+
         // Convert raw messages to SessionListItems
-        let items: Vec<SessionListItem> = self.raw_messages
+        let items: Vec<SessionListItem> = self
+            .raw_messages
             .iter()
             .enumerate()
             .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
             .collect();
-        
+
         self.list_viewer.set_items(items);
     }
 
@@ -212,11 +213,10 @@ impl Component for SessionViewer {
                     None
                 }
                 KeyCode::Char('o') => Some(Message::ToggleSessionOrder),
-                KeyCode::Char('c') => {
-                    self.list_viewer
-                        .get_selected_item()
-                        .map(|item| Message::CopyToClipboard(item.raw_json.clone()))
-                }
+                KeyCode::Char('c') => self
+                    .list_viewer
+                    .get_selected_item()
+                    .map(|item| Message::CopyToClipboard(item.raw_json.clone())),
                 KeyCode::Char('C') => {
                     // Copy all raw messages for now
                     // TODO: Add method to ListViewer to get filtered items

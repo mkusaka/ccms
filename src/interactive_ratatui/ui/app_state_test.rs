@@ -78,26 +78,22 @@ mod tests {
             create_test_result(),
         ];
 
-        // Test scroll down
-        let _command = state.update(Message::ScrollDown);
+        // Test selecting results (new architecture uses SelectResult messages)
+        let _command = state.update(Message::SelectResult(1));
         assert_eq!(state.search.selected_index, 1);
 
-        let _command = state.update(Message::ScrollDown);
+        let _command = state.update(Message::SelectResult(2));
         assert_eq!(state.search.selected_index, 2);
 
-        // Should not go beyond last item
-        let _command = state.update(Message::ScrollDown);
-        assert_eq!(state.search.selected_index, 2);
+        // Test boundary check
+        let _command = state.update(Message::SelectResult(3));
+        assert_eq!(state.search.selected_index, 2); // Should not go beyond bounds
 
-        // Test scroll up
-        let _command = state.update(Message::ScrollUp);
+        // Test selecting back
+        let _command = state.update(Message::SelectResult(1));
         assert_eq!(state.search.selected_index, 1);
 
-        let _command = state.update(Message::ScrollUp);
-        assert_eq!(state.search.selected_index, 0);
-
-        // Should not go below 0
-        let _command = state.update(Message::ScrollUp);
+        let _command = state.update(Message::SelectResult(0));
         assert_eq!(state.search.selected_index, 0);
     }
 

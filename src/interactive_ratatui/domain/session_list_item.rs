@@ -19,14 +19,14 @@ impl SessionListItem {
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown")
                 .to_string();
-            
+
             // Extract timestamp
             let timestamp = json_value
                 .get("timestamp")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            
+
             // Extract content based on message type
             let content = match role.as_str() {
                 "summary" => json_value
@@ -66,7 +66,7 @@ impl SessionListItem {
                     }
                 }
             };
-            
+
             Some(Self {
                 index,
                 raw_json: json_line.to_string(),
@@ -84,11 +84,11 @@ impl ListItem for SessionListItem {
     fn get_role(&self) -> &str {
         &self.role
     }
-    
+
     fn get_timestamp(&self) -> &str {
         &self.timestamp
     }
-    
+
     fn get_content(&self) -> &str {
         &self.content
     }
