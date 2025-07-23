@@ -27,7 +27,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix JSON format for assistant messages
     fn test_load_session_from_file() {
         let (service, _cache) = create_test_service();
 
@@ -36,7 +35,7 @@ mod tests {
         let file_path = tmp_file.to_str().unwrap();
 
         std::fs::write(&tmp_file, r#"{"type":"user","uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test","version":"1.0","cwd":"/","userType":"user","isSidechain":false,"parentUuid":null,"message":{"role":"user","content":"Hello"}}
-{"type":"assistant","uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test","version":"1.0","cwd":"/","userType":"user","isSidechain":false,"parentUuid":"1","message":{"role":"assistant","content":"Hi there"}}
+{"type":"assistant","uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test","version":"1.0","cwd":"/","userType":"user","isSidechain":false,"parentUuid":"1","requestId":"test-req","message":{"id":"test-msg","type":"message","role":"assistant","model":"test-model","content":[{"type":"text","text":"Hi there"}],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1}}}
 "#)
             .expect("Failed to write test file");
 
@@ -135,7 +134,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix JSON format for assistant messages
     fn test_load_session_with_unicode() {
         let (service, _cache) = create_test_service();
 
@@ -144,7 +142,7 @@ mod tests {
         let file_path = tmp_file.to_str().unwrap();
 
         std::fs::write(&tmp_file, r#"{"type":"user","uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test","version":"1.0","cwd":"/","userType":"user","isSidechain":false,"parentUuid":null,"message":{"role":"user","content":"こんにちは世界"}}
-{"type":"assistant","uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test","version":"1.0","cwd":"/","userType":"user","isSidechain":false,"parentUuid":"1","message":{"role":"assistant","content":"Hello 世界"}}
+{"type":"assistant","uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test","version":"1.0","cwd":"/","userType":"user","isSidechain":false,"parentUuid":"1","requestId":"test-req","message":{"id":"test-msg","type":"message","role":"assistant","model":"test-model","content":[{"type":"text","text":"Hello 世界"}],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1}}}
 "#)
             .expect("Failed to write test file");
 

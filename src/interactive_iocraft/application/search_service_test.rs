@@ -71,11 +71,11 @@ mod tests {
             pattern: "test.jsonl".to_string(),
         };
 
-        // This will likely fail in test environment due to missing files,
-        // but we're testing the API structure
+        // This will fail in test environment due to missing files,
+        // but we're testing that the API handles this gracefully
         let result = service.search(request);
-        // Check that it returns a Result (Ok or Err)
-        let _is_result = result.is_ok() || result.is_err();
+        // In test environment without files, this should return an error
+        assert!(result.is_err() || (result.is_ok() && result.unwrap().results.is_empty()));
     }
 
     #[test]

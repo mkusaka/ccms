@@ -41,7 +41,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix JSON format for assistant messages
     fn test_cache_detects_file_changes() {
         let mut cache = CacheService::new();
 
@@ -61,7 +60,7 @@ mod tests {
 
         // Update file content
         std::fs::write(&tmp_file, r#"{"type":"user","uuid":"test-uuid-1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test","version":"1.0","cwd":"/","userType":"user","isSidechain":false,"parentUuid":null,"message":{"role":"user","content":"Initial message"}}
-{"type":"assistant","uuid":"test-uuid-2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test","version":"1.0","cwd":"/","userType":"user","isSidechain":false,"parentUuid":"test-uuid-1","message":{"role":"assistant","content":"Response"}}
+{"type":"assistant","uuid":"test-uuid-2","timestamp":"2024-01-01T00:00:01Z","sessionId":"test","version":"1.0","cwd":"/","userType":"user","isSidechain":false,"parentUuid":"test-uuid-1","requestId":"test-req","message":{"id":"test-msg","type":"message","role":"assistant","model":"test-model","content":[{"type":"text","text":"Response"}],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1}}}
 "#)
             .expect("Failed to update test file");
 

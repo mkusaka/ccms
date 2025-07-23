@@ -51,90 +51,151 @@ pub fn copy_to_clipboard(text: &str) -> Result<()> {
 mod tests {
     use super::*;
 
+    // Helper function to check if clipboard commands are available
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    fn clipboard_available() -> bool {
+        #[cfg(target_os = "macos")]
+        let cmd = "pbcopy";
+        #[cfg(target_os = "linux")]
+        let cmd = "xclip";
+
+        std::process::Command::new("which")
+            .arg(cmd)
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    fn clipboard_available() -> bool {
+        false
+    }
+
     #[test]
     fn test_copy_to_clipboard_empty_string() {
-        // Empty string should still be copyable
         let result = copy_to_clipboard("");
-        // Result depends on platform and clipboard availability
-        let _is_result = result.is_ok() || result.is_err();
+        if clipboard_available() {
+            // Should succeed with clipboard available
+            assert!(result.is_ok());
+        } else {
+            // Platform check
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+            assert!(result.is_err());
+        }
     }
 
     #[test]
     fn test_copy_to_clipboard_simple_text() {
         let result = copy_to_clipboard("Hello, world!");
-        // Result depends on platform and clipboard availability
-        let _is_result = result.is_ok() || result.is_err();
+        if clipboard_available() {
+            assert!(result.is_ok());
+        } else {
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+            assert!(result.is_err());
+        }
     }
 
     #[test]
     fn test_copy_to_clipboard_unicode() {
         let result = copy_to_clipboard("こんにちは世界 🌍");
-        // Result depends on platform and clipboard availability
-        let _is_result = result.is_ok() || result.is_err();
+        if clipboard_available() {
+            assert!(result.is_ok());
+        } else {
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+            assert!(result.is_err());
+        }
     }
 
     #[test]
     fn test_copy_to_clipboard_multiline() {
         let text = "Line 1\nLine 2\nLine 3";
         let result = copy_to_clipboard(text);
-        // Result depends on platform and clipboard availability
-        let _is_result = result.is_ok() || result.is_err();
+        if clipboard_available() {
+            assert!(result.is_ok());
+        } else {
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+            assert!(result.is_err());
+        }
     }
 
     #[test]
     fn test_copy_to_clipboard_special_characters() {
         let text = "Special chars: @#$%^&*()_+-={}[]|\\\":;<>?,./~`";
         let result = copy_to_clipboard(text);
-        // Result depends on platform and clipboard availability
-        let _is_result = result.is_ok() || result.is_err();
-    }
-
-    #[test]
-    #[ignore] // Ignore in CI as clipboard utilities might not be available
-    fn test_copy_to_clipboard_actual_copy() {
-        // This test requires actual clipboard utilities
-        let test_text = "Test clipboard content";
-        let result = copy_to_clipboard(test_text);
-
-        // On supported platforms with clipboard utilities, this should succeed
-        if cfg!(target_os = "macos") || cfg!(target_os = "linux") {
-            // Check if the operation completed (might still fail if no clipboard)
-            assert!(result.is_ok() || result.is_err());
+        if clipboard_available() {
+            assert!(result.is_ok());
+        } else {
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+            assert!(result.is_err());
         }
     }
 
     #[test]
     fn test_copy_to_clipboard_large_text() {
-        // Test with a large amount of text
         let large_text = "a".repeat(10000);
         let result = copy_to_clipboard(&large_text);
-        // Result depends on platform and clipboard availability
-        let _is_result = result.is_ok() || result.is_err();
+        if clipboard_available() {
+            assert!(result.is_ok());
+        } else {
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+            assert!(result.is_err());
+        }
     }
 
     #[test]
     fn test_copy_to_clipboard_json() {
         let json_text = r#"{"role": "user", "content": "Hello world"}"#;
         let result = copy_to_clipboard(json_text);
-        // Result depends on platform and clipboard availability
-        let _is_result = result.is_ok() || result.is_err();
+        if clipboard_available() {
+            assert!(result.is_ok());
+        } else {
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+            assert!(result.is_err());
+        }
     }
 
     #[test]
     fn test_copy_to_clipboard_with_quotes() {
         let text_with_quotes = r#"He said "Hello" and she replied 'Hi'"#;
         let result = copy_to_clipboard(text_with_quotes);
-        // Result depends on platform and clipboard availability
-        let _is_result = result.is_ok() || result.is_err();
+        if clipboard_available() {
+            assert!(result.is_ok());
+        } else {
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+            assert!(result.is_err());
+        }
     }
 
     #[test]
-    fn test_copy_to_clipboard_error_handling() {
-        // Test that the function handles errors gracefully
-        // Even with unusual input, it should return a Result
-        let unusual_text = "\0\x01\x02\x03";
-        let result = copy_to_clipboard(unusual_text);
-        // Should return either Ok or Err, not panic
-        let _is_result = result.is_ok() || result.is_err();
+    fn test_copy_to_clipboard_error_message() {
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        {
+            let result = copy_to_clipboard("test");
+            assert!(result.is_err());
+            assert_eq!(
+                result.unwrap_err().to_string(),
+                "Clipboard not supported on this platform"
+            );
+        }
+    }
+
+    #[test]
+    fn test_copy_to_clipboard_returns_result() {
+        // This test ensures the function always returns a Result type
+        let result = copy_to_clipboard("test");
+        // The function should return Result<()>
+        match result {
+            Ok(()) => {
+                // Success case
+                assert!(clipboard_available());
+            }
+            Err(_) => {
+                // Error case - either no clipboard or unsupported platform
+                assert!(
+                    !clipboard_available()
+                        || cfg!(not(any(target_os = "macos", target_os = "linux")))
+                );
+            }
+        }
     }
 }
