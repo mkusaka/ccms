@@ -1,4 +1,6 @@
 pub mod clipboard;
+#[cfg(test)]
+mod clipboard_operations_test;
 pub mod components;
 #[cfg(test)]
 mod cursor_management_test;
@@ -7,7 +9,13 @@ mod display_size_test;
 #[cfg(test)]
 mod dynamic_size_test;
 #[cfg(test)]
+mod keyboard_actions_test;
+#[cfg(test)]
+mod keyboard_navigation_test;
+#[cfg(test)]
 mod multibyte_test;
+#[cfg(test)]
+mod session_viewer_test;
 #[cfg(test)]
 mod text_wrapping_test;
 

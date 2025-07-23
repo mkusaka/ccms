@@ -4,12 +4,12 @@ mod tests {
 
     #[test]
     fn test_fixed_display_size_issue() {
-        // search_view.rsでは常に10個のアイテムを表示する
-        // ratatuiでは動的にターミナルサイズに応じて表示数を変える
+        // search_view.rs always displays 10 items
+        // ratatui dynamically changes display count based on terminal size
 
         let mut search_state = SearchState::default();
 
-        // 20個の結果を作成
+        // Create 20 results
         for i in 0..20 {
             search_state
                 .results
@@ -32,39 +32,39 @@ mod tests {
                 });
         }
 
-        // 現在の実装: 常に10個表示（Line 87 の .take(10)）
+        // Current implementation: always displays 10 (Line 87's .take(10))
         let displayed_count = 10;
 
-        // ratatuiの実装では: terminal_height - header_lines - footer_lines
-        // 例: 30行のターミナルで、ヘッダー5行、フッター2行なら23個表示可能
+        // In ratatui implementation: terminal_height - header_lines - footer_lines
+        // Example: 30-line terminal with 5 header lines and 2 footer lines can display 23 items
 
-        assert_eq!(displayed_count, 10); // 固定値
+        assert_eq!(displayed_count, 10); // Fixed value
 
-        // これにより、大きなターミナルでも10個しか表示されない
-        // 小さなターミナルでも10個表示しようとして画面からはみ出る可能性がある
+        // This means even large terminals only display 10 items
+        // Small terminals might have content overflow trying to display 10 items
     }
 
     #[test]
     fn test_separator_line_width() {
-        // result_detail_view.rsで固定幅80の区切り線を使用
+        // result_detail_view.rs uses fixed width 80 separator lines
         let separator = "─".repeat(80);
 
-        // ターミナル幅が100の場合、20文字分の余白ができる
-        // ターミナル幅が60の場合、20文字分はみ出る
+        // With terminal width 100, there's 20 characters of padding
+        // With terminal width 60, 20 characters overflow
 
         assert_eq!(separator.chars().count(), 80);
 
-        // ratatuiでは、terminal.size()?.width を使って動的に幅を決定
+        // In ratatui, terminal.size()?.width is used to dynamically determine width
     }
 
     #[test]
     fn test_no_text_wrapping() {
-        // 長いテキストがターミナル幅を超えた場合の処理がない
-        let long_text = "これは非常に長いテキストで、通常のターミナル幅では一行に収まりません。しかし、現在の実装では改行処理やラッピングが行われないため、テキストが画面外に出てしまいます。";
+        // No handling for text that exceeds terminal width
+        let long_text = "This is very long text that doesn't fit in one line on a normal terminal width. However, the current implementation doesn't perform line breaking or wrapping, so text goes off-screen.";
 
-        // 現在の実装: そのまま表示（改行やラッピングなし）
-        // ratatuiの実装: Paragraph::new().wrap(Wrap { trim: true })で自動改行
+        // Current implementation: displays as-is (no line breaking or wrapping)
+        // ratatui implementation: automatic line breaking with Paragraph::new().wrap(Wrap { trim: true })
 
-        assert!(long_text.chars().count() > 80); // 通常のターミナル幅を超える
+        assert!(long_text.chars().count() > 80); // Exceeds normal terminal width
     }
 }
