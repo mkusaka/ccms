@@ -141,7 +141,7 @@ mod tests {
 
         // Output content for debugging
         println!("=== Rendered content ===");
-        println!("{}", content);
+        println!("{content}");
         println!("=== End of content ===");
 
         // Verify messages are displayed in UI
@@ -286,7 +286,7 @@ mod tests {
             .collect::<String>();
 
         println!("=== Real Claude Session Rendered ===");
-        println!("{}", content);
+        println!("{content}");
         println!("=== End ===");
 
         // Verify messages are displayed
