@@ -14,6 +14,7 @@ pub struct ResultList {
     results: Vec<SearchResult>,
     selected_index: usize,
     scroll_offset: usize,
+    truncation_enabled: bool,
 }
 
 impl ResultList {
@@ -22,6 +23,7 @@ impl ResultList {
             results: Vec::new(),
             selected_index: 0,
             scroll_offset: 0,
+            truncation_enabled: true,
         }
     }
 
@@ -47,6 +49,10 @@ impl ResultList {
         self.results = results;
         self.selected_index = selected_index;
         self.scroll_offset = 0;
+    }
+
+    pub fn set_truncation_enabled(&mut self, enabled: bool) {
+        self.truncation_enabled = enabled;
     }
 
     #[allow(dead_code)]
@@ -76,20 +82,122 @@ impl ResultList {
         }
     }
 
-    fn calculate_visible_range(&self, available_height: u16) -> (usize, usize) {
-        let visible_count = available_height as usize;
-        let start = self.scroll_offset;
-        let end = (start + visible_count).min(self.results.len());
-        (start, end)
+    pub fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
+        if max_width == 0 {
+            return vec![];
+        }
+
+        let text = text.replace('\n', " ");
+        let mut lines = Vec::new();
+        let mut current_line = String::new();
+        let mut current_width = 0;
+
+        for word in text.split_whitespace() {
+            let word_width = word.chars().count();
+
+            if current_width > 0 && current_width + 1 + word_width > max_width {
+                // Start a new line
+                lines.push(current_line.clone());
+                current_line = word.to_string();
+                current_width = word_width;
+            } else {
+                // Add to current line
+                if current_width > 0 {
+                    current_line.push(' ');
+                    current_width += 1;
+                }
+                current_line.push_str(word);
+                current_width += word_width;
+            }
+        }
+
+        if !current_line.is_empty() {
+            lines.push(current_line);
+        }
+
+        if lines.is_empty() {
+            vec![String::new()]
+        } else {
+            lines
+        }
     }
 
-    fn adjust_scroll_offset(&mut self, available_height: u16) {
-        let visible_count = available_height as usize;
+    fn calculate_visible_range(
+        &self,
+        available_height: u16,
+        available_width: u16,
+    ) -> (usize, usize) {
+        if self.truncation_enabled {
+            // In truncated mode, each item takes 1 line
+            let visible_count = available_height as usize;
+            let start = self.scroll_offset;
+            let end = (start + visible_count).min(self.results.len());
+            (start, end)
+        } else {
+            // In full text mode, calculate how many items fit
+            let start = self.scroll_offset;
+            let mut current_height = 0;
+            let mut end = start;
 
-        if self.selected_index < self.scroll_offset {
-            self.scroll_offset = self.selected_index;
-        } else if self.selected_index >= self.scroll_offset + visible_count {
-            self.scroll_offset = self.selected_index - visible_count + 1;
+            // Calculate available width for text (accounting for timestamp and role)
+            let available_text_width = available_width.saturating_sub(35) as usize;
+
+            while end < self.results.len() && current_height < available_height as usize {
+                let result = &self.results[end];
+                let wrapped_lines = Self::wrap_text(&result.text, available_text_width);
+                let item_height = wrapped_lines.len().max(1);
+
+                if current_height + item_height <= available_height as usize {
+                    current_height += item_height;
+                    end += 1;
+                } else {
+                    break;
+                }
+            }
+
+            (start, end)
+        }
+    }
+
+    fn adjust_scroll_offset(&mut self, available_height: u16, available_width: u16) {
+        if self.truncation_enabled {
+            // In truncated mode, each item takes 1 line
+            let visible_count = available_height as usize;
+            if self.selected_index < self.scroll_offset {
+                self.scroll_offset = self.selected_index;
+            } else if self.selected_index >= self.scroll_offset + visible_count {
+                self.scroll_offset = self.selected_index - visible_count + 1;
+            }
+        } else {
+            // In full text mode, calculate which items are visible
+            let available_text_width = available_width.saturating_sub(35) as usize;
+            let mut current_index = 0;
+            let mut current_height = 0;
+
+            // Find which item should be at the top to show selected_index
+            while current_index <= self.selected_index && current_index < self.results.len() {
+                if current_index == self.selected_index {
+                    // If selected item is above current scroll offset, scroll up
+                    if current_index < self.scroll_offset {
+                        self.scroll_offset = current_index;
+                    }
+                    break;
+                }
+
+                let result = &self.results[current_index];
+                let wrapped_lines = Self::wrap_text(&result.text, available_text_width);
+                let item_height = wrapped_lines.len().max(1);
+                current_height += item_height;
+
+                // If we've exceeded the available height and haven't reached selected_index
+                if current_height > available_height as usize && current_index < self.selected_index
+                {
+                    self.scroll_offset = current_index + 1;
+                    current_height = 0;
+                }
+
+                current_index += 1;
+            }
         }
     }
 }
@@ -105,8 +213,8 @@ impl Component for ResultList {
         }
 
         let available_height = area.height.saturating_sub(2); // Account for borders
-        self.adjust_scroll_offset(available_height);
-        let (start, end) = self.calculate_visible_range(available_height);
+        self.adjust_scroll_offset(available_height, area.width);
+        let (start, end) = self.calculate_visible_range(available_height, area.width);
 
         let items: Vec<ListItem> = self.results[start..end]
             .iter()
@@ -123,29 +231,67 @@ impl Component for ResultList {
                 };
 
                 let timestamp = Self::format_timestamp(&result.timestamp);
-                let content = Self::truncate_message(&result.text, area.width as usize - 35);
+                let available_text_width = area.width.saturating_sub(35) as usize;
 
-                let spans = vec![
-                    Span::styled(
-                        format!("{timestamp:16} "),
-                        Style::default().fg(Color::DarkGray),
-                    ),
-                    Span::styled(
-                        format!("{:10} ", result.role),
-                        Style::default().fg(role_color),
-                    ),
-                    Span::raw(content),
-                ];
+                if self.truncation_enabled {
+                    // Truncated mode - single line
+                    let content = Self::truncate_message(&result.text, available_text_width);
+                    let spans = vec![
+                        Span::styled(
+                            format!("{timestamp:16} "),
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                        Span::styled(
+                            format!("{:10} ", result.role),
+                            Style::default().fg(role_color),
+                        ),
+                        Span::raw(content),
+                    ];
 
-                let style = if is_selected {
-                    Style::default()
-                        .bg(Color::DarkGray)
-                        .add_modifier(Modifier::BOLD)
+                    let style = if is_selected {
+                        Style::default()
+                            .bg(Color::DarkGray)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                    };
+
+                    ListItem::new(Line::from(spans)).style(style)
                 } else {
-                    Style::default()
-                };
+                    // Full text mode - multiple lines
+                    let wrapped_lines = Self::wrap_text(&result.text, available_text_width);
+                    let mut lines = Vec::new();
 
-                ListItem::new(Line::from(spans)).style(style)
+                    // First line with metadata
+                    let first_line_spans = vec![
+                        Span::styled(
+                            format!("{timestamp:16} "),
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                        Span::styled(
+                            format!("{:10} ", result.role),
+                            Style::default().fg(role_color),
+                        ),
+                        Span::raw(wrapped_lines.first().cloned().unwrap_or_default()),
+                    ];
+                    lines.push(Line::from(first_line_spans));
+
+                    // Additional lines (indented)
+                    for line in wrapped_lines.iter().skip(1) {
+                        let indent = " ".repeat(29); // 16 + 1 + 10 + 1 + 1 spaces
+                        lines.push(Line::from(format!("{indent}{line}")));
+                    }
+
+                    let style = if is_selected {
+                        Style::default()
+                            .bg(Color::DarkGray)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                    };
+
+                    ListItem::new(lines).style(style)
+                }
             })
             .collect();
 

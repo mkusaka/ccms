@@ -40,6 +40,7 @@ mod tests {
         assert_eq!(state.search.selected_index, 0);
         assert_eq!(state.search.role_filter, None);
         assert!(!state.search.is_searching);
+        assert!(state.ui.truncation_enabled);
     }
 
     #[test]
@@ -191,5 +192,31 @@ mod tests {
 
         let _command = state.update(Message::ClearStatus);
         assert_eq!(state.ui.message, None);
+    }
+
+    #[test]
+    fn test_toggle_truncation() {
+        let mut state = create_test_state();
+
+        // Initial state should be truncated
+        assert!(state.ui.truncation_enabled);
+
+        // Toggle to full text
+        let command = state.update(Message::ToggleTruncation);
+        assert!(!state.ui.truncation_enabled);
+        assert_eq!(
+            state.ui.message,
+            Some("Message display: Full Text".to_string())
+        );
+        assert!(matches!(command, Command::None));
+
+        // Toggle back to truncated
+        let command = state.update(Message::ToggleTruncation);
+        assert!(state.ui.truncation_enabled);
+        assert_eq!(
+            state.ui.message,
+            Some("Message display: Truncated".to_string())
+        );
+        assert!(matches!(command, Command::None));
     }
 }

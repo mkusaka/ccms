@@ -75,11 +75,9 @@ impl InteractiveSearch {
         self.search_sender = Some(tx);
         self.search_receiver = Some(rx);
 
-        // Initial search if pattern provided
-        if !pattern.is_empty() {
-            self.state.search.query = pattern.to_string();
-            self.execute_command(Command::ExecuteSearch);
-        }
+        // Initial search (even with empty pattern to show all results)
+        // Note: pattern is stored internally but not shown in search bar
+        self.execute_command(Command::ExecuteSearch);
 
         let result = self.run_app(&mut terminal, pattern);
 
@@ -147,11 +145,22 @@ impl InteractiveSearch {
     }
 
     fn handle_input(&mut self, key: KeyEvent) -> Result<bool> {
+        use crossterm::event::KeyModifiers;
+
         // Global keys
         match key.code {
-            KeyCode::Esc => return Ok(true),
+            KeyCode::Esc => {
+                // Only exit from search mode
+                if self.state.mode == Mode::Search {
+                    return Ok(true);
+                }
+            }
             KeyCode::Char('?') if self.state.mode != Mode::Help => {
                 self.handle_message(Message::ShowHelp);
+                return Ok(false);
+            }
+            KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.handle_message(Message::ToggleTruncation);
                 return Ok(false);
             }
             _ => {}
@@ -209,7 +218,22 @@ impl InteractiveSearch {
                 if let Err(e) = self.copy_to_clipboard(&text) {
                     self.state.ui.message = Some(format!("Failed to copy: {e}"));
                 } else {
-                    self.state.ui.message = Some("Copied to clipboard".to_string());
+                    // Determine what was copied for better feedback
+                    let copy_message = if text.starts_with("File: ") && text.contains("\nUUID: ") {
+                        "✓ Copied full result details"
+                    } else if text.starts_with('/')
+                        && (text.ends_with(".jsonl") || text.contains('/'))
+                    {
+                        "✓ Copied file path"
+                    } else if text.len() == 36 && text.chars().filter(|&c| c == '-').count() == 4 {
+                        // UUID format check
+                        "✓ Copied session ID"
+                    } else if text.len() < 100 {
+                        &format!("✓ Copied: {}", text.chars().take(50).collect::<String>())
+                    } else {
+                        "✓ Copied message text"
+                    };
+                    self.state.ui.message = Some(copy_message.to_string());
                 }
             }
             Command::ShowMessage(msg) => {
@@ -222,11 +246,12 @@ impl InteractiveSearch {
     }
 
     fn execute_search(&mut self) {
-        if self.state.search.query.is_empty() {
-            self.state.search.results.clear();
-            self.state.search.is_searching = false;
-            return;
-        }
+        // Allow empty query to show all results
+        // if self.state.search.query.is_empty() {
+        //     self.state.search.results.clear();
+        //     self.state.search.is_searching = false;
+        //     return;
+        // }
 
         self.current_search_id += 1;
         self.state.search.current_search_id = self.current_search_id;

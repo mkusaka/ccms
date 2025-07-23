@@ -137,6 +137,8 @@ ccms -i -n 100                               # Adjust result limit
 - `↑/↓` - Navigate results
 - `Enter` - View full message
 - `Tab` - Cycle role filters (all → user → assistant → system → summary)
+- `Ctrl+R` - Clear cache and reload files
+- `Ctrl+T` - Toggle message truncation (Truncated/Full Text)
 - `Esc/Ctrl+C` - Exit
 
 **Note on Filters in Interactive Mode:**

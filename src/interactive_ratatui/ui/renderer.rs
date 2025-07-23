@@ -6,6 +6,8 @@ use crate::interactive_ratatui::ui::components::{
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
+    style::{Color, Style},
+    widgets::Paragraph,
 };
 
 pub struct Renderer {
@@ -42,6 +44,7 @@ impl Renderer {
             .constraints([
                 Constraint::Length(3), // Search bar
                 Constraint::Min(0),    // Results
+                Constraint::Length(1), // Status bar
             ])
             .split(f.area());
 
@@ -56,15 +59,30 @@ impl Renderer {
         self.result_list.set_results(state.search.results.clone());
         self.result_list
             .set_selected_index(state.search.selected_index);
+        self.result_list
+            .set_truncation_enabled(state.ui.truncation_enabled);
 
         // Render components
         self.search_bar.render(f, chunks[0]);
         self.result_list.render(f, chunks[1]);
+
+        // Render status bar
+        let truncation_status = if state.ui.truncation_enabled {
+            "Truncated"
+        } else {
+            "Full Text"
+        };
+        let status_text = format!(
+            "Tab: Filter | ↑/↓: Navigate | Enter: Detail | s: Session | Ctrl+T: Toggle [{truncation_status}] | ?: Help | Esc: Exit"
+        );
+        let status_bar = Paragraph::new(status_text).style(Style::default().fg(Color::DarkGray));
+        f.render_widget(status_bar, chunks[2]);
     }
 
     fn render_detail_mode(&mut self, f: &mut Frame, state: &AppState) {
         if let Some(result) = &state.ui.selected_result {
             self.result_detail.set_result(result.clone());
+            self.result_detail.set_message(state.ui.message.clone());
             self.result_detail.render(f, f.area());
         }
     }
@@ -77,6 +95,10 @@ impl Renderer {
             .set_filtered_indices(state.session.filtered_indices.clone());
         self.session_viewer.set_query(state.session.query.clone());
         self.session_viewer.set_order(state.session.order);
+        self.session_viewer
+            .set_file_path(state.session.file_path.clone());
+        self.session_viewer
+            .set_session_id(state.session.session_id.clone());
 
         self.session_viewer.render(f, f.area());
     }

@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use crate::interactive_ratatui::domain::models::Mode;
+    use crate::interactive_ratatui::ui::events::Message;
     use crate::{QueryCondition, SearchOptions, SearchResult};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use ratatui::backend::TestBackend;
     use ratatui::{Terminal, buffer::Buffer};
 
@@ -89,9 +92,9 @@ mod tests {
         // Test handling of invalid session file
         app.state.ui.selected_result = Some(SearchResult {
             file: "/nonexistent/file.jsonl".to_string(),
-            uuid: "test-uuid".to_string(),
+            uuid: "12345678-1234-5678-1234-567812345678".to_string(),
             timestamp: "2024-01-01T00:00:00Z".to_string(),
-            session_id: "test-session".to_string(),
+            session_id: "87654321-4321-8765-4321-876543218765".to_string(),
             role: "user".to_string(),
             text: "test".to_string(),
             has_tools: false,
@@ -186,9 +189,9 @@ mod tests {
     fn create_test_result(role: &str, text: &str, timestamp: &str) -> SearchResult {
         SearchResult {
             file: "/test/file.jsonl".to_string(),
-            uuid: "test-uuid".to_string(),
+            uuid: "12345678-1234-5678-1234-567812345678".to_string(),
             timestamp: timestamp.to_string(),
-            session_id: "test-session".to_string(),
+            session_id: "87654321-4321-8765-4321-876543218765".to_string(),
             role: role.to_string(),
             text: text.to_string(),
             has_tools: false,
@@ -218,5 +221,307 @@ mod tests {
             }
         }
         false
+    }
+
+    /// Test that initial search query doesn't show pattern in search bar
+    #[test]
+    fn test_initial_search_no_pattern_display() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+        app.pattern = "~/.claude/**/*.jsonl".to_string();
+
+        // Pattern should be stored internally but not shown in search query
+        assert_eq!(app.pattern, "~/.claude/**/*.jsonl");
+        assert_eq!(app.state.search.query, "");
+
+        // Render and check that pattern is not visible in search bar
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+        assert!(!buffer_contains(buffer, "~/.claude"));
+    }
+
+    /// Test ESC key behavior in different modes
+    #[test]
+    fn test_esc_key_behavior() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // ESC in search mode should exit
+        app.state.mode = Mode::Search;
+        let should_exit = app
+            .handle_input(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()))
+            .unwrap();
+        assert!(should_exit);
+
+        // ESC in result detail should return to search
+        app.state.mode = Mode::ResultDetail;
+        let should_exit = app
+            .handle_input(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()))
+            .unwrap();
+        assert!(!should_exit);
+        assert_eq!(app.state.mode, Mode::Search);
+
+        // ESC in session viewer should return to previous mode
+        app.state.mode = Mode::ResultDetail;
+        app.state.mode_stack.push(Mode::ResultDetail);
+        app.state.mode = Mode::SessionViewer;
+        let should_exit = app
+            .handle_input(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()))
+            .unwrap();
+        assert!(!should_exit);
+        assert_eq!(app.state.mode, Mode::ResultDetail);
+    }
+
+    /// Test navigation stack functionality
+    #[test]
+    fn test_navigation_stack() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Start in search mode
+        app.state.mode = Mode::Search;
+        assert!(app.state.mode_stack.is_empty());
+
+        // Navigate to result detail
+        app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
+        app.handle_message(Message::EnterResultDetail);
+        assert_eq!(app.state.mode, Mode::ResultDetail);
+        assert_eq!(app.state.mode_stack, vec![Mode::Search]);
+
+        // Navigate to session viewer
+        app.handle_message(Message::EnterSessionViewer);
+        assert_eq!(app.state.mode, Mode::SessionViewer);
+        assert_eq!(app.state.mode_stack, vec![Mode::Search, Mode::ResultDetail]);
+
+        // ESC should pop back to result detail
+        app.handle_message(Message::ExitToSearch);
+        assert_eq!(app.state.mode, Mode::ResultDetail);
+        assert_eq!(app.state.mode_stack, vec![Mode::Search]);
+
+        // Another ESC should go back to search
+        app.handle_message(Message::ExitToSearch);
+        assert_eq!(app.state.mode, Mode::Search);
+        assert!(app.state.mode_stack.is_empty());
+    }
+
+    /// Test copy feedback messages
+    #[test]
+    fn test_copy_feedback() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Test file path copy feedback
+        app.execute_command(Command::CopyToClipboard("/path/to/file.jsonl".to_string()));
+        // In CI environment, clipboard might fail
+        if let Some(msg) = &app.state.ui.message {
+            assert!(
+                msg == "✓ Copied file path" || msg.starts_with("Failed to copy:"),
+                "Unexpected message: {msg}"
+            );
+        }
+
+        // Test session ID copy feedback
+        app.state.ui.message = None;
+        app.execute_command(Command::CopyToClipboard(
+            "12345678-1234-5678-1234-567812345678".to_string(),
+        ));
+        if let Some(msg) = &app.state.ui.message {
+            assert!(
+                msg == "✓ Copied session ID" || msg.starts_with("Failed to copy:"),
+                "Unexpected message: {msg}"
+            );
+        }
+
+        // Test short text copy feedback
+        app.state.ui.message = None;
+        app.execute_command(Command::CopyToClipboard("short text".to_string()));
+        if let Some(msg) = &app.state.ui.message {
+            assert!(
+                msg == "✓ Copied: short text" || msg.starts_with("Failed to copy:"),
+                "Unexpected message: {msg}"
+            );
+        }
+
+        // Test long message copy feedback
+        app.state.ui.message = None;
+        let long_text = "a".repeat(200);
+        app.execute_command(Command::CopyToClipboard(long_text));
+        if let Some(msg) = &app.state.ui.message {
+            assert!(
+                msg == "✓ Copied message text" || msg.starts_with("Failed to copy:"),
+                "Unexpected message: {msg}"
+            );
+        }
+    }
+
+    /// Test empty search query returns all results
+    #[test]
+    fn test_empty_search_returns_all() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Empty query should trigger search
+        app.state.search.query = "".to_string();
+        app.execute_search();
+
+        // Verify search is initiated even with empty query
+        assert!(app.state.search.is_searching);
+        assert_eq!(app.state.search.current_search_id, 1);
+    }
+
+    /// Test message detail metadata display
+    #[test]
+    fn test_message_detail_metadata() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+        let result = create_test_result("user", "Test message", "2024-01-01T12:00:00Z");
+
+        app.state.mode = Mode::ResultDetail;
+        app.state.ui.selected_result = Some(result.clone());
+        app.renderer.get_result_detail_mut().set_result(result);
+
+        // Render and check metadata is displayed
+        let backend = TestBackend::new(100, 40);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+
+        // Debug: print buffer content
+        let content = buffer
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+        if !buffer_contains(buffer, "Role: user") {
+            println!("Buffer content: {content}");
+        }
+
+        assert!(buffer_contains(buffer, "Role: user"));
+        assert!(buffer_contains(buffer, "Time:"));
+        assert!(buffer_contains(buffer, "File: /test/file.jsonl"));
+        assert!(buffer_contains(buffer, "Project: /test/project"));
+        assert!(buffer_contains(
+            buffer,
+            "UUID: 12345678-1234-5678-1234-567812345678"
+        ));
+        assert!(buffer_contains(
+            buffer,
+            "Session: 87654321-4321-8765-4321-876543218765"
+        ));
+    }
+
+    /// Test session viewer metadata display
+    #[test]
+    fn test_session_viewer_metadata() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        app.state.mode = Mode::SessionViewer;
+        app.state.session.file_path = Some("/path/to/session.jsonl".to_string());
+        app.state.session.session_id = Some("session-123".to_string());
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+
+        assert!(buffer_contains(buffer, "Session: session-123"));
+        assert!(buffer_contains(buffer, "File: /path/to/session.jsonl"));
+    }
+
+    /// Test result list full text scrolling
+    #[test]
+    fn test_result_list_full_text_scroll() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Create results with long text
+        let long_text =
+            "This is a very long message that will wrap across multiple lines when displayed. "
+                .repeat(5);
+        app.state.search.results = vec![
+            create_test_result("user", &long_text, "2024-01-01T00:00:00Z"),
+            create_test_result("assistant", "Short message", "2024-01-01T00:01:00Z"),
+        ];
+
+        // Enable full text mode
+        app.state.ui.truncation_enabled = false;
+
+        // Test scrolling
+        app.handle_message(Message::ScrollDown);
+        assert_eq!(app.state.search.selected_index, 1);
+
+        app.handle_message(Message::ScrollUp);
+        assert_eq!(app.state.search.selected_index, 0);
+    }
+
+    /// Test message detail copy shortcuts
+    #[test]
+    fn test_message_detail_copy_shortcuts() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+        let result = create_test_result("user", "Test message", "2024-01-01T00:00:00Z");
+
+        app.state.mode = Mode::ResultDetail;
+        app.state.ui.selected_result = Some(result.clone());
+        app.renderer.get_result_detail_mut().set_result(result);
+
+        // Test all copy shortcuts
+        let shortcuts = vec![
+            ('f', "✓ Copied file path"),
+            ('F', "✓ Copied file path"),
+            ('i', "✓ Copied session ID"),
+            ('I', "✓ Copied session ID"),
+            ('p', "✓ Copied file path"), // project path
+            ('P', "✓ Copied file path"),
+            ('m', "✓ Copied: Test message"), // short text shows the actual text
+            ('M', "✓ Copied: Test message"),
+        ];
+
+        for (key, expected_feedback) in shortcuts {
+            app.handle_input(KeyEvent::new(KeyCode::Char(key), KeyModifiers::empty()))
+                .unwrap();
+            assert!(
+                app.state.ui.message.is_some(),
+                "No message after pressing '{key}'"
+            );
+            let actual_message = app.state.ui.message.as_ref().unwrap();
+            println!("Key '{key}': expected '{expected_feedback}', got '{actual_message}'");
+
+            // In CI environment, clipboard might fail
+            assert!(
+                actual_message == expected_feedback
+                    || actual_message.starts_with("Failed to copy:"),
+                "Message '{actual_message}' doesn't match expected feedback '{expected_feedback}'"
+            );
+        }
+    }
+
+    /// Test session viewer default message display
+    #[test]
+    fn test_session_viewer_default_display() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Load messages into session viewer
+        app.state.session.messages = vec![
+            r#"{"type":"user","message":{"content":"Hello"},"timestamp":"2024-01-01T00:00:00Z"}"#
+                .to_string(),
+            r#"{"type":"assistant","message":{"content":"Hi"},"timestamp":"2024-01-01T00:01:00Z"}"#
+                .to_string(),
+        ];
+        app.state.session.filtered_indices = vec![0, 1];
+        app.state.mode = Mode::SessionViewer;
+
+        // Render and verify messages are displayed
+        let backend = TestBackend::new(120, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+
+        assert!(buffer_contains(buffer, "user"));
+        assert!(buffer_contains(buffer, "Hello"));
+        assert!(buffer_contains(buffer, "assistant"));
+        assert!(buffer_contains(buffer, "Hi"));
     }
 }

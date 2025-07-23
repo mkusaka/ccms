@@ -61,6 +61,7 @@ Search [role]: [query]
 | ? | Show help screen |
 | Tab | Cycle through role filters: None → user → assistant → system → summary → None |
 | Ctrl+R | Clear cache and reload all files |
+| Ctrl+T | Toggle message truncation (Truncated/Full Text) |
 | Esc or Ctrl+C | Exit interactive mode |
 
 ### Full Result View
@@ -76,7 +77,10 @@ Project: [project path]
 UUID: [uuid]
 Session: [session_id]
 ────────────────────────────────────────────────────────────────────────────────
-[Full message content - scrollable with j/k or ↑/↓ arrows]
+[Full message content with automatic word wrapping at terminal boundaries]
+[Long lines are wrapped at word boundaries when possible]
+[Unicode characters (Japanese, emoji) are safely handled]
+[Scrollable with j/k or ↑/↓ arrows]
 ────────────────────────────────────────────────────────────────────────────────
 
 Actions:
@@ -92,6 +96,8 @@ Actions:
   [PageUp] - Scroll up 10 lines
   [Esc] - Return to search results
 ```
+
+**Message Display**: Messages are automatically displayed with word wrapping in the detail view, ensuring full readability without horizontal scrolling. Long lines wrap at word boundaries when possible, with proper Unicode character handling.
 
 #### Scrolling Behavior
 
@@ -120,10 +126,10 @@ When 'S' is pressed in the full result view:
 │                                                                                │
 │ Showing X-Y of Z messages ↑/↓ to scroll                                        │
 └────────────────────────────────────────────────────────────────────────────────┘
-Enter: View | ↑/↓: Navigate | /: Search | Esc: Clear search | Q: Back
+Enter: View | ↑/↓: Navigate | /: Search | I: Copy Session ID | O: Sort | C: Copy All | Esc: Back
 ```
 
-**Navigation**: Pressing Q or Esc returns to the previous screen (typically ResultDetail), not directly to Search.
+**Navigation**: Pressing Esc returns to the previous screen (typically ResultDetail), not directly to Search.
 
 #### Session Viewer Features
 
@@ -138,11 +144,16 @@ Enter: View | ↑/↓: Navigate | /: Search | Esc: Clear search | Q: Back
    - Shows filtered count: "Messages (123 total, 45 filtered)"
    - Backspace to delete characters, Esc to clear search
 
-3. **Navigation**:
+3. **Navigation and Actions**:
    - ↑/↓: Move selection through messages
    - PageUp/PageDown: Jump 10 messages at a time
    - Enter: View full message in detail view
-   - Q: Return to previous result detail view
+   - /: Start search mode (interactive filtering)
+   - O: Toggle sort order (Ascending/Descending/Original)
+   - C: Copy selected message
+   - Shift+C: Copy all visible (filtered) messages
+   - I: Copy session ID
+   - Esc/Backspace: Return to previous screen
    - Maintains scroll position and selection state
 
 4. **Message Content Search**:
@@ -163,7 +174,7 @@ Enter: View | ↑/↓: Navigate | /: Search | Esc: Clear search | Q: Back
    - Regular expressions: `/pattern/flags`
    - Quoted strings: "multi word search" or 'single quoted'
 
-2. Empty queries return no results
+2. Empty queries show all available results (no filtering applied)
 
 3. Invalid queries (parse errors) return empty result sets
 
@@ -246,9 +257,10 @@ Applied before other filters in the search pipeline.
 ### Immediate Search Execution
 
 - Search executes immediately on every keystroke (no debouncing)
-- Empty queries show empty results area (no "No results found" message)
+- Empty queries show all available results (unfiltered)
 - Each character input or backspace triggers a new search
 - Search state indicator shows "searching..." during execution
+- Initial load automatically searches with empty query to display all messages
 
 ## Clipboard Operations
 
@@ -269,9 +281,15 @@ Applied before other filters in the search pipeline.
 ### Copy Feedback
 
 - Success messages show with "✓" symbol in green
-- Warning messages show with "⚠" symbol in yellow
+- Warning messages show with "⚠" symbol in yellow  
 - Feedback remains visible in detail view (does not return to search)
 - Messages are cleared when transitioning between modes
+- **Context-aware feedback** shows what was copied:
+  - File paths: "✓ Copied file path"
+  - Session IDs (UUID format): "✓ Copied session ID"
+  - Short text (< 100 chars): "✓ Copied: [actual text]"
+  - Long text: "✓ Copied message text"
+  - Full result details: "✓ Copied full result details"
 
 ## Display Limits
 
@@ -298,6 +316,34 @@ Applied before other filters in the search pipeline.
   - Text display in all views
 - Prevents crashes with Unicode text (Japanese, emoji, etc.)
 - Dynamic ellipsis placement based on available terminal width
+
+### Message Truncation Toggle
+
+The Ctrl+T keyboard shortcut toggles between truncated and full text display modes in the search view:
+
+#### Truncated Mode (Default)
+- Messages are truncated to fit the terminal width
+- Ellipsis (...) added when text is cut off
+- Provides better overview of multiple results
+- Applies to:
+  - Search results list (single line with ellipsis)
+  - Session viewer messages
+
+#### Full Text Mode
+- Messages are wrapped at word boundaries to fit terminal width
+- Long words that exceed terminal width are broken at character boundaries
+- Preserves readability while showing complete content
+- Respects Unicode character boundaries (safe for Japanese text and emojis)
+- Applies to:
+  - Search results list (multi-line with word wrapping)
+  - Session viewer messages (wrapped display)
+
+#### Visual Indicators
+- Status bar shows current mode: `[Truncated]` or `[Full Text]`
+- Mode persists across search and session viewer
+- Feedback message shown when toggling
+
+Note: The Result Detail view always displays messages with word wrapping and is not affected by the truncation toggle.
 
 ### Session Viewer Display Limits
 
@@ -370,30 +416,63 @@ On exit (Esc or Ctrl+C from Search screen, or 'q' key):
 
 ## State Management
 
-The `InteractiveSearch` struct maintains:
+The interactive mode uses a Model-View-Update (MVU) architecture with clean separation of concerns:
+
+### Architecture Layers
+
+1. **Domain Layer**: Core business entities and models
+   - `Mode`: Current UI screen (Search, ResultDetail, SessionViewer, Help)
+   - `SearchRequest`: Query and filter parameters
+   - `SessionOrder`: Sort order for session messages
+
+2. **Application Layer**: Business logic and services
+   - `SearchService`: Handles search operations
+   - `SessionService`: Manages session message loading
+   - `CacheService`: File caching and invalidation
+
+3. **UI Layer**: Presentation with MVU pattern
+   - `AppState`: Centralized state management
+   - `Message`: Events and user actions
+   - `Command`: Side effects (search, load, copy)
+   - `Renderer`: Component-based UI rendering
+
+### Core State Structure
 
 ```rust
-struct InteractiveSearch {
-    base_options: SearchOptions,     // Filters and configuration
-    max_results: usize,             // Result limit
-    cache: MessageCache,            // File cache
-    screen_stack: Vec<Mode>,        // Navigation history stack
-    query: String,                  // Current search query
-    role_filter: Option<String>,    // Active role filter
-    results: Vec<SearchResult>,     // Current search results
-    selected_index: usize,          // Selected result index
-    selected_result: Option<SearchResult>, // Detail view result
-    session_messages: Vec<String>,  // Session viewer messages
-    session_order: Option<SessionOrder>, // Session display order (always Ascending)
-    session_index: usize,           // Legacy: position in old viewer
-    session_query: String,          // Session search filter
-    session_filtered_indices: Vec<usize>, // Filtered message indices
-    session_scroll_offset: usize,   // Session list scroll position
-    session_selected_index: usize,  // Selected message in session list
-    detail_scroll_offset: usize,    // Scroll position in detail view
-    message: Option<String>,        // Feedback message
-    scroll_offset: usize,           // Scroll offset for results list
-    is_searching: bool,             // Search in progress indicator
+struct AppState {
+    mode: Mode,                        // Current screen
+    mode_stack: Vec<Mode>,            // Navigation history
+    search: SearchState,              // Search-related state
+    session: SessionState,            // Session viewer state
+    ui: UIState,                      // UI-specific state
+}
+
+struct SearchState {
+    query: String,                    // Current search query
+    role_filter: Option<String>,      // Active role filter
+    results: Vec<SearchResult>,       // Search results
+    selected_index: usize,            // Selected result
+    scroll_offset: usize,             // Scroll position
+    is_searching: bool,               // Search in progress
+    current_search_id: u64,           // Request tracking
+}
+
+struct SessionState {
+    messages: Vec<String>,            // Raw JSONL messages
+    filtered_indices: Vec<usize>,     // Filtered indices
+    selected_index: usize,            // Selected message
+    scroll_offset: usize,             // Scroll position
+    query: String,                    // Search filter
+    order: Option<SessionOrder>,      // Sort order
+    file_path: Option<String>,        // Session file path
+    session_id: Option<String>,       // Session identifier
+}
+
+struct UIState {
+    truncation_enabled: bool,         // Message truncation mode
+    detail_scroll_offset: usize,      // Detail view scroll
+    selected_result: Option<SearchResult>, // Current result
+    message: Option<String>,          // Feedback message
 }
 ```
 
@@ -437,3 +516,30 @@ Project paths are extracted from file paths using the pattern:
 `~/.claude/projects/{encoded-project-path}/{session-id}.jsonl`
 
 The encoded project path has slashes replaced with hyphens, which are decoded during extraction.
+
+## Recent Architecture Improvements
+
+### Clean Architecture Migration (2024)
+
+The interactive mode was refactored from a monolithic 1882-line file to a clean architecture:
+
+- **Before**: Single `InteractiveSearch` struct with 30+ fields (God Object anti-pattern)
+- **After**: Layered architecture with clear separation of concerns
+
+Key improvements:
+1. **Domain Layer**: Pure business logic and models
+2. **Application Layer**: Service orchestration without UI concerns
+3. **UI Layer**: MVU pattern for predictable state management
+4. **Component System**: Reusable UI components with trait-based design
+5. **Comprehensive Testing**: Tests organized by architectural layers
+
+### Enhanced Features
+
+Recent enhancements include:
+- Navigation history stack for intuitive back navigation
+- Context-aware copy feedback messages
+- Default full text display with proper word wrapping
+- Empty query shows all results (no filtering)
+- Session viewer metadata display and session ID copying
+- Non-blocking UI with visual feedback during operations
+- Unicode-safe text handling throughout

@@ -207,4 +207,35 @@ mod tests {
         let truncated = ResultList::truncate_message(emoji, 10);
         assert_eq!(truncated, "🔍🎯💻🎨🔧 S...");
     }
+
+    #[test]
+    fn test_wrap_text() {
+        // Test basic wrapping
+        let wrapped = ResultList::wrap_text("Hello world this is a test", 10);
+        assert_eq!(wrapped, vec!["Hello", "world this", "is a test"]);
+
+        // Test text that fits on one line
+        let wrapped = ResultList::wrap_text("Short", 10);
+        assert_eq!(wrapped, vec!["Short"]);
+
+        // Test empty text
+        let wrapped = ResultList::wrap_text("", 10);
+        assert_eq!(wrapped, vec![""]);
+
+        // Test very long word
+        let wrapped = ResultList::wrap_text("superlongwordthatdoesntfit", 10);
+        assert_eq!(wrapped, vec!["superlongwordthatdoesntfit"]);
+
+        // Test multiple spaces
+        let wrapped = ResultList::wrap_text("Hello    world", 20);
+        assert_eq!(wrapped, vec!["Hello world"]);
+
+        // Test zero width
+        let wrapped = ResultList::wrap_text("Hello", 0);
+        assert_eq!(wrapped, Vec::<String>::new());
+
+        // Test unicode text
+        let wrapped = ResultList::wrap_text("こんにちは 世界 です", 10);
+        assert_eq!(wrapped, vec!["こんにちは 世界", "です"]);
+    }
 }

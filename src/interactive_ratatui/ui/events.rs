@@ -30,6 +30,9 @@ pub enum Message {
     // Role filter
     ToggleRoleFilter,
 
+    // Display options
+    ToggleTruncation,
+
     // Clipboard
     CopyToClipboard(String),
 
