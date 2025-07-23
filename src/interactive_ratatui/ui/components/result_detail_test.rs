@@ -222,10 +222,6 @@ mod tests {
         // Test exit to search (Esc)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()));
         assert!(matches!(msg, Some(Message::ExitToSearch)));
-
-        // Test exit to search (Backspace)
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::ExitToSearch)));
     }
 
     #[test]

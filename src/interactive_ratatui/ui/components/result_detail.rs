@@ -275,7 +275,7 @@ impl Component for ResultDetail {
                 .result
                 .as_ref()
                 .map(|result| Message::CopyToClipboard(result.text.clone())),
-            KeyCode::Backspace | KeyCode::Esc => Some(Message::ExitToSearch),
+            KeyCode::Esc => Some(Message::ExitToSearch),
             _ => None,
         }
     }
