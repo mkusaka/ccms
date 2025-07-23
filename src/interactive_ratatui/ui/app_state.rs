@@ -110,17 +110,11 @@ impl AppState {
                 Command::None
             }
             Message::ScrollUp => {
-                if self.search.selected_index > 0 {
-                    self.search.selected_index -= 1;
-                    self.adjust_scroll_offset();
-                }
+                // Scroll handling is now done within ResultList
                 Command::None
             }
             Message::ScrollDown => {
-                if self.search.selected_index + 1 < self.search.results.len() {
-                    self.search.selected_index += 1;
-                    self.adjust_scroll_offset();
-                }
+                // Scroll handling is now done within ResultList
                 Command::None
             }
             Message::EnterResultDetail => {
@@ -239,18 +233,6 @@ impl AppState {
 
     fn get_selected_result(&self) -> Option<&SearchResult> {
         self.search.results.get(self.search.selected_index)
-    }
-
-    fn adjust_scroll_offset(&mut self) {
-        // This would be calculated based on terminal height
-        // For now, keep it simple
-        let visible_height = 20; // This should come from terminal size
-
-        if self.search.selected_index < self.search.scroll_offset {
-            self.search.scroll_offset = self.search.selected_index;
-        } else if self.search.selected_index >= self.search.scroll_offset + visible_height {
-            self.search.scroll_offset = self.search.selected_index - visible_height + 1;
-        }
     }
 
     fn adjust_session_scroll_offset(&mut self) {

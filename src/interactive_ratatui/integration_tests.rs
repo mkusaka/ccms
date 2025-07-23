@@ -447,11 +447,11 @@ mod tests {
         // Enable full text mode
         app.state.ui.truncation_enabled = false;
 
-        // Test scrolling
-        app.handle_message(Message::ScrollDown);
+        // Test scrolling with SelectResult messages (new architecture)
+        app.handle_message(Message::SelectResult(1));
         assert_eq!(app.state.search.selected_index, 1);
 
-        app.handle_message(Message::ScrollUp);
+        app.handle_message(Message::SelectResult(0));
         assert_eq!(app.state.search.selected_index, 0);
     }
 

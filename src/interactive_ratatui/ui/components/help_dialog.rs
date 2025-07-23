@@ -9,6 +9,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
+#[derive(Default)]
 pub struct HelpDialog;
 
 impl HelpDialog {

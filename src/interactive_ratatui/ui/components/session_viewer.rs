@@ -1,5 +1,6 @@
 use crate::interactive_ratatui::domain::models::SessionOrder;
-use crate::interactive_ratatui::ui::components::Component;
+use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
+use crate::interactive_ratatui::ui::components::{Component, list_viewer::ListViewer};
 use crate::interactive_ratatui::ui::events::Message;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
@@ -7,28 +8,28 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Paragraph},
 };
 
+#[derive(Default)]
 pub struct SessionViewer {
-    pub(super) messages: Vec<String>,
-    pub(super) filtered_indices: Vec<usize>,
-    pub(super) selected_index: usize,
-    pub(super) scroll_offset: usize,
-    pub(super) query: String,
-    pub(super) order: Option<SessionOrder>,
-    pub(super) is_searching: bool,
-    pub(super) file_path: Option<String>,
-    pub(super) session_id: Option<String>,
+    list_viewer: ListViewer<SessionListItem>,
+    raw_messages: Vec<String>,
+    query: String,
+    order: Option<SessionOrder>,
+    is_searching: bool,
+    file_path: Option<String>,
+    session_id: Option<String>,
 }
 
 impl SessionViewer {
     pub fn new() -> Self {
         Self {
-            messages: Vec::new(),
-            filtered_indices: Vec::new(),
-            selected_index: 0,
-            scroll_offset: 0,
+            list_viewer: ListViewer::new(
+                "Session Messages".to_string(),
+                "No messages in session".to_string(),
+            ),
+            raw_messages: Vec::new(),
             query: String::new(),
             order: None,
             is_searching: false,
@@ -38,18 +39,21 @@ impl SessionViewer {
     }
 
     pub fn set_messages(&mut self, messages: Vec<String>) {
-        self.messages = messages;
-        self.filtered_indices = (0..self.messages.len()).collect();
-        self.selected_index = 0;
-        self.scroll_offset = 0;
+        self.raw_messages = messages;
+
+        // Convert raw messages to SessionListItems
+        let items: Vec<SessionListItem> = self
+            .raw_messages
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .collect();
+
+        self.list_viewer.set_items(items);
     }
 
     pub fn set_filtered_indices(&mut self, indices: Vec<usize>) {
-        self.filtered_indices = indices;
-        if self.selected_index >= self.filtered_indices.len() {
-            self.selected_index = 0;
-            self.scroll_offset = 0;
-        }
+        self.list_viewer.set_filtered_indices(indices);
     }
 
     pub fn set_query(&mut self, query: String) {
@@ -66,6 +70,14 @@ impl SessionViewer {
 
     pub fn set_session_id(&mut self, session_id: Option<String>) {
         self.session_id = session_id;
+    }
+
+    pub fn set_selected_index(&mut self, index: usize) {
+        self.list_viewer.set_selected_index(index);
+    }
+
+    pub fn set_scroll_offset(&mut self, offset: usize) {
+        self.list_viewer.set_scroll_offset(offset);
     }
 
     #[allow(dead_code)]
@@ -133,8 +145,8 @@ impl Component for SessionViewer {
         } else {
             let info_text = format!(
                 "Messages: {} (filtered: {}) | Order: {} | Press '/' to search",
-                self.messages.len(),
-                self.filtered_indices.len(),
+                self.list_viewer.items_count(),
+                self.list_viewer.filtered_count(),
                 match self.order {
                     Some(SessionOrder::Ascending) => "Ascending",
                     Some(SessionOrder::Descending) => "Descending",
@@ -146,141 +158,8 @@ impl Component for SessionViewer {
             f.render_widget(info_bar, chunks[1]);
         }
 
-        // Render message list
-        if self.filtered_indices.is_empty() && !self.messages.is_empty() {
-            // If there are messages but no filtered indices, show all messages
-            self.filtered_indices = (0..self.messages.len()).collect();
-        }
-
-        if self.messages.is_empty() {
-            let empty_msg = Paragraph::new("No messages in session")
-                .block(
-                    Block::default()
-                        .title("Session Messages")
-                        .borders(Borders::ALL),
-                )
-                .style(Style::default().fg(Color::DarkGray));
-            f.render_widget(empty_msg, chunks[2]);
-
-            // Status bar
-            let status = "No messages | I: Copy Session ID | Esc: Back";
-            let status_bar = Paragraph::new(status).style(Style::default().fg(Color::DarkGray));
-            f.render_widget(status_bar, chunks[3]);
-            return;
-        }
-
-        if self.filtered_indices.is_empty() {
-            let empty_msg = Paragraph::new("No messages match the search")
-                .block(
-                    Block::default()
-                        .title("Session Messages")
-                        .borders(Borders::ALL),
-                )
-                .style(Style::default().fg(Color::DarkGray));
-            f.render_widget(empty_msg, chunks[2]);
-
-            // Status bar
-            let status = "No matches | I: Copy Session ID | Esc: Back";
-            let status_bar = Paragraph::new(status).style(Style::default().fg(Color::DarkGray));
-            f.render_widget(status_bar, chunks[3]);
-            return;
-        }
-
-        let available_height = chunks[2].height.saturating_sub(2);
-        let visible_count = available_height as usize;
-
-        // Adjust scroll offset
-        if self.selected_index < self.scroll_offset {
-            self.scroll_offset = self.selected_index;
-        } else if self.selected_index >= self.scroll_offset + visible_count {
-            self.scroll_offset = self.selected_index - visible_count + 1;
-        }
-
-        let start = self.scroll_offset;
-        let end = (start + visible_count).min(self.filtered_indices.len());
-
-        let items: Vec<ListItem> = (start..end)
-            .map(|i| {
-                let msg_idx = self.filtered_indices[i];
-                let is_selected = i == self.selected_index;
-
-                let style = if is_selected {
-                    Style::default()
-                        .bg(Color::DarkGray)
-                        .add_modifier(Modifier::BOLD)
-                } else {
-                    Style::default()
-                };
-
-                // Format the message for display
-                let msg = &self.messages[msg_idx];
-                let display_text =
-                    if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(msg) {
-                        // Try to extract meaningful information from JSON
-                        let role = json_value
-                            .get("type")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("unknown");
-                        let timestamp = json_value
-                            .get("timestamp")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
-                        let content = json_value
-                            .get("message")
-                            .and_then(|m| m.get("content"))
-                            .and_then(|c| c.as_str())
-                            .or_else(|| {
-                                json_value
-                                    .get("message")
-                                    .and_then(|m| m.get("content"))
-                                    .and_then(|c| c.as_array())
-                                    .and_then(|arr| arr.first())
-                                    .and_then(|item| item.get("text"))
-                                    .and_then(|t| t.as_str())
-                            })
-                            .unwrap_or("");
-
-                        let display_timestamp =
-                            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
-                                dt.format("%m/%d %H:%M").to_string()
-                            } else {
-                                timestamp.chars().take(16).collect()
-                            };
-
-                        let truncated_content = content.chars().take(100).collect::<String>();
-                        let suffix = if content.chars().count() > 100 {
-                            "..."
-                        } else {
-                            ""
-                        };
-
-                        format!(
-                            "[{:9}] {} {}{}",
-                            role,
-                            display_timestamp,
-                            truncated_content.replace('\n', " "),
-                            suffix
-                        )
-                    } else {
-                        // If not valid JSON, just show the raw message
-                        msg.chars().take(120).collect::<String>()
-                    };
-
-                ListItem::new(display_text).style(style)
-            })
-            .collect();
-
-        let title = format!(
-            "Session Messages ({}/{}) - Showing {}-{}",
-            self.selected_index + 1,
-            self.filtered_indices.len(),
-            start + 1,
-            end
-        );
-
-        let list = List::new(items).block(Block::default().title(title).borders(Borders::ALL));
-
-        f.render_widget(list, chunks[2]);
+        // Render message list using ListViewer
+        self.list_viewer.render(f, chunks[2]);
 
         // Status bar
         let status = "↑/↓: Navigate | o: Sort | c: Copy | C: Copy All | I: Copy Session ID | /: Search | Esc: Back";
@@ -296,13 +175,11 @@ impl Component for SessionViewer {
                     Some(Message::SessionQueryChanged(self.query.clone()))
                 }
                 KeyCode::Backspace => {
+                    self.query.pop();
                     if self.query.is_empty() {
                         self.is_searching = false;
-                        None
-                    } else {
-                        self.query.pop();
-                        Some(Message::SessionQueryChanged(self.query.clone()))
                     }
+                    Some(Message::SessionQueryChanged(self.query.clone()))
                 }
                 KeyCode::Esc => {
                     self.is_searching = false;
@@ -317,29 +194,33 @@ impl Component for SessionViewer {
             }
         } else {
             match key.code {
-                KeyCode::Up => Some(Message::SessionScrollUp),
-                KeyCode::Down => Some(Message::SessionScrollDown),
+                KeyCode::Up => {
+                    if self.list_viewer.move_up() {
+                        Some(Message::SessionScrollUp)
+                    } else {
+                        None
+                    }
+                }
+                KeyCode::Down => {
+                    if self.list_viewer.move_down() {
+                        Some(Message::SessionScrollDown)
+                    } else {
+                        None
+                    }
+                }
                 KeyCode::Char('/') => {
                     self.is_searching = true;
                     None
                 }
                 KeyCode::Char('o') => Some(Message::ToggleSessionOrder),
-                KeyCode::Char('c') => {
-                    if let Some(&msg_idx) = self.filtered_indices.get(self.selected_index) {
-                        self.messages
-                            .get(msg_idx)
-                            .map(|msg| Message::CopyToClipboard(msg.clone()))
-                    } else {
-                        None
-                    }
-                }
+                KeyCode::Char('c') => self
+                    .list_viewer
+                    .get_selected_item()
+                    .map(|item| Message::CopyToClipboard(item.raw_json.clone())),
                 KeyCode::Char('C') => {
-                    let filtered_messages: Vec<String> = self
-                        .filtered_indices
-                        .iter()
-                        .filter_map(|&idx| self.messages.get(idx).cloned())
-                        .collect();
-                    Some(Message::CopyToClipboard(filtered_messages.join("\n\n")))
+                    // Copy all raw messages for now
+                    // TODO: Add method to ListViewer to get filtered items
+                    Some(Message::CopyToClipboard(self.raw_messages.join("\n\n")))
                 }
                 KeyCode::Char('i') | KeyCode::Char('I') => {
                     self.session_id.clone().map(Message::CopyToClipboard)

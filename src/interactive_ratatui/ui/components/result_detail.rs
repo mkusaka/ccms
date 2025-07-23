@@ -10,6 +10,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
+#[derive(Default)]
 pub struct ResultDetail {
     pub(super) result: Option<SearchResult>,
     pub(super) scroll_offset: usize,

@@ -9,6 +9,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
+#[derive(Default)]
 pub struct SearchBar {
     query: String,
     cursor_position: usize,
