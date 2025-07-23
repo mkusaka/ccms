@@ -101,19 +101,19 @@ mod tests {
 
         // Toggle truncation
         ui_state.truncation_enabled = !ui_state.truncation_enabled;
-        assert_eq!(ui_state.truncation_enabled, false);
+        assert!(!ui_state.truncation_enabled);
 
         // Toggle back
         ui_state.truncation_enabled = !ui_state.truncation_enabled;
-        assert_eq!(ui_state.truncation_enabled, true);
+        assert!(ui_state.truncation_enabled);
     }
 
     #[test]
     fn test_cache_reload_message() {
-        let mut ui_state = UIState::default();
-
-        // Simulate Ctrl+R press
-        ui_state.message = Some("Cache cleared. Reloading...".to_string());
+        let mut ui_state = UIState {
+            message: Some("Cache cleared. Reloading...".to_string()),
+            ..Default::default()
+        };
 
         assert_eq!(
             ui_state.message,
@@ -223,7 +223,7 @@ mod tests {
         assert_eq!(search_state.query, "");
         assert_eq!(search_state.selected_index, 0);
         assert_eq!(search_state.scroll_offset, 0);
-        assert_eq!(search_state.is_searching, false);
+        assert!(!search_state.is_searching);
         // Role filter should persist
         assert_eq!(search_state.role_filter, Some("user".to_string()));
     }

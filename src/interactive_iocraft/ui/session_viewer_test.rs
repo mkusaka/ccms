@@ -245,8 +245,7 @@ mod tests {
 
         // Display format: "Messages (5 total, 3 filtered)"
         let display_text = format!(
-            "Messages ({} total, {} filtered)",
-            total_count, filtered_count
+            "Messages ({total_count} total, {filtered_count} filtered)"
         );
         assert_eq!(display_text, "Messages (5 total, 3 filtered)");
     }

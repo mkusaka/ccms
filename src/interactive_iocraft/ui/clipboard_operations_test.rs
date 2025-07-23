@@ -144,10 +144,10 @@ mod tests {
 
     #[test]
     fn test_copy_error_handling() {
-        let mut ui_state = UIState::default();
-
-        // Simulate clipboard error
-        ui_state.message = Some("Failed to copy: clipboard command not found".to_string());
+        let ui_state = UIState {
+            message: Some("Failed to copy: clipboard command not found".to_string()),
+            ..Default::default()
+        };
 
         assert!(
             ui_state
@@ -165,7 +165,7 @@ mod tests {
         // Short text - shows actual content
         let short_text = "Hello world";
         if short_text.len() < 50 {
-            ui_state.message = Some(format!("✓ Copied: {}", short_text));
+            ui_state.message = Some(format!("✓ Copied: {short_text}"));
         }
         assert_eq!(ui_state.message, Some("✓ Copied: Hello world".to_string()));
 

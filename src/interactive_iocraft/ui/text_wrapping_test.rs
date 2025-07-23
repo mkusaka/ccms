@@ -65,7 +65,7 @@ mod tests {
             .join("");
 
         println!("Reconstructed: '{}'", reconstructed);
-        assert!(reconstructed.contains(long_word) || found_parts.len() > 0);
+        assert!(reconstructed.contains(long_word) || !found_parts.is_empty());
     }
 
     #[test]
