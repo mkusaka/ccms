@@ -172,12 +172,6 @@ impl SearchEngine {
                 now
             });
 
-        let file_name = file_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("unknown")
-            .to_string();
-
         // Use optimized buffer size for JSONL files
         let reader = BufReader::with_capacity(32 * 1024, file);
         let lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
@@ -304,7 +298,7 @@ impl SearchEngine {
                             }
 
                             results.push(SearchResult {
-                                file: file_name.clone(),
+                                file: file_path.to_string_lossy().to_string(),
                                 uuid: message.get_uuid().unwrap_or("").to_string(),
                                 timestamp: final_timestamp,
                                 session_id: message.get_session_id().unwrap_or("").to_string(),

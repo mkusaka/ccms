@@ -10,6 +10,7 @@ use ratatui::{
     widgets::Paragraph,
 };
 
+#[derive(Default)]
 pub struct Renderer {
     search_bar: SearchBar,
     result_list: ResultList,
@@ -99,6 +100,10 @@ impl Renderer {
             .set_file_path(state.session.file_path.clone());
         self.session_viewer
             .set_session_id(state.session.session_id.clone());
+        self.session_viewer
+            .set_selected_index(state.session.selected_index);
+        self.session_viewer
+            .set_scroll_offset(state.session.scroll_offset);
 
         self.session_viewer.render(f, f.area());
     }

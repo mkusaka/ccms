@@ -15,7 +15,7 @@ use crate::SearchOptions;
 
 mod application;
 mod domain;
-mod ui;
+pub mod ui;
 
 #[cfg(test)]
 mod integration_tests;

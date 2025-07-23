@@ -1,4 +1,6 @@
 pub mod help_dialog;
+pub mod list_item;
+pub mod list_viewer;
 pub mod result_detail;
 pub mod result_list;
 pub mod search_bar;
