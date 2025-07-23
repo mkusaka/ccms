@@ -44,6 +44,7 @@ pub struct InteractiveSearch {
     last_search_timer: Option<std::time::Instant>,
     scheduled_search_delay: Option<u64>,
     pattern: String,
+    last_ctrl_c_press: Option<std::time::Instant>,
 }
 
 impl InteractiveSearch {
@@ -65,6 +66,7 @@ impl InteractiveSearch {
             last_search_timer: None,
             scheduled_search_delay: None,
             pattern: String::new(),
+            last_ctrl_c_press: None,
         }
     }
 
@@ -148,6 +150,21 @@ impl InteractiveSearch {
 
     fn handle_input(&mut self, key: KeyEvent) -> Result<bool> {
         use crossterm::event::KeyModifiers;
+
+        // Global Ctrl+C handling for exit
+        if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            if let Some(last_press) = self.last_ctrl_c_press {
+                // Check if second press is within 1 second
+                if last_press.elapsed() < Duration::from_secs(1) {
+                    // Exit application
+                    return Ok(true);
+                }
+            }
+            // First press or timeout expired
+            self.last_ctrl_c_press = Some(std::time::Instant::now());
+            self.state.ui.message = Some("Press Ctrl+C again to exit".to_string());
+            return Ok(false);
+        }
 
         // Global keys
         match key.code {
