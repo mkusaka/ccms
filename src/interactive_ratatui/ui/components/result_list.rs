@@ -366,7 +366,6 @@ impl Component for ResultList {
                 }
             }
             KeyCode::Enter => Some(Message::EnterResultDetail),
-            KeyCode::Char('s') => Some(Message::EnterSessionViewer),
             _ => None,
         }
     }
