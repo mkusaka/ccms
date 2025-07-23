@@ -80,6 +80,10 @@ impl SessionViewer {
         self.list_viewer.set_scroll_offset(offset);
     }
 
+    pub fn set_truncation_enabled(&mut self, enabled: bool) {
+        self.list_viewer.set_truncation_enabled(enabled);
+    }
+
     #[allow(dead_code)]
     pub fn start_search(&mut self) {
         self.is_searching = true;
@@ -162,7 +166,7 @@ impl Component for SessionViewer {
         self.list_viewer.render(f, chunks[2]);
 
         // Status bar
-        let status = "↑/↓: Navigate | o: Sort | c: Copy | C: Copy All | I: Copy Session ID | /: Search | Esc: Back";
+        let status = "↑/↓: Navigate | o: Sort | c: Copy JSON | C: Copy All | F: File | I: Session ID | M: Message | /: Search | Esc: Back";
         let status_bar = Paragraph::new(status).style(Style::default().fg(Color::DarkGray));
         f.render_widget(status_bar, chunks[3]);
     }
@@ -225,6 +229,13 @@ impl Component for SessionViewer {
                 KeyCode::Char('i') | KeyCode::Char('I') => {
                     self.session_id.clone().map(Message::CopyToClipboard)
                 }
+                KeyCode::Char('f') | KeyCode::Char('F') => {
+                    self.file_path.clone().map(Message::CopyToClipboard)
+                }
+                KeyCode::Char('m') | KeyCode::Char('M') => self
+                    .list_viewer
+                    .get_selected_item()
+                    .map(|item| Message::CopyToClipboard(item.content.clone())),
                 KeyCode::Esc => Some(Message::ExitToSearch),
                 _ => None,
             }

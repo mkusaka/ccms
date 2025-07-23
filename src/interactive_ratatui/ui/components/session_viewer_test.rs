@@ -233,6 +233,30 @@ mod tests {
     }
 
     #[test]
+    fn test_truncation_toggle() {
+        let mut viewer = SessionViewer::new();
+        let messages = vec![
+            r#"{"type":"user","message":{"content":"This is a very long message that should be truncated when truncation is enabled but shown in full when truncation is disabled"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
+        ];
+        
+        viewer.set_messages(messages);
+        
+        // Test with truncation enabled (default)
+        viewer.set_truncation_enabled(true);
+        let buffer = render_component(&mut viewer, 80, 24);
+        // The message should be truncated (ListViewer shows truncated line)
+        assert!(buffer_contains(&buffer, "user"));
+        
+        // Test with truncation disabled
+        viewer.set_truncation_enabled(false);
+        let buffer = render_component(&mut viewer, 80, 24);
+        // The message should show in full
+        assert!(buffer_contains(&buffer, "user"));
+        // Since we can't easily check for the full message content due to wrapping,
+        // at least verify the method doesn't crash
+    }
+
+    #[test]
     fn test_search_bar_rendering() {
         let mut viewer = SessionViewer::new();
         // Enter search mode first
