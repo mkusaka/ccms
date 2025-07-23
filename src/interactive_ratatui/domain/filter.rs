@@ -1,4 +1,5 @@
 use crate::query::condition::SearchResult;
+use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
 use anyhow::Result;
 
 pub struct SearchFilter {
@@ -21,15 +22,18 @@ impl SearchFilter {
 pub struct SessionFilter;
 
 impl SessionFilter {
-    pub fn filter_messages(messages: &[String], query: &str) -> Vec<usize> {
+    pub fn filter_messages(items: &[SessionListItem], query: &str) -> Vec<usize> {
         if query.is_empty() {
-            (0..messages.len()).collect()
+            (0..items.len()).collect()
         } else {
             let query_lower = query.to_lowercase();
-            messages
+            items
                 .iter()
                 .enumerate()
-                .filter(|(_, msg)| msg.to_lowercase().contains(&query_lower))
+                .filter(|(_, item)| {
+                    let search_text = item.to_search_text();
+                    search_text.to_lowercase().contains(&query_lower)
+                })
                 .map(|(idx, _)| idx)
                 .collect()
         }
