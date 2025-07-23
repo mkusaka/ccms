@@ -317,8 +317,10 @@ pub fn App(props: &AppProps, mut hooks: Hooks) -> impl Into<AnyElement<'static>>
                         &mut search_state,
                         &mut ui_state,
                         &mut detail_state,
+                        &mut session_state,
                         key,
                         &search_service,
+                        &session_service,
                         &pattern,
                     ),
                     Mode::ResultDetail => handle_detail_input(
@@ -370,8 +372,10 @@ fn handle_search_input(
     search_state: &mut iocraft::hooks::State<SearchState>,
     ui_state: &mut iocraft::hooks::State<UIState>,
     detail_state: &mut iocraft::hooks::State<DetailState>,
+    session_state: &mut iocraft::hooks::State<SessionState>,
     key: iocraft::KeyEvent,
     search_service: &Arc<SearchService>,
+    session_service: &Arc<SessionService>,
     pattern: &str,
 ) {
     use iocraft::{KeyCode, KeyModifiers};
@@ -393,6 +397,41 @@ fn handle_search_input(
                 "Full Text"
             };
             ui_write.message = Some(format!("Display mode: {mode}"));
+        }
+        KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            // Ctrl+S: Enter session viewer for selected result
+            let search_read = search_state.read();
+            if let Some(result) = search_read.results.get(search_read.selected_index) {
+                let mut session_write = session_state.write();
+                session_write.file_path = Some(result.file.clone());
+                session_write.session_id = Some(result.session_id.clone());
+                session_write.query.clear();
+                session_write.selected_index = 0;
+                session_write.scroll_offset = 0;
+
+                // Load session messages
+                match session_service.get_raw_lines(&result.file) {
+                    Ok(lines) => {
+                        session_write.messages = lines;
+                        session_write.filtered_indices =
+                            (0..session_write.messages.len()).collect();
+                    }
+                    Err(e) => {
+                        ui_state.write().message = Some(format!("Failed to load session: {e}"));
+                        return;
+                    }
+                }
+
+                drop(session_write);
+                drop(search_read);
+
+                let mut ui_write = ui_state.write();
+                let current_mode = ui_write.mode;
+                ui_write.mode_stack.push(current_mode);
+                ui_write.mode = Mode::SessionViewer;
+            } else {
+                ui_state.write().message = Some("No result selected".to_string());
+            }
         }
         KeyCode::Char('?') => {
             let mut ui_write = ui_state.write();

@@ -244,9 +244,7 @@ mod tests {
         assert_eq!(filtered_count, 3);
 
         // Display format: "Messages (5 total, 3 filtered)"
-        let display_text = format!(
-            "Messages ({total_count} total, {filtered_count} filtered)"
-        );
+        let display_text = format!("Messages ({total_count} total, {filtered_count} filtered)");
         assert_eq!(display_text, "Messages (5 total, 3 filtered)");
     }
 }

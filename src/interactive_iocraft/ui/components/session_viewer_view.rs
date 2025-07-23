@@ -159,11 +159,13 @@ pub fn SessionViewerView<'a>(props: &SessionViewerViewProps) -> impl Into<AnyEle
 }
 
 fn parse_message_preview(json_line: &str) -> (String, String, String) {
-    // Try to parse the JSON to extract role, timestamp, and content
+    // Try to parse the JSON to extract role/type, timestamp, and content
     if let Ok(msg) = serde_json::from_str::<serde_json::Value>(json_line) {
+        // Try "type" field first (Claude format), then "role" field
         let role = msg
-            .get("role")
+            .get("type")
             .and_then(|r| r.as_str())
+            .or_else(|| msg.get("role").and_then(|r| r.as_str()))
             .unwrap_or("unknown")
             .to_string();
 
