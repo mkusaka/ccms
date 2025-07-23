@@ -14,7 +14,15 @@ impl CacheService {
             files: HashMap::new(),
         }
     }
+}
 
+impl Default for CacheService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CacheService {
     pub fn get_messages(&mut self, path: &Path) -> Result<&CachedFile> {
         let metadata = std::fs::metadata(path)?;
         let modified = metadata.modified()?;
@@ -57,7 +65,7 @@ impl CacheService {
             );
         }
 
-        Ok(self.files.get(path).unwrap())
+        self.files.get(path).ok_or_else(|| anyhow::anyhow!("File not found in cache"))
     }
 
     #[allow(dead_code)]

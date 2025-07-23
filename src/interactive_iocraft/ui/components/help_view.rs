@@ -1,5 +1,5 @@
-use iocraft::prelude::*;
 use crate::interactive_iocraft::ui::UIState;
+use iocraft::prelude::*;
 
 #[derive(Default, Props)]
 pub struct HelpViewProps {
@@ -22,10 +22,10 @@ pub fn HelpView<'a>(_props: &HelpViewProps) -> impl Into<AnyElement<'a>> {
                 align: TextAlign::Center
             )
             Text(content: "")
-            
+
             Text(content: "KEYBOARD SHORTCUTS", weight: Weight::Bold, color: Color::Yellow)
             Text(content: "")
-            
+
             Text(content: "Search Mode:", weight: Weight::Bold)
             View(margin_left: 2) {
                 View(flex_direction: FlexDirection::Column) {
@@ -42,7 +42,7 @@ pub fn HelpView<'a>(_props: &HelpViewProps) -> impl Into<AnyElement<'a>> {
                     HelpItem(label: "Esc/Ctrl+C".to_string(), description: "Exit application".to_string())
                 }
             }
-            
+
             Text(content: "")
             Text(content: "Result Detail Mode:", weight: Weight::Bold)
             View(margin_left: 2) {
@@ -59,7 +59,7 @@ pub fn HelpView<'a>(_props: &HelpViewProps) -> impl Into<AnyElement<'a>> {
                     HelpItem(label: "Esc".to_string(), description: "Return to search".to_string())
                 }
             }
-            
+
             Text(content: "")
             Text(content: "Session Viewer Mode:", weight: Weight::Bold)
             View(margin_left: 2) {
@@ -74,7 +74,7 @@ pub fn HelpView<'a>(_props: &HelpViewProps) -> impl Into<AnyElement<'a>> {
                     HelpItem(label: "Esc/Backspace".to_string(), description: "Return to detail view".to_string())
                 }
             }
-            
+
             Text(content: "")
             Text(content: "SEARCH SYNTAX", weight: Weight::Bold, color: Color::Yellow)
             View(margin_left: 2) {
@@ -88,7 +88,7 @@ pub fn HelpView<'a>(_props: &HelpViewProps) -> impl Into<AnyElement<'a>> {
                     HelpItem(label: "()".to_string(), description: "Group expressions".to_string())
                 }
             }
-            
+
             Text(content: "")
             Text(
                 content: "Press any key to close this help",

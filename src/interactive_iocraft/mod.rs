@@ -7,13 +7,12 @@ pub mod ui;
 
 use crate::SearchOptions;
 
-pub async fn run_interactive_iocraft(
-    pattern: &str,
-    options: SearchOptions,
-) -> Result<()> {
+pub async fn run_interactive_iocraft(pattern: &str, options: SearchOptions) -> Result<()> {
     let pattern = pattern.to_string();
     element! {
         ui::App(pattern: pattern, options: options)
-    }.render_loop().await?;
+    }
+    .render_loop()
+    .await?;
     Ok(())
 }

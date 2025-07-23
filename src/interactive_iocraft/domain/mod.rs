@@ -1,5 +1,5 @@
-pub mod models;
 pub mod filter;
+pub mod models;
 
-pub use models::*;
 pub use filter::*;
+pub use models::*;

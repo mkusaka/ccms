@@ -2,8 +2,9 @@ use crate::SessionMessage;
 use crate::query::condition::SearchResult;
 use std::time::SystemTime;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub enum Mode {
+    #[default]
     Search,
     ResultDetail,
     SessionViewer,

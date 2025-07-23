@@ -1,5 +1,5 @@
-use iocraft::prelude::*;
 use crate::interactive_iocraft::ui::{DetailState, UIState};
+use iocraft::prelude::*;
 
 #[derive(Default, Props)]
 pub struct ResultDetailViewProps {
@@ -19,29 +19,26 @@ pub fn ResultDetailView<'a>(props: &ResultDetailViewProps) -> impl Into<AnyEleme
             };
         }
     };
-    
+
     // Format timestamp
     let timestamp_str = if let Ok(ts) = chrono::DateTime::parse_from_rfc3339(&result.timestamp) {
         ts.format("%Y-%m-%d %H:%M:%S").to_string()
     } else {
         "Unknown".to_string()
     };
-    
+
     // Extract project path
-    let project_path = extract_project_path(&result.file)
-        .unwrap_or_else(|| result.project_path.clone());
-    
+    let project_path =
+        extract_project_path(&result.file).unwrap_or_else(|| result.project_path.clone());
+
     let file_name = std::path::Path::new(&result.file)
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("Unknown");
-    
+
     // Split content into lines for scrolling
-    let content_lines: Vec<String> = result.text
-        .lines()
-        .map(|line| line.to_string())
-        .collect();
-    
+    let content_lines: Vec<String> = result.text.lines().map(|line| line.to_string()).collect();
+
     element! {
         View(flex_direction: FlexDirection::Column) {
             // Header separator
@@ -49,7 +46,7 @@ pub fn ResultDetailView<'a>(props: &ResultDetailViewProps) -> impl Into<AnyEleme
                 content: "─".repeat(80),
                 color: Color::Grey
             )
-            
+
             // Metadata
             View(flex_direction: FlexDirection::Row) {
                 Text(content: "Role: ", weight: Weight::Bold)
@@ -75,13 +72,13 @@ pub fn ResultDetailView<'a>(props: &ResultDetailViewProps) -> impl Into<AnyEleme
                 Text(content: "Session: ", weight: Weight::Bold)
                 Text(content: result.session_id.clone())
             }
-            
+
             // Content separator
             Text(
                 content: "─".repeat(80),
                 color: Color::Grey
             )
-            
+
             // Content with scrolling
             View(flex_direction: FlexDirection::Column) {
                 #(content_lines.iter()
@@ -93,13 +90,13 @@ pub fn ResultDetailView<'a>(props: &ResultDetailViewProps) -> impl Into<AnyEleme
                         }
                     }))
             }
-            
+
             // Footer separator
             Text(
                 content: "─".repeat(80),
                 color: Color::Grey
             )
-            
+
             // Actions
             Text(content: "\nActions:", weight: Weight::Bold)
             Text(content: "  [S] - View full session")
@@ -113,21 +110,17 @@ pub fn ResultDetailView<'a>(props: &ResultDetailViewProps) -> impl Into<AnyEleme
             Text(content: "  [PageDown] - Scroll down 10 lines")
             Text(content: "  [PageUp] - Scroll up 10 lines")
             Text(content: "  [Esc] - Return to search results")
-            
+
             // Message
-            #( if let Some(ref msg) = props.ui_state.message {
-                Some(element! {
-                    View(flex_direction: FlexDirection::Column) {
-                        Text(content: "")
-                        Text(
-                            content: msg.clone(),
-                            color: if msg.starts_with('✓') { Color::Green } else { Color::Yellow }
-                        )
-                    }
-                })
-            } else {
-                None
-            })
+            #( props.ui_state.message.as_ref().map(|msg| element! {
+                View(flex_direction: FlexDirection::Column) {
+                    Text(content: "")
+                    Text(
+                        content: msg.clone(),
+                        color: if msg.starts_with('✓') { Color::Green } else { Color::Yellow }
+                    )
+                }
+            }))
         }
     }
 }

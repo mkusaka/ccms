@@ -1,5 +1,5 @@
-use iocraft::prelude::*;
 use crate::interactive_iocraft::ui::{SearchState, UIState};
+use iocraft::prelude::*;
 
 #[derive(Default, Props)]
 pub struct SearchViewProps {
@@ -10,11 +10,11 @@ pub struct SearchViewProps {
 #[component]
 pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
     let role_prefix = if let Some(ref role) = props.search_state.role_filter {
-        format!("[{}] ", role)
+        format!("[{role}] ")
     } else {
         String::new()
     };
-    
+
     let search_status = if props.search_state.is_searching {
         "searching..."
     } else if props.search_state.query.is_empty() {
@@ -22,7 +22,7 @@ pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
     } else {
         "typing..."
     };
-    
+
     element! {
         View(flex_direction: FlexDirection::Column) {
             // Header
@@ -36,7 +36,7 @@ pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
                 color: Color::Grey
             )
             Text(content: "")
-            
+
             // Search bar
             View(flex_direction: FlexDirection::Row) {
                 Text(content: format!("Search{}: ", role_prefix))
@@ -59,7 +59,7 @@ pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
                     None
                 })
             }
-            
+
             // Result count
             #( if !props.search_state.results.is_empty() {
                 Some(element! {
@@ -71,39 +71,52 @@ pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
             } else {
                 None
             })
-            
+
             // Message
-            #( if let Some(ref msg) = props.ui_state.message {
-                Some(element! {
-                    Text(
-                        content: msg.clone(),
-                        color: if msg.starts_with('✓') { Color::Green } else { Color::Yellow }
-                    )
-                })
-            } else {
-                None
-            })
-            
+            #( props.ui_state.message.as_ref().map(|msg| element! {
+                Text(
+                    content: msg.clone(),
+                    color: if msg.starts_with('✓') { Color::Green } else { Color::Yellow }
+                )
+            }))
+
             Text(content: "")
-            
+
             // Results list
             View(flex_direction: FlexDirection::Column) {
                 #(props.search_state.results.iter().enumerate().skip(props.search_state.scroll_offset).take(10).map(|(idx, result)| {
                     let is_selected = idx == props.search_state.selected_index;
                     let role_color = Color::Yellow;
                     let text_color = if is_selected { Color::White } else { Color::Grey };
-                    
+
                     // Format timestamp
                     let timestamp_str = if let Ok(ts) = chrono::DateTime::parse_from_rfc3339(&result.timestamp) {
                         ts.format("%m/%d %H:%M").to_string()
                     } else {
                         "??/?? ??:??".to_string()
                     };
-                    
-                    // Preview text
-                    let preview = result.text.chars().take(40).collect::<String>()
-                        .replace('\n', " ") + if result.text.len() > 40 { "..." } else { "" };
-                    
+
+                    // Preview text - respect truncation mode
+                    let preview = if props.ui_state.truncation_enabled {
+                        // Truncated mode - show limited preview
+                        let text = result.text.chars().take(80).collect::<String>()
+                            .replace('\n', " ");
+                        if result.text.len() > 80 {
+                            format!("{text}...")
+                        } else {
+                            text
+                        }
+                    } else {
+                        // Full text mode - show more content
+                        let text = result.text.chars().take(200).collect::<String>()
+                            .replace('\n', " ");
+                        if result.text.len() > 200 {
+                            format!("{text}...")
+                        } else {
+                            text
+                        }
+                    };
+
                     element! {
                         View(flex_direction: FlexDirection::Row) {
                         Text(
@@ -131,7 +144,7 @@ pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
                     }
                 }))
             }
-            
+
             // More results indicator
             #( if props.search_state.results.len() > props.search_state.scroll_offset + 10 {
                 Some(element! {
@@ -143,7 +156,7 @@ pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
             } else {
                 None
             })
-            
+
             // Truncation mode indicator
             Text(content: "")
             #( if props.ui_state.truncation_enabled {

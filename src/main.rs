@@ -76,7 +76,7 @@ struct Cli {
     /// Interactive search mode (fzf-like)
     #[arg(short = 'i', long)]
     interactive: bool,
-    
+
     /// Use iocraft UI instead of ratatui
     #[arg(long)]
     iocraft: bool,
@@ -181,8 +181,7 @@ fn main() -> Result<()> {
         if cli.iocraft {
             // Use iocraft implementation
             return smol::block_on(ccms::interactive_iocraft::run_interactive_iocraft(
-                pattern,
-                options,
+                pattern, options,
             ));
         } else {
             // Use ratatui implementation
