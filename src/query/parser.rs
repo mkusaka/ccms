@@ -1,5 +1,5 @@
 use nom::{
-    IResult,
+    IResult, Parser,
     branch::alt,
     bytes::complete::{tag, take_while, take_while1},
     character::complete::{char, multispace0, multispace1},
@@ -47,7 +47,7 @@ fn or_expression(input: &str) -> IResult<&str, QueryCondition> {
                 conditions: vec![acc, next],
             },
         },
-    )(input)
+    ).parse(input)
 }
 
 fn and_expression(input: &str) -> IResult<&str, QueryCondition> {
@@ -68,7 +68,7 @@ fn and_expression(input: &str) -> IResult<&str, QueryCondition> {
                 conditions: vec![acc, next],
             },
         },
-    )(input)
+    ).parse(input)
 }
 
 fn not_expression(input: &str) -> IResult<&str, QueryCondition> {
@@ -80,7 +80,7 @@ fn not_expression(input: &str) -> IResult<&str, QueryCondition> {
             },
         ),
         primary_expression,
-    ))(input)
+    )).parse(input)
 }
 
 fn primary_expression(input: &str) -> IResult<&str, QueryCondition> {
@@ -89,7 +89,7 @@ fn primary_expression(input: &str) -> IResult<&str, QueryCondition> {
         preceded(multispace0, regex_expression),
         preceded(multispace0, quoted_literal),
         preceded(multispace0, unquoted_literal),
-    ))(input)
+    )).parse(input)
 }
 
 fn parenthesized_expression(input: &str) -> IResult<&str, QueryCondition> {
@@ -97,7 +97,7 @@ fn parenthesized_expression(input: &str) -> IResult<&str, QueryCondition> {
         char('('),
         preceded(multispace0, query),
         preceded(multispace0, char(')')),
-    )(input)
+    ).parse(input)
 }
 
 fn regex_expression(input: &str) -> IResult<&str, QueryCondition> {
@@ -140,7 +140,7 @@ fn regex_pattern(input: &str) -> IResult<&str, &str> {
 fn regex_flags(input: &str) -> IResult<&str, &str> {
     recognize(take_while(|c: char| {
         matches!(c, 'i' | 'm' | 's' | 'u' | 'x')
-    }))(input)
+    })).parse(input)
 }
 
 fn quoted_literal(input: &str) -> IResult<&str, QueryCondition> {
@@ -153,7 +153,7 @@ fn quoted_literal(input: &str) -> IResult<&str, QueryCondition> {
             pattern: s.to_string(),
             case_sensitive: false,
         }),
-    ))(input)
+    )).parse(input)
 }
 
 fn double_quoted_string(input: &str) -> IResult<&str, String> {
