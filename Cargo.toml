@@ -51,7 +51,7 @@ colored = "2.1"
 
 # TUI framework
 ratatui = "0.28"
-crossterm = "0.28"
+crossterm = "0.29"
 
 
 # Profiling and tracing
