@@ -84,7 +84,7 @@ mod tests {
         use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
         
         // Create test JSONL data
-        let jsonl_data = vec![
+        let jsonl_data = [
             r#"{"type":"user","message":{"role":"user","content":"Hello world"},"uuid":"1","timestamp":"2024-12-25T14:30:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"assistant","message":{"role":"assistant","content":"How are you?"},"uuid":"2","timestamp":"2024-12-25T14:31:00Z","sessionId":"session1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"system","content":"I'm fine, thanks","uuid":"3","timestamp":"2024-12-25T14:32:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
@@ -106,7 +106,7 @@ mod tests {
     fn test_session_filter_case_insensitive() {
         use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
         
-        let jsonl_data = vec![
+        let jsonl_data = [
             r#"{"type":"user","message":{"role":"user","content":"Hello World"},"uuid":"1","timestamp":"2024-12-25T14:30:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"assistant","message":{"role":"assistant","content":"goodbye world"},"uuid":"2","timestamp":"2024-12-25T14:31:00Z","sessionId":"session1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"system","content":"WORLD champion","uuid":"3","timestamp":"2024-12-25T14:32:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
@@ -128,7 +128,7 @@ mod tests {
     fn test_session_filter_partial_match() {
         use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
         
-        let jsonl_data = vec![
+        let jsonl_data = [
             r#"{"type":"user","message":{"role":"user","content":"The quick brown fox"},"uuid":"1","timestamp":"2024-12-25T14:30:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"assistant","message":{"role":"assistant","content":"jumps over the lazy dog"},"uuid":"2","timestamp":"2024-12-25T14:31:00Z","sessionId":"session1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"system","content":"The fox is quick","uuid":"3","timestamp":"2024-12-25T14:32:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
@@ -149,7 +149,7 @@ mod tests {
     fn test_session_filter_unicode() {
         use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
         
-        let jsonl_data = vec![
+        let jsonl_data = [
             r#"{"type":"user","message":{"role":"user","content":"こんにちは世界"},"uuid":"1","timestamp":"2024-12-25T14:30:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"assistant","message":{"role":"assistant","content":"Hello 世界"},"uuid":"2","timestamp":"2024-12-25T14:31:00Z","sessionId":"session1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"system","content":"世界 is world","uuid":"3","timestamp":"2024-12-25T14:32:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
@@ -171,7 +171,7 @@ mod tests {
     fn test_session_filter_whitespace() {
         use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
         
-        let jsonl_data = vec![
+        let jsonl_data = [
             r#"{"type":"user","message":{"role":"user","content":"  Hello  World  "},"uuid":"1","timestamp":"2024-12-25T14:30:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"assistant","message":{"role":"assistant","content":"Hello\tWorld"},"uuid":"2","timestamp":"2024-12-25T14:31:00Z","sessionId":"session1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"system","content":"Hello\nWorld","uuid":"3","timestamp":"2024-12-25T14:32:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
@@ -211,7 +211,7 @@ mod tests {
         use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
         
         // This test validates that search now works on display text, not raw JSON
-        let jsonl_data = vec![
+        let jsonl_data = [
             r#"{"type":"user","message":{"role":"user","content":"Hello, how can I help you?"},"uuid":"1","timestamp":"2024-12-25T14:30:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"assistant","message":{"role":"assistant","content":"I'm here to assist you!"},"uuid":"2","timestamp":"2024-12-25T14:31:00Z","sessionId":"session1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
             r#"{"type":"system","content":"System initialized","uuid":"3","timestamp":"2024-12-25T14:32:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#,
