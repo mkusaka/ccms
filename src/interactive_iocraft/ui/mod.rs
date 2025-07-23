@@ -29,6 +29,7 @@ use crate::interactive_iocraft::application::{CacheService, SearchService, Sessi
 use crate::interactive_iocraft::domain::{Mode, SearchRequest};
 use crate::query::condition::SearchResult;
 use iocraft::prelude::*;
+use iocraft::{KeyCode, KeyModifiers};
 use std::sync::{Arc, Mutex};
 
 // State split into smaller parts for use_state
@@ -311,6 +312,14 @@ pub fn App(props: &AppProps, mut hooks: Hooks) -> impl Into<AnyElement<'static>>
 
         move |event| {
             if let TerminalEvent::Key(key) = event {
+                // Global key handling - works in all modes
+                match key.code {
+                    KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        std::process::exit(0);
+                    }
+                    _ => {}
+                }
+                
                 let current_mode = ui_state.read().mode;
                 match current_mode {
                     Mode::Search => handle_search_input(
@@ -381,9 +390,6 @@ fn handle_search_input(
     use iocraft::{KeyCode, KeyModifiers};
 
     match key.code {
-        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            std::process::exit(0);
-        }
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             ui_state.write().message = Some("Cache cleared. Reloading...".to_string());
             perform_search(search_state, search_service, pattern);
@@ -593,6 +599,7 @@ fn handle_search_input(
             search_write.scroll_offset = search_write.calculate_scroll_offset(visible_height);
         }
         KeyCode::Esc => {
+            // In Search mode, Esc exits the application
             std::process::exit(0);
         }
         _ => {}
