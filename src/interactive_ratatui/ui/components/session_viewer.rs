@@ -225,7 +225,7 @@ impl Component for SessionViewer {
                 KeyCode::Char('i') | KeyCode::Char('I') => {
                     self.session_id.clone().map(Message::CopyToClipboard)
                 }
-                KeyCode::Backspace | KeyCode::Esc => Some(Message::ExitToSearch),
+                KeyCode::Esc => Some(Message::ExitToSearch),
                 _ => None,
             }
         }

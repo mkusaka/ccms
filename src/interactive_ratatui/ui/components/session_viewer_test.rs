@@ -187,10 +187,6 @@ mod tests {
         // Test ESC key
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()));
         assert!(matches!(msg, Some(Message::ExitToSearch)));
-
-        // Test Backspace key
-        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::ExitToSearch)));
     }
 
     #[test]
