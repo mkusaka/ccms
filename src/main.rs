@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ccms::{
     SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
-    interactive_ratatui::InteractiveSearch, parse_query, profiling,
+    parse_query, profiling,
 };
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
@@ -77,9 +77,6 @@ struct Cli {
     #[arg(short = 'i', long)]
     interactive: bool,
 
-    /// Use iocraft UI instead of ratatui
-    #[arg(long)]
-    iocraft: bool,
 
     /// Filter by project path (e.g., current directory: $(pwd))
     #[arg(long = "project")]
@@ -178,16 +175,10 @@ fn main() -> Result<()> {
             project_path: cli.project_path.clone(),
         };
 
-        if cli.iocraft {
-            // Use iocraft implementation
-            return smol::block_on(ccms::interactive_iocraft::run_interactive_iocraft(
-                pattern, options,
-            ));
-        } else {
-            // Use ratatui implementation
-            let mut interactive = InteractiveSearch::new(options);
-            return interactive.run(pattern);
-        }
+        // Default to iocraft implementation for interactive mode
+        return smol::block_on(ccms::interactive_iocraft::run_interactive_iocraft(
+            pattern, options,
+        ));
     }
 
     // Regular search mode - query is required
