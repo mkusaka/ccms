@@ -524,4 +524,104 @@ mod tests {
         assert!(buffer_contains(buffer, "assistant"));
         assert!(buffer_contains(buffer, "Hi"));
     }
+
+    /// Test double Ctrl+C to exit
+    #[test]
+    fn test_double_ctrl_c_exit() {
+        use std::thread;
+        use std::time::Duration;
+        
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // First Ctrl+C should not exit but show message
+        let should_exit = app
+            .handle_input(KeyEvent::new(
+                KeyCode::Char('c'),
+                KeyModifiers::CONTROL,
+            ))
+            .unwrap();
+        assert!(!should_exit, "First Ctrl+C should not exit");
+        assert_eq!(
+            app.state.ui.message,
+            Some("Press Ctrl+C again to exit".to_string()),
+            "Should show exit instruction after first Ctrl+C"
+        );
+
+        // Second Ctrl+C immediately should exit
+        let should_exit = app
+            .handle_input(KeyEvent::new(
+                KeyCode::Char('c'),
+                KeyModifiers::CONTROL,
+            ))
+            .unwrap();
+        assert!(should_exit, "Second Ctrl+C should exit");
+
+        // Reset the app for timeout test
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // First Ctrl+C
+        let should_exit = app
+            .handle_input(KeyEvent::new(
+                KeyCode::Char('c'),
+                KeyModifiers::CONTROL,
+            ))
+            .unwrap();
+        assert!(!should_exit, "First Ctrl+C should not exit");
+
+        // Wait more than 1 second
+        thread::sleep(Duration::from_millis(1100));
+
+        // Second Ctrl+C after timeout should not exit
+        let should_exit = app
+            .handle_input(KeyEvent::new(
+                KeyCode::Char('c'),
+                KeyModifiers::CONTROL,
+            ))
+            .unwrap();
+        assert!(!should_exit, "Ctrl+C after timeout should not exit");
+        assert_eq!(
+            app.state.ui.message,
+            Some("Press Ctrl+C again to exit".to_string()),
+            "Should show exit instruction again after timeout"
+        );
+    }
+
+    /// Test Ctrl+C works in all modes
+    #[test]
+    fn test_ctrl_c_in_all_modes() {
+        let modes = vec![
+            Mode::Search,
+            Mode::ResultDetail,
+            Mode::SessionViewer,
+            Mode::Help,
+        ];
+
+        for mode in modes {
+            let mut app = InteractiveSearch::new(SearchOptions::default());
+            app.state.mode = mode;
+
+            // First Ctrl+C should show message in any mode
+            let should_exit = app
+                .handle_input(KeyEvent::new(
+                    KeyCode::Char('c'),
+                    KeyModifiers::CONTROL,
+                ))
+                .unwrap();
+            assert!(!should_exit, "First Ctrl+C should not exit in {mode:?}");
+            assert_eq!(
+                app.state.ui.message,
+                Some("Press Ctrl+C again to exit".to_string()),
+                "Should show exit instruction in {mode:?}"
+            );
+
+            // Second Ctrl+C should exit from any mode
+            let should_exit = app
+                .handle_input(KeyEvent::new(
+                    KeyCode::Char('c'),
+                    KeyModifiers::CONTROL,
+                ))
+                .unwrap();
+            assert!(should_exit, "Second Ctrl+C should exit from {mode:?}");
+        }
+    }
 }
