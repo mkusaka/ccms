@@ -40,14 +40,31 @@ pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
             // Search bar
             View(flex_direction: FlexDirection::Row) {
                 Text(content: format!("Search{}: ", role_prefix))
-                Text(
-                    content: props.search_state.query.clone(),
-                    color: Color::White
-                )
-                Text(
-                    content: " ",
-                    color: Color::White
-                )
+
+                // Display query with cursor
+                #( {
+                    let chars: Vec<char> = props.search_state.query.chars().collect();
+                    let cursor_pos = props.search_state.cursor_position;
+                    let mut display_string = String::new();
+
+                    // Build display string with cursor
+                    for (i, ch) in chars.iter().enumerate() {
+                        if i == cursor_pos {
+                            display_string.push('|'); // Cursor marker
+                        }
+                        display_string.push(*ch);
+                    }
+
+                    // If cursor is at the end
+                    if cursor_pos >= chars.len() {
+                        display_string.push('|');
+                    }
+
+                    vec![element! {
+                        Text(content: display_string, color: Color::White)
+                    }]
+                })
+
                 #( if !search_status.is_empty() {
                     Some(element! {
                         Text(
@@ -84,7 +101,11 @@ pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
 
             // Results list
             View(flex_direction: FlexDirection::Column) {
-                #(props.search_state.results.iter().enumerate().skip(props.search_state.scroll_offset).take(10).map(|(idx, result)| {
+                #({
+                    let (start, end) = props.search_state.calculate_visible_range(props.ui_state.terminal_height);
+                    let start_copy = start;
+                    props.search_state.results[start..end].iter().enumerate().map(move |(i, result)| {
+                        let idx = start_copy + i;
                     let is_selected = idx == props.search_state.selected_index;
                     let role_color = Color::Yellow;
                     let text_color = if is_selected { Color::White } else { Color::Grey };
@@ -144,19 +165,23 @@ pub fn SearchView<'a>(props: &SearchViewProps) -> impl Into<AnyElement<'a>> {
                         )
                         }
                     }
-                }))
+                    })
+                })
             }
 
             // More results indicator
-            #( if props.search_state.results.len() > props.search_state.scroll_offset + 10 {
-                Some(element! {
-                    Text(
-                        content: format!("... and {} more results", props.search_state.results.len() - props.search_state.scroll_offset - 10),
-                        color: Color::Grey
-                    )
-                })
-            } else {
-                None
+            #( {
+                let (_, end) = props.search_state.calculate_visible_range(props.ui_state.terminal_height);
+                if props.search_state.results.len() > end {
+                    Some(element! {
+                        Text(
+                            content: format!("... and {} more results", props.search_state.results.len() - end),
+                            color: Color::Grey
+                        )
+                    })
+                } else {
+                    None
+                }
             })
 
             // Truncation mode indicator

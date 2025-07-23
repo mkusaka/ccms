@@ -1,9 +1,15 @@
 pub mod clipboard;
 pub mod components;
 #[cfg(test)]
+mod cursor_management_test;
+#[cfg(test)]
 mod display_size_test;
 #[cfg(test)]
+mod dynamic_size_test;
+#[cfg(test)]
 mod multibyte_test;
+#[cfg(test)]
+mod text_wrapping_test;
 
 use self::clipboard::copy_to_clipboard;
 use self::components::help_view::HelpView;
@@ -26,6 +32,201 @@ pub struct SearchState {
     pub selected_index: usize,
     pub scroll_offset: usize,
     pub is_searching: bool,
+    pub cursor_position: usize,
+}
+
+impl SearchState {
+    pub fn move_cursor_left(&mut self) {
+        if self.cursor_position > 0 {
+            self.cursor_position -= 1;
+        }
+    }
+
+    pub fn move_cursor_right(&mut self) {
+        let char_count = self.query.chars().count();
+        if self.cursor_position < char_count {
+            self.cursor_position += 1;
+        }
+    }
+
+    pub fn move_cursor_to_start(&mut self) {
+        self.cursor_position = 0;
+    }
+
+    pub fn move_cursor_to_end(&mut self) {
+        self.cursor_position = self.query.chars().count();
+    }
+
+    pub fn move_cursor_word_left(&mut self) {
+        if self.cursor_position == 0 {
+            return;
+        }
+
+        let chars: Vec<char> = self.query.chars().collect();
+        let mut pos = self.cursor_position - 1;
+
+        // Skip whitespace backwards
+        while pos > 0 && chars[pos].is_whitespace() {
+            pos -= 1;
+        }
+
+        // Skip word backwards
+        while pos > 0 && !chars[pos - 1].is_whitespace() {
+            pos -= 1;
+        }
+
+        self.cursor_position = pos;
+    }
+
+    pub fn move_cursor_word_right(&mut self) {
+        let chars: Vec<char> = self.query.chars().collect();
+        let len = chars.len();
+
+        if self.cursor_position >= len {
+            return;
+        }
+
+        let mut pos = self.cursor_position;
+
+        // Skip current word
+        while pos < len && !chars[pos].is_whitespace() {
+            pos += 1;
+        }
+
+        // Skip whitespace
+        while pos < len && chars[pos].is_whitespace() {
+            pos += 1;
+        }
+
+        self.cursor_position = pos;
+    }
+
+    pub fn insert_char_at_cursor(&mut self, ch: char) {
+        let chars: Vec<char> = self.query.chars().collect();
+        let mut new_chars = Vec::with_capacity(chars.len() + 1);
+
+        new_chars.extend_from_slice(&chars[..self.cursor_position]);
+        new_chars.push(ch);
+        new_chars.extend_from_slice(&chars[self.cursor_position..]);
+
+        self.query = new_chars.into_iter().collect();
+        self.cursor_position += 1;
+    }
+
+    pub fn delete_char_before_cursor(&mut self) {
+        if self.cursor_position == 0 {
+            return;
+        }
+
+        let chars: Vec<char> = self.query.chars().collect();
+        let mut new_chars = Vec::with_capacity(chars.len() - 1);
+
+        new_chars.extend_from_slice(&chars[..self.cursor_position - 1]);
+        new_chars.extend_from_slice(&chars[self.cursor_position..]);
+
+        self.query = new_chars.into_iter().collect();
+        self.cursor_position -= 1;
+    }
+
+    pub fn delete_char_at_cursor(&mut self) {
+        let chars: Vec<char> = self.query.chars().collect();
+        if self.cursor_position >= chars.len() {
+            return;
+        }
+
+        let mut new_chars = Vec::with_capacity(chars.len() - 1);
+        new_chars.extend_from_slice(&chars[..self.cursor_position]);
+        new_chars.extend_from_slice(&chars[self.cursor_position + 1..]);
+
+        self.query = new_chars.into_iter().collect();
+    }
+
+    // Calculate dynamic scroll offset
+    pub fn calculate_scroll_offset(&self, visible_height: usize) -> usize {
+        if self.selected_index < visible_height / 2 {
+            0
+        } else if self.selected_index >= self.results.len().saturating_sub(visible_height / 2) {
+            self.results.len().saturating_sub(visible_height)
+        } else {
+            self.selected_index.saturating_sub(visible_height / 2)
+        }
+    }
+
+    // Calculate dynamic visible range
+    pub fn calculate_visible_range(&self, terminal_height: usize) -> (usize, usize) {
+        let header_lines = 7; // Based on actual header line count
+        let footer_lines = 3; // Based on actual footer line count
+        let visible_height = terminal_height
+            .saturating_sub(header_lines + footer_lines)
+            .max(1);
+
+        let scroll_offset = self.calculate_scroll_offset(visible_height);
+        let end_index = (scroll_offset + visible_height).min(self.results.len());
+
+        (scroll_offset, end_index)
+    }
+
+    // Wrap text to fit within specified width
+    pub fn wrap_text(text: &str, width: usize) -> Vec<String> {
+        if text.is_empty() {
+            return vec![String::new()];
+        }
+
+        if width == 0 {
+            return vec![text.to_string()];
+        }
+
+        let mut wrapped_lines = Vec::new();
+
+        // First split by existing newlines
+        for line in text.split('\n') {
+            if line.chars().count() <= width {
+                wrapped_lines.push(line.to_string());
+            } else {
+                // Need to wrap this line
+                let chars: Vec<char> = line.chars().collect();
+                let mut start = 0;
+
+                while start < chars.len() {
+                    // Find the end position for this line
+                    let mut end = (start + width).min(chars.len());
+
+                    // If we're not at the end of the text and the break point is not a space,
+                    // try to find the last space before the break point
+                    if end < chars.len() && end > start {
+                        let mut last_space = None;
+
+                        // Look for the last space in the current segment
+                        for (i, &ch) in chars[start..end].iter().enumerate() {
+                            if ch == ' ' {
+                                last_space = Some(start + i + 1); // Include the space in the line
+                            }
+                        }
+
+                        // If we found a space, use it as the break point
+                        if let Some(space_pos) = last_space {
+                            end = space_pos;
+                        } else if chars.get(end) == Some(&' ') {
+                            // If the break point is exactly on a space, include it
+                            end += 1;
+                        }
+                    }
+
+                    // Collect the characters for this line
+                    let line_chars: String = chars[start..end].iter().collect();
+                    wrapped_lines.push(line_chars.trim().to_string());
+
+                    // Move start position, skipping any leading spaces
+                    start = end;
+                    while start < chars.len() && chars[start] == ' ' {
+                        start += 1;
+                    }
+                }
+            }
+        }
+
+        wrapped_lines
+    }
 }
 
 #[derive(Clone, Default)]
@@ -51,6 +252,7 @@ pub struct UIState {
     pub message: Option<String>,
     pub truncation_enabled: bool,
     pub mode_stack: Vec<Mode>,
+    pub terminal_height: usize,
 }
 impl Default for UIState {
     fn default() -> Self {
@@ -59,6 +261,7 @@ impl Default for UIState {
             message: None,
             truncation_enabled: true,
             mode_stack: vec![],
+            terminal_height: 30, // Default value
         }
     }
 }
@@ -233,29 +436,51 @@ fn handle_search_input(
             }
         }
         KeyCode::Char(c) => {
-            search_state.write().query.push(c);
+            search_state.write().insert_char_at_cursor(c);
             perform_search(search_state, search_service, pattern);
         }
         KeyCode::Backspace => {
-            search_state.write().query.pop();
+            search_state.write().delete_char_before_cursor();
             perform_search(search_state, search_service, pattern);
+        }
+        KeyCode::Delete => {
+            search_state.write().delete_char_at_cursor();
+            perform_search(search_state, search_service, pattern);
+        }
+        KeyCode::Left => {
+            if key.modifiers.contains(KeyModifiers::CONTROL) {
+                search_state.write().move_cursor_word_left();
+            } else {
+                search_state.write().move_cursor_left();
+            }
+        }
+        KeyCode::Right => {
+            if key.modifiers.contains(KeyModifiers::CONTROL) {
+                search_state.write().move_cursor_word_right();
+            } else {
+                search_state.write().move_cursor_right();
+            }
         }
         KeyCode::Up => {
             let mut search_write = search_state.write();
             if search_write.selected_index > 0 {
                 search_write.selected_index -= 1;
-                if search_write.selected_index < search_write.scroll_offset {
-                    search_write.scroll_offset = search_write.selected_index;
-                }
+                // Dynamic scroll adjustment
+                let ui_read = ui_state.read();
+                let visible_height = ui_read.terminal_height.saturating_sub(10).max(1);
+                drop(ui_read);
+                search_write.scroll_offset = search_write.calculate_scroll_offset(visible_height);
             }
         }
         KeyCode::Down => {
             let mut search_write = search_state.write();
             if search_write.selected_index < search_write.results.len().saturating_sub(1) {
                 search_write.selected_index += 1;
-                if search_write.selected_index >= search_write.scroll_offset + 10 {
-                    search_write.scroll_offset = search_write.selected_index - 9;
-                }
+                // Dynamic scroll adjustment
+                let ui_read = ui_state.read();
+                let visible_height = ui_read.terminal_height.saturating_sub(10).max(1);
+                drop(ui_read);
+                search_write.scroll_offset = search_write.calculate_scroll_offset(visible_height);
             }
         }
         KeyCode::Enter => {
@@ -274,31 +499,51 @@ fn handle_search_input(
             }
         }
         KeyCode::Home => {
-            let mut search_write = search_state.write();
-            search_write.selected_index = 0;
-            search_write.scroll_offset = 0;
+            if key.modifiers.contains(KeyModifiers::CONTROL) || key.modifiers.is_empty() {
+                // Ctrl+Home or Home: Move cursor to start for text editing
+                search_state.write().move_cursor_to_start();
+            } else if key.modifiers.contains(KeyModifiers::SHIFT) {
+                // Shift+Home: Jump to start of results list
+                let mut search_write = search_state.write();
+                search_write.selected_index = 0;
+                search_write.scroll_offset = 0;
+            }
         }
         KeyCode::End => {
-            let mut search_write = search_state.write();
-            if !search_write.results.is_empty() {
-                search_write.selected_index = search_write.results.len() - 1;
-                search_write.scroll_offset = search_write.selected_index.saturating_sub(9);
+            if key.modifiers.contains(KeyModifiers::CONTROL) || key.modifiers.is_empty() {
+                // Ctrl+End or End: Move cursor to end for text editing
+                search_state.write().move_cursor_to_end();
+            } else if key.modifiers.contains(KeyModifiers::SHIFT) {
+                // Shift+End: Jump to end of results list
+                let mut search_write = search_state.write();
+                if !search_write.results.is_empty() {
+                    search_write.selected_index = search_write.results.len() - 1;
+                    let ui_read = ui_state.read();
+                    let visible_height = ui_read.terminal_height.saturating_sub(10).max(1);
+                    drop(ui_read);
+                    search_write.scroll_offset =
+                        search_write.calculate_scroll_offset(visible_height);
+                }
             }
         }
         KeyCode::PageUp => {
             let mut search_write = search_state.write();
-            let page_size = 10;
+            let ui_read = ui_state.read();
+            let visible_height = ui_read.terminal_height.saturating_sub(10).max(1);
+            drop(ui_read);
+            let page_size = visible_height;
             search_write.selected_index = search_write.selected_index.saturating_sub(page_size);
-            search_write.scroll_offset = search_write.scroll_offset.saturating_sub(page_size);
+            search_write.scroll_offset = search_write.calculate_scroll_offset(visible_height);
         }
         KeyCode::PageDown => {
             let mut search_write = search_state.write();
-            let page_size = 10;
+            let ui_read = ui_state.read();
+            let visible_height = ui_read.terminal_height.saturating_sub(10).max(1);
+            drop(ui_read);
+            let page_size = visible_height;
             let max_index = search_write.results.len().saturating_sub(1);
             search_write.selected_index = (search_write.selected_index + page_size).min(max_index);
-            if search_write.selected_index >= search_write.scroll_offset + 10 {
-                search_write.scroll_offset = search_write.selected_index.saturating_sub(9);
-            }
+            search_write.scroll_offset = search_write.calculate_scroll_offset(visible_height);
         }
         KeyCode::Esc => {
             std::process::exit(0);
