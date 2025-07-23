@@ -41,7 +41,7 @@ impl SearchService {
         } else {
             parse_query(query)?
         };
-        
+
         let (mut results, _, _) = self.engine.search(pattern, query_condition)?;
 
         // Sort by timestamp descending
