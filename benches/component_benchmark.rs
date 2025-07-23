@@ -1,5 +1,5 @@
 use ccms::{SearchEngine, SearchOptions, SessionMessage, parse_query};
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use codspeed_criterion_compat::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::fs::{self, File};
 use std::io::Write;
 use tempfile::tempdir;

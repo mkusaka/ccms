@@ -65,6 +65,7 @@ futures = { version = "0.3", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
+codspeed-criterion-compat = "2.7"
 tempfile = "3.10"
 
 [[bench]]
