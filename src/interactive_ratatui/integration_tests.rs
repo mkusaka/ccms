@@ -530,15 +530,12 @@ mod tests {
     fn test_double_ctrl_c_exit() {
         use std::thread;
         use std::time::Duration;
-        
+
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
         // First Ctrl+C should not exit but show message
         let should_exit = app
-            .handle_input(KeyEvent::new(
-                KeyCode::Char('c'),
-                KeyModifiers::CONTROL,
-            ))
+            .handle_input(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL))
             .unwrap();
         assert!(!should_exit, "First Ctrl+C should not exit");
         assert_eq!(
@@ -549,10 +546,7 @@ mod tests {
 
         // Second Ctrl+C immediately should exit
         let should_exit = app
-            .handle_input(KeyEvent::new(
-                KeyCode::Char('c'),
-                KeyModifiers::CONTROL,
-            ))
+            .handle_input(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL))
             .unwrap();
         assert!(should_exit, "Second Ctrl+C should exit");
 
@@ -561,10 +555,7 @@ mod tests {
 
         // First Ctrl+C
         let should_exit = app
-            .handle_input(KeyEvent::new(
-                KeyCode::Char('c'),
-                KeyModifiers::CONTROL,
-            ))
+            .handle_input(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL))
             .unwrap();
         assert!(!should_exit, "First Ctrl+C should not exit");
 
@@ -573,10 +564,7 @@ mod tests {
 
         // Second Ctrl+C after timeout should not exit
         let should_exit = app
-            .handle_input(KeyEvent::new(
-                KeyCode::Char('c'),
-                KeyModifiers::CONTROL,
-            ))
+            .handle_input(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL))
             .unwrap();
         assert!(!should_exit, "Ctrl+C after timeout should not exit");
         assert_eq!(
@@ -602,10 +590,7 @@ mod tests {
 
             // First Ctrl+C should show message in any mode
             let should_exit = app
-                .handle_input(KeyEvent::new(
-                    KeyCode::Char('c'),
-                    KeyModifiers::CONTROL,
-                ))
+                .handle_input(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL))
                 .unwrap();
             assert!(!should_exit, "First Ctrl+C should not exit in {mode:?}");
             assert_eq!(
@@ -616,10 +601,7 @@ mod tests {
 
             // Second Ctrl+C should exit from any mode
             let should_exit = app
-                .handle_input(KeyEvent::new(
-                    KeyCode::Char('c'),
-                    KeyModifiers::CONTROL,
-                ))
+                .handle_input(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL))
                 .unwrap();
             assert!(should_exit, "Second Ctrl+C should exit from {mode:?}");
         }
