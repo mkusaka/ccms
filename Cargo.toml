@@ -44,7 +44,7 @@ parse_datetime = "0.6"
 nom = "7.1"
 
 # Progress indication
-indicatif = "0.17"
+indicatif = "0.18"
 
 # Colored output
 colored = "2.1"
