@@ -8,6 +8,8 @@ pub mod session_viewer;
 pub mod text_input;
 
 #[cfg(test)]
+mod app_test;
+#[cfg(test)]
 mod text_input_test;
 #[cfg(test)]
 mod search_bar_test;

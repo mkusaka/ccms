@@ -21,6 +21,8 @@ pub enum AppMessage {
     StartSearch(SearchRequest),
     SearchCompleted(Vec<SearchResult>),
     SearchError(String),
+    SearchRequested,
+    ToggleRoleFilter,
     
     // Navigation
     NavigateUp,
@@ -48,6 +50,13 @@ pub enum AppMessage {
     
     // Clipboard
     CopyToClipboard(String),
+    
+    // Display options
+    ToggleTruncation,
+    
+    // Status messages
+    SetStatus(String),
+    ClearStatus,
     
     // Application control
     Quit,

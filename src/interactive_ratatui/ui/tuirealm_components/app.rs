@@ -9,32 +9,65 @@ use crate::interactive_ratatui::application::cache_service::CacheService;
 use crate::interactive_ratatui::domain::models::{Mode, SearchRequest, SessionOrder};
 use crate::interactive_ratatui::ui::tuirealm_components::messages::{AppMessage, ComponentId};
 use crate::interactive_ratatui::ui::tuirealm_components::text_input::TextInput;
-use crate::query::condition::SearchOptions;
+use crate::query::condition::{SearchOptions, SearchResult};
+
+/// Search-related state
+pub struct SearchState {
+    pub query: String,
+    pub results: Vec<SearchResult>,
+    pub selected_index: usize,
+    pub scroll_offset: usize,
+    pub role_filter: Option<String>,
+    pub is_searching: bool,
+    pub current_search_id: u64,
+}
+
+/// Session viewer state
+pub struct SessionState {
+    pub messages: Vec<String>,
+    pub query: String,
+    pub filtered_indices: Vec<usize>,
+    pub selected_index: usize,
+    pub scroll_offset: usize,
+    pub order: Option<SessionOrder>,
+    pub file_path: Option<String>,
+    pub session_id: Option<String>,
+}
+
+/// UI-related state
+pub struct UiState {
+    pub message: Option<String>,
+    pub detail_scroll_offset: usize,
+    pub selected_result: Option<SearchResult>,
+    pub truncation_enabled: bool,
+}
 
 /// The main application model for tui-realm
 pub struct Model {
     /// The tui-realm application instance
     pub app: Application<ComponentId, AppMessage, NoUserEvent>,
-    /// Terminal bridge for rendering
-    pub terminal: TerminalBridge<CrosstermTerminalAdapter>,
+    /// Terminal bridge for rendering (optional for testing)
+    pub terminal: Option<TerminalBridge<CrosstermTerminalAdapter>>,
     /// Current application mode
     pub mode: Mode,
+    /// Mode stack for navigation
+    pub mode_stack: Vec<Mode>,
+    /// Search-related state
+    pub search_state: SearchState,
+    /// Session viewer state
+    pub session_state: SessionState,
+    /// UI-related state
+    pub ui_state: UiState,
     /// Search service
     pub search_service: SearchService,
     /// Session service
     pub session_service: SessionService,
     /// Cache service
     pub cache_service: Arc<Mutex<CacheService>>,
-    /// Current search results
-    pub results: Vec<crate::query::condition::SearchResult>,
-    /// Selected result index
-    pub selected_index: usize,
-    /// Current session order
-    pub session_order: Option<SessionOrder>,
-    /// Session messages
-    pub session_messages: Vec<String>,
-    /// Session filtered indices
-    pub session_filtered_indices: Vec<usize>,
+    /// Base search options
+    pub base_options: SearchOptions,
+    /// Maximum results to display
+    pub max_results: usize,
     /// Whether the application should quit
     pub quit: bool,
 }
@@ -42,8 +75,16 @@ pub struct Model {
 impl Model {
     pub fn new(
         search_options: SearchOptions,
-        _session_filter: Option<String>,
-        _role_filter: Option<String>,
+        max_results: usize,
+    ) -> anyhow::Result<Self> {
+        Self::new_with_terminal(search_options, max_results, true)
+    }
+
+    /// Create a new model with optional terminal initialization (for testing)
+    pub fn new_with_terminal(
+        search_options: SearchOptions,
+        max_results: usize,
+        init_terminal: bool,
     ) -> anyhow::Result<Self> {
         let mut app = Application::init(
             EventListenerCfg::default()
@@ -67,7 +108,11 @@ impl Model {
         // Focus on search bar initially
         app.active(&ComponentId::SearchBar)?;
 
-        let terminal = TerminalBridge::init_crossterm()?;
+        let terminal = if init_terminal {
+            Some(TerminalBridge::init_crossterm()?)
+        } else {
+            None
+        };
 
         let cache_service = Arc::new(Mutex::new(CacheService::new()));
         let session_service = SessionService::new(cache_service.clone());
@@ -76,14 +121,37 @@ impl Model {
             app,
             terminal,
             mode: Mode::Search,
-            search_service: SearchService::new(search_options),
+            mode_stack: Vec::new(),
+            search_state: SearchState {
+                query: String::new(),
+                results: Vec::new(),
+                selected_index: 0,
+                scroll_offset: 0,
+                role_filter: None,
+                is_searching: false,
+                current_search_id: 0,
+            },
+            session_state: SessionState {
+                messages: Vec::new(),
+                query: String::new(),
+                filtered_indices: Vec::new(),
+                selected_index: 0,
+                scroll_offset: 0,
+                order: None,
+                file_path: None,
+                session_id: None,
+            },
+            ui_state: UiState {
+                message: None,
+                detail_scroll_offset: 0,
+                selected_result: None,
+                truncation_enabled: true,
+            },
+            search_service: SearchService::new(search_options.clone()),
             session_service,
             cache_service: cache_service.clone(),
-            results: Vec::new(),
-            selected_index: 0,
-            session_order: None,
-            session_messages: Vec::new(),
-            session_filtered_indices: Vec::new(),
+            base_options: search_options,
+            max_results,
             quit: false,
         })
     }
@@ -93,80 +161,243 @@ impl Model {
     }
 
     pub fn view(&mut self) -> anyhow::Result<()> {
-        self.terminal.raw_mut().draw(|f| {
-            let _ = self.app.view(&ComponentId::SearchBar, f, f.area());
-        })?;
+        if let Some(terminal) = &mut self.terminal {
+            terminal.raw_mut().draw(|f| {
+                let _ = self.app.view(&ComponentId::SearchBar, f, f.area());
+            })?;
+        }
         Ok(())
+    }
+
+    fn get_selected_result(&self) -> Option<&SearchResult> {
+        self.search_state.results.get(self.search_state.selected_index)
+    }
+
+    fn adjust_session_scroll_offset(&mut self) {
+        let visible_height = 20; // This should come from terminal size
+
+        if self.session_state.selected_index < self.session_state.scroll_offset {
+            self.session_state.scroll_offset = self.session_state.selected_index;
+        } else if self.session_state.selected_index >= self.session_state.scroll_offset + visible_height {
+            self.session_state.scroll_offset = self.session_state.selected_index - visible_height + 1;
+        }
+    }
+
+    fn update_session_filter(&mut self) {
+        use crate::interactive_ratatui::domain::filter::SessionFilter;
+        use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
+
+        // Convert raw JSON strings to SessionListItems for search
+        let items: Vec<SessionListItem> = self
+            .session_state
+            .messages
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .collect();
+
+        self.session_state.filtered_indices = SessionFilter::filter_messages(&items, &self.session_state.query);
+
+        // Reset selection if current selection is out of bounds
+        if self.session_state.selected_index >= self.session_state.filtered_indices.len() {
+            self.session_state.selected_index = 0;
+            self.session_state.scroll_offset = 0;
+        }
     }
 }
 
 impl Update<AppMessage> for Model {
     fn update(&mut self, msg: Option<AppMessage>) -> Option<AppMessage> {
         match msg {
-            Some(AppMessage::QueryChanged(query)) => {
-                // Start search with the new query
+            Some(AppMessage::QueryChanged(q)) => {
+                self.search_state.query = q;
+                self.ui_state.message = Some("typing...".to_string());
+                // In tui-realm, we'll handle the search scheduling differently
+                // For now, just update the query
+                None
+            }
+            Some(AppMessage::SearchRequested) => {
+                self.search_state.is_searching = true;
+                self.ui_state.message = Some("searching...".to_string());
+                self.search_state.current_search_id += 1;
+                
+                // Execute search
                 let request = SearchRequest {
-                    id: 1, // Simple ID for now
-                    query: query.clone(),
-                    role_filter: None,
-                    pattern: "**/*.jsonl".to_string(), // Default pattern for now
+                    id: self.search_state.current_search_id,
+                    query: self.search_state.query.clone(),
+                    role_filter: self.search_state.role_filter.clone(),
+                    pattern: "**/*.jsonl".to_string(),  // Default pattern for JSONL files
                 };
                 
-                // Execute search (simplified for now)
                 match self.search_service.search(request) {
                     Ok(response) => {
-                        self.results = response.results;
-                        self.selected_index = 0;
+                        self.search_state.results = response.results;
+                        self.search_state.is_searching = false;
+                        self.search_state.selected_index = 0;
+                        self.search_state.scroll_offset = 0;
+                        self.ui_state.message = None;
                     }
                     Err(e) => {
-                        // Handle error
-                        eprintln!("Search error: {}", e);
+                        self.search_state.is_searching = false;
+                        self.ui_state.message = Some(format!("Search error: {}", e));
                     }
                 }
-                
+                None
+            }
+            Some(AppMessage::SearchCompleted(results)) => {
+                self.search_state.results = results;
+                self.search_state.is_searching = false;
+                self.search_state.selected_index = 0;
+                self.search_state.scroll_offset = 0;
+                self.ui_state.message = None;
+                None
+            }
+            Some(AppMessage::SelectResult(index)) => {
+                if index < self.search_state.results.len() {
+                    self.search_state.selected_index = index;
+                }
                 None
             }
             Some(AppMessage::NavigateUp) => {
-                if self.selected_index > 0 {
-                    self.selected_index -= 1;
+                if self.search_state.selected_index > 0 {
+                    self.search_state.selected_index -= 1;
                 }
                 None
             }
             Some(AppMessage::NavigateDown) => {
-                if self.selected_index < self.results.len().saturating_sub(1) {
-                    self.selected_index += 1;
+                if self.search_state.selected_index < self.search_state.results.len().saturating_sub(1) {
+                    self.search_state.selected_index += 1;
                 }
                 None
             }
             Some(AppMessage::EnterResultDetail) => {
-                self.mode = Mode::ResultDetail;
+                if let Some(result) = self.get_selected_result() {
+                    self.ui_state.selected_result = Some(result.clone());
+                    self.ui_state.detail_scroll_offset = 0;
+                    self.mode_stack.push(self.mode);
+                    self.mode = Mode::ResultDetail;
+                }
                 None
             }
             Some(AppMessage::ExitResultDetail) => {
-                self.mode = Mode::Search;
+                self.mode = self.mode_stack.pop().unwrap_or(Mode::Search);
+                self.ui_state.detail_scroll_offset = 0;
                 None
             }
-            Some(AppMessage::EnterSessionViewer(_session_id)) => {
-                // Load session
-                if let Some(result) = self.results.get(self.selected_index) {
-                    match self.session_service.load_session(&result.file) {
+            Some(AppMessage::EnterSessionViewer(session_id)) => {
+                // Try to get result from selected result (when in detail view) or search results
+                let result = if self.mode == Mode::ResultDetail {
+                    self.ui_state.selected_result.as_ref()
+                } else {
+                    self.search_state.results.get(self.search_state.selected_index)
+                };
+
+                if let Some(result) = result {
+                    let file = result.file.clone();
+                    self.mode_stack.push(self.mode);
+                    self.mode = Mode::SessionViewer;
+                    self.session_state.file_path = Some(file.clone());
+                    self.session_state.session_id = Some(session_id);
+                    self.session_state.query.clear();
+                    self.session_state.selected_index = 0;
+                    self.session_state.scroll_offset = 0;
+                    
+                    // Load session
+                    match self.session_service.load_session(&file) {
                         Ok(messages) => {
                             // Convert SessionMessage to raw JSON strings
-                            self.session_messages = messages.into_iter()
+                            self.session_state.messages = messages.into_iter()
                                 .map(|msg| serde_json::to_string(&msg).unwrap_or_default())
                                 .collect();
-                            self.mode = Mode::SessionViewer;
                         }
                         Err(e) => {
-                            eprintln!("Failed to load session: {}", e);
+                            self.ui_state.message = Some(format!("Failed to load session: {}", e));
                         }
                     }
                 }
                 None
             }
             Some(AppMessage::ExitSessionViewer) => {
-                self.mode = Mode::Search;
-                self.session_messages.clear();
+                // Pop mode from stack if available, otherwise go to Search
+                self.mode = self.mode_stack.pop().unwrap_or(Mode::Search);
+                if self.mode == Mode::Search {
+                    // Only clear session messages when returning to search
+                    self.session_state.messages.clear();
+                }
+                self.ui_state.detail_scroll_offset = 0;
+                None
+            }
+            Some(AppMessage::EnterHelp) => {
+                self.mode_stack.push(self.mode);
+                self.mode = Mode::Help;
+                None
+            }
+            Some(AppMessage::ExitHelp) => {
+                self.mode = self.mode_stack.pop().unwrap_or(Mode::Search);
+                None
+            }
+            Some(AppMessage::ToggleRoleFilter) => {
+                self.search_state.role_filter = match &self.search_state.role_filter {
+                    None => Some("user".to_string()),
+                    Some(r) if r == "user" => Some("assistant".to_string()),
+                    Some(r) if r == "assistant" => Some("system".to_string()),
+                    _ => None,
+                };
+                // Trigger new search
+                Some(AppMessage::SearchRequested)
+            }
+            Some(AppMessage::ToggleTruncation) => {
+                self.ui_state.truncation_enabled = !self.ui_state.truncation_enabled;
+                let status = if self.ui_state.truncation_enabled {
+                    "Truncated"
+                } else {
+                    "Full Text"
+                };
+                self.ui_state.message = Some(format!("Message display: {status}"));
+                None
+            }
+            Some(AppMessage::SessionQueryChanged(q)) => {
+                self.session_state.query = q;
+                self.update_session_filter();
+                None
+            }
+            Some(AppMessage::SessionScrollUp) => {
+                if self.session_state.selected_index > 0 {
+                    self.session_state.selected_index -= 1;
+                    self.adjust_session_scroll_offset();
+                }
+                None
+            }
+            Some(AppMessage::SessionScrollDown) => {
+                if self.session_state.selected_index + 1 < self.session_state.filtered_indices.len() {
+                    self.session_state.selected_index += 1;
+                    self.adjust_session_scroll_offset();
+                }
+                None
+            }
+            Some(AppMessage::ToggleSessionOrder) => {
+                self.session_state.order = match self.session_state.order {
+                    None => Some(SessionOrder::Ascending),
+                    Some(SessionOrder::Ascending) => Some(SessionOrder::Descending),
+                    Some(SessionOrder::Descending) => Some(SessionOrder::Original),
+                    Some(SessionOrder::Original) => None,
+                };
+                // Re-apply filter with new order
+                self.update_session_filter();
+                None
+            }
+            Some(AppMessage::SetStatus(msg)) => {
+                self.ui_state.message = Some(msg);
+                None
+            }
+            Some(AppMessage::ClearStatus) => {
+                self.ui_state.message = None;
+                None
+            }
+            Some(AppMessage::CopyToClipboard(text)) => {
+                // In tui-realm, we'll handle clipboard operations differently
+                // For now, just log it
+                eprintln!("Copy to clipboard: {}", text);
                 None
             }
             Some(AppMessage::Quit) => {

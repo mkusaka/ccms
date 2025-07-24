@@ -23,6 +23,8 @@ mod integration_tests;
 mod session_view_integration_test;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tuirealm_integration_test;
 
 use self::application::{
     cache_service::CacheService, search_service::SearchService, session_service::SessionService,
