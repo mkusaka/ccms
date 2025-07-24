@@ -5,6 +5,7 @@ pub mod result_detail;
 pub mod result_list;
 pub mod search_bar;
 pub mod session_viewer;
+pub mod view_layout;
 
 #[cfg(test)]
 mod list_item_test;
@@ -16,6 +17,8 @@ mod result_list_test;
 mod search_bar_test;
 #[cfg(test)]
 mod session_viewer_test;
+#[cfg(test)]
+mod view_layout_test;
 
 use crate::interactive_ratatui::ui::events::Message;
 use crossterm::event::KeyEvent;

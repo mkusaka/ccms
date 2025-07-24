@@ -155,4 +155,47 @@ mod tests {
         let msg = list.handle_key(create_key_event(KeyCode::Up));
         assert!(msg.is_none());
     }
+
+    #[test]
+    fn test_vim_navigation() {
+        let mut list = ResultList::new();
+        let results = vec![
+            create_test_result("user", "First"),
+            create_test_result("assistant", "Second"),
+            create_test_result("user", "Third"),
+        ];
+
+        list.update_results(results, 0);
+
+        // Initially at index 0
+        assert_eq!(list.selected_result().unwrap().text, "First");
+
+        // Move down with 'j'
+        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Second");
+
+        // Move down again with 'j'
+        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Third");
+
+        // Can't move down from last item
+        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
+        assert!(msg.is_none());
+
+        // Move up with 'k'
+        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Second");
+
+        // Move up again with 'k'
+        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "First");
+
+        // Can't move up from first item
+        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
+        assert!(msg.is_none());
+    }
 }
