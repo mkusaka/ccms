@@ -3,6 +3,8 @@ use ccms::{
     SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
     interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
+#[cfg(feature = "wgpu")]
+use ccms::interactive_wgpu::InteractiveSearchWgpu;
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
 use clap_complete::{Generator, Shell, generate};
@@ -76,6 +78,15 @@ struct Cli {
     /// Interactive search mode (fzf-like)
     #[arg(short = 'i', long)]
     interactive: bool,
+
+    /// Use GPU-accelerated rendering for interactive mode (requires --features wgpu)
+    #[cfg(feature = "wgpu")]
+    #[arg(long, requires = "interactive")]
+    wgpu: bool,
+
+    #[cfg(not(feature = "wgpu"))]
+    #[arg(long, hide = true)]
+    wgpu: bool,
 
     /// Filter by project path (e.g., current directory: $(pwd))
     #[arg(long = "project")]
@@ -174,6 +185,17 @@ fn main() -> Result<()> {
             project_path: cli.project_path.clone(),
         };
 
+        #[cfg(feature = "wgpu")]
+        if cli.wgpu {
+            let mut interactive = InteractiveSearchWgpu::new(options);
+            return interactive.run(pattern);
+        }
+        
+        #[cfg(not(feature = "wgpu"))]
+        if cli.wgpu {
+            eprintln!("Warning: WGPU rendering is not enabled. Build with --features wgpu to enable GPU-accelerated rendering.");
+        }
+        
         let mut interactive = InteractiveSearch::new(options);
         return interactive.run(pattern);
     }

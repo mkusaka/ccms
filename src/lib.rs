@@ -1,4 +1,6 @@
 pub mod interactive_ratatui;
+#[cfg(feature = "wgpu")]
+pub mod interactive_wgpu;
 pub mod profiling;
 pub mod query;
 pub mod schemas;

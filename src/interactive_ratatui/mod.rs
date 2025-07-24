@@ -13,8 +13,8 @@ use std::time::Duration;
 
 use crate::SearchOptions;
 
-mod application;
-mod domain;
+pub mod application;
+pub mod domain;
 pub mod ui;
 
 #[cfg(test)]
