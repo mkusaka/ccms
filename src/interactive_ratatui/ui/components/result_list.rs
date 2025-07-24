@@ -1,4 +1,6 @@
-use crate::interactive_ratatui::ui::components::{Component, list_viewer::ListViewer, view_layout::ViewLayout};
+use crate::interactive_ratatui::ui::components::{
+    Component, list_viewer::ListViewer, view_layout::ViewLayout,
+};
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -52,7 +54,9 @@ impl Component for ResultList {
                 "{} results found | Ctrl+T: Toggle truncation",
                 self.list_viewer.filtered_count()
             ))
-            .with_status_text("↑/↓ or j/k: Navigate | Enter: View details | Esc: Exit | ?: Help".to_string());
+            .with_status_text(
+                "↑/↓ or j/k: Navigate | Enter: View details | Esc: Exit | ?: Help".to_string(),
+            );
 
         layout.render(f, area, |f, content_area| {
             self.list_viewer.render(f, content_area);

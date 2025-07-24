@@ -1,4 +1,7 @@
-use crate::interactive_ratatui::ui::components::{Component, view_layout::{ViewLayout, Styles}};
+use crate::interactive_ratatui::ui::components::{
+    Component,
+    view_layout::{Styles, ViewLayout},
+};
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -150,10 +153,7 @@ impl ResultDetail {
 
         // Actions
         let actions = vec![
-            Line::from(vec![Span::styled(
-                "Actions:",
-                Styles::title(),
-            )]),
+            Line::from(vec![Span::styled("Actions:", Styles::title())]),
             Line::from(vec![
                 Span::styled("[S]", Styles::action_key()),
                 Span::styled(" - View full session", Styles::action_description()),

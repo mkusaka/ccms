@@ -95,9 +95,10 @@ impl ViewLayout {
     }
 
     fn render_status_bar(&self, f: &mut Frame, area: Rect) {
-        let status_text = self.status_text.as_deref().unwrap_or(
-            "↑/↓ or j/k: Navigate | Enter: Select | Esc: Back | ?: Help"
-        );
+        let status_text = self
+            .status_text
+            .as_deref()
+            .unwrap_or("↑/↓ or j/k: Navigate | Enter: Select | Esc: Back | ?: Help");
 
         let status_bar = Paragraph::new(status_text)
             .style(Style::default().fg(Color::DarkGray))

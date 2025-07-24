@@ -1,6 +1,10 @@
 use crate::interactive_ratatui::domain::models::SessionOrder;
 use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
-use crate::interactive_ratatui::ui::components::{Component, list_viewer::ListViewer, view_layout::{ViewLayout, ColorScheme}};
+use crate::interactive_ratatui::ui::components::{
+    Component,
+    list_viewer::ListViewer,
+    view_layout::{ColorScheme, ViewLayout},
+};
 use crate::interactive_ratatui::ui::events::Message;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
@@ -149,7 +153,9 @@ impl Component for SessionViewer {
 
         let layout = ViewLayout::new("Session Viewer".to_string())
             .with_subtitle(subtitle)
-            .with_status_text("↑/↓ or j/k: Navigate | o: Sort | c: Copy JSON | /: Search | Esc: Back".to_string());
+            .with_status_text(
+                "↑/↓ or j/k: Navigate | o: Sort | c: Copy JSON | /: Search | Esc: Back".to_string(),
+            );
 
         layout.render(f, area, |f, content_area| {
             self.render_content(f, content_area);

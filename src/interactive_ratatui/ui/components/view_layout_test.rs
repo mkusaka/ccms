@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use super::super::view_layout::{ViewLayout, ColorScheme, Styles};
+    use super::super::view_layout::{ColorScheme, Styles, ViewLayout};
     use ratatui::{
+        Terminal,
         backend::TestBackend,
         buffer::Buffer,
         style::{Color, Modifier},
-        Terminal,
     };
 
     #[test]
@@ -77,8 +77,7 @@ mod tests {
 
         terminal
             .draw(|f| {
-                let layout = ViewLayout::new("Test Title".to_string())
-                    .with_status_bar(false);
+                let layout = ViewLayout::new("Test Title".to_string()).with_status_bar(false);
                 let full_area = f.area();
                 layout.render(f, full_area, |_f, area| {
                     // Without status bar, content area should be larger
