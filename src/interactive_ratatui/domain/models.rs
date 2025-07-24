@@ -24,7 +24,7 @@ pub struct CachedFile {
 }
 
 // Search request and response for async communication
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SearchRequest {
     pub id: u64,
     pub query: String,
