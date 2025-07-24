@@ -9,6 +9,16 @@ description = "High-performance CLI for searching Claude session JSONL files"
 name = "ccms"
 path = "src/main.rs"
 
+[[bin]]
+name = "ccms-duckdb"
+path = "src/bin/ccms-duckdb.rs"
+required-features = ["duckdb"]
+
+[[bin]]
+name = "ccms-duckdb-persistent"
+path = "src/bin/ccms-duckdb-persistent.rs"
+required-features = ["duckdb"]
+
 [dependencies]
 # CLI and argument parsing
 clap = { version = "4.5", features = ["derive", "env"] }
@@ -63,6 +73,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio = { version = "1.40", features = ["full"], optional = true }
 futures = { version = "0.3", optional = true }
 
+# DuckDB (optional)
+duckdb = { version = "1.1", features = ["bundled"], optional = true }
+
 [dev-dependencies]
 codspeed-criterion-compat = "3.0"
 tempfile = "3.10"
@@ -87,6 +100,10 @@ harness = false
 name = "realistic_benchmark"
 harness = false
 
+[[bench]]
+name = "duckdb_comparison"
+harness = false
+
 [profile.release]
 lto = true
 codegen-units = 1
@@ -96,3 +113,4 @@ opt-level = 3
 default = []
 profiling = ["pprof"]
 async = ["tokio", "futures"]
+duckdb = ["dep:duckdb"]
