@@ -3,15 +3,16 @@ use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
 use crate::interactive_ratatui::ui::components::{
     Component,
     list_viewer::ListViewer,
+    text_input::TextInput,
     view_layout::{ColorScheme, ViewLayout},
 };
 use crate::interactive_ratatui::ui::events::Message;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    text::{Line, Span},
+    style::Style,
+    text::Line,
     widgets::{Block, Borders, Paragraph},
 };
 
@@ -19,8 +20,7 @@ use ratatui::{
 pub struct SessionViewer {
     list_viewer: ListViewer<SessionListItem>,
     raw_messages: Vec<String>,
-    query: String,
-    cursor_position: usize,
+    text_input: TextInput,
     order: Option<SessionOrder>,
     is_searching: bool,
     file_path: Option<String>,
@@ -35,8 +35,7 @@ impl SessionViewer {
                 "No messages in session".to_string(),
             ),
             raw_messages: Vec::new(),
-            query: String::new(),
-            cursor_position: 0,
+            text_input: TextInput::new(),
             order: None,
             is_searching: false,
             file_path: None,
@@ -63,7 +62,7 @@ impl SessionViewer {
     }
 
     pub fn set_query(&mut self, query: String) {
-        self.query = query;
+        self.text_input.set_text(query);
     }
 
     pub fn set_order(&mut self, order: Option<SessionOrder>) {
@@ -93,8 +92,7 @@ impl SessionViewer {
     #[allow(dead_code)]
     pub fn start_search(&mut self) {
         self.is_searching = true;
-        self.query.clear();
-        self.cursor_position = 0;
+        self.text_input.set_text(String::new());
     }
 
     #[allow(dead_code)]
@@ -104,78 +102,17 @@ impl SessionViewer {
 
     #[cfg(test)]
     pub fn set_cursor_position(&mut self, pos: usize) {
-        self.cursor_position = pos;
+        self.text_input.set_cursor_position(pos);
     }
 
     #[cfg(test)]
     pub fn cursor_position(&self) -> usize {
-        self.cursor_position
+        self.text_input.cursor_position()
     }
 
     #[cfg(test)]
     pub fn query(&self) -> &str {
-        &self.query
-    }
-
-    /// Find the previous word boundary from the given position
-    fn find_prev_word_boundary(&self, from: usize) -> usize {
-        let chars: Vec<char> = self.query.chars().collect();
-        let mut pos = from;
-
-        // Skip whitespace backwards
-        while pos > 0 && chars.get(pos - 1).is_some_and(|c| c.is_whitespace()) {
-            pos -= 1;
-        }
-
-        // Skip non-whitespace backwards
-        while pos > 0 && chars.get(pos - 1).is_some_and(|c| !c.is_whitespace()) {
-            pos -= 1;
-        }
-
-        pos
-    }
-
-    /// Find the next word boundary from the given position
-    fn find_next_word_boundary(&self, from: usize) -> usize {
-        let chars: Vec<char> = self.query.chars().collect();
-        let mut pos = from;
-        let len = chars.len();
-
-        // Skip non-whitespace forwards
-        while pos < len && chars.get(pos).is_some_and(|c| !c.is_whitespace()) {
-            pos += 1;
-        }
-
-        // Skip whitespace forwards
-        while pos < len && chars.get(pos).is_some_and(|c| c.is_whitespace()) {
-            pos += 1;
-        }
-
-        pos
-    }
-
-    /// Delete from start position to end position and return if query changed
-    fn delete_range(&mut self, start: usize, end: usize) -> bool {
-        if start >= end || end > self.query.chars().count() {
-            return false;
-        }
-
-        let byte_start = self
-            .query
-            .chars()
-            .take(start)
-            .map(|c| c.len_utf8())
-            .sum::<usize>();
-        let byte_end = self
-            .query
-            .chars()
-            .take(end)
-            .map(|c| c.len_utf8())
-            .sum::<usize>();
-
-        self.query.drain(byte_start..byte_end);
-        self.cursor_position = start;
-        true
+        self.text_input.text()
     }
 
     fn render_content(&mut self, f: &mut Frame, area: Rect) {
@@ -189,30 +126,7 @@ impl SessionViewer {
 
         // Render search bar
         if self.is_searching {
-            let search_text = if self.cursor_position < self.query.chars().count() {
-                let (before, after) = self
-                    .query
-                    .chars()
-                    .enumerate()
-                    .partition::<Vec<_>, _>(|(i, _)| *i < self.cursor_position);
-
-                let before: String = before.into_iter().map(|(_, c)| c).collect();
-                let after: String = after.into_iter().map(|(_, c)| c).collect();
-
-                vec![
-                    Span::raw(before),
-                    Span::styled(
-                        after.chars().next().unwrap_or(' ').to_string(),
-                        Style::default().bg(Color::White).fg(Color::Black),
-                    ),
-                    Span::raw(after.chars().skip(1).collect::<String>()),
-                ]
-            } else {
-                vec![
-                    Span::raw(&self.query),
-                    Span::styled(" ", Style::default().bg(Color::White).fg(Color::Black)),
-                ]
-            };
+            let search_text = self.text_input.render_cursor_spans();
 
             let search_bar = Paragraph::new(Line::from(search_text)).block(
                 Block::default()
@@ -264,210 +178,33 @@ impl Component for SessionViewer {
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
         if self.is_searching {
-            // Handle Control key combinations
-            if key.modifiers.contains(KeyModifiers::CONTROL) {
-                match key.code {
-                    // Ctrl+A - Move cursor to beginning of line
-                    KeyCode::Char('a') => {
-                        self.cursor_position = 0;
-                        return None;
-                    }
-                    // Ctrl+E - Move cursor to end of line
-                    KeyCode::Char('e') => {
-                        self.cursor_position = self.query.chars().count();
-                        return None;
-                    }
-                    // Ctrl+B - Move cursor backward one character
-                    KeyCode::Char('b') => {
-                        if self.cursor_position > 0 {
-                            self.cursor_position -= 1;
-                        }
-                        return None;
-                    }
-                    // Ctrl+F - Move cursor forward one character
-                    KeyCode::Char('f') => {
-                        if self.cursor_position < self.query.chars().count() {
-                            self.cursor_position += 1;
-                        }
-                        return None;
-                    }
-                    // Ctrl+H - Delete character before cursor (same as backspace)
-                    KeyCode::Char('h') => {
-                        if self.cursor_position > 0 {
-                            let char_pos = self.cursor_position - 1;
-                            let byte_start = self
-                                .query
-                                .chars()
-                                .take(char_pos)
-                                .map(|c| c.len_utf8())
-                                .sum::<usize>();
-                            let ch = self.query.chars().nth(char_pos).unwrap();
-                            let byte_end = byte_start + ch.len_utf8();
-
-                            self.query.drain(byte_start..byte_end);
-                            self.cursor_position -= 1;
-                            return Some(Message::SessionQueryChanged(self.query.clone()));
-                        }
-                        return None;
-                    }
-                    // Ctrl+D - Delete character under cursor
-                    KeyCode::Char('d') => {
-                        if self.cursor_position < self.query.chars().count() {
-                            let byte_start = self
-                                .query
-                                .chars()
-                                .take(self.cursor_position)
-                                .map(|c| c.len_utf8())
-                                .sum::<usize>();
-                            let ch = self.query.chars().nth(self.cursor_position).unwrap();
-                            let byte_end = byte_start + ch.len_utf8();
-
-                            self.query.drain(byte_start..byte_end);
-                            return Some(Message::SessionQueryChanged(self.query.clone()));
-                        }
-                        return None;
-                    }
-                    // Ctrl+W - Delete word before cursor
-                    KeyCode::Char('w') => {
-                        if self.cursor_position > 0 {
-                            let new_pos = self.find_prev_word_boundary(self.cursor_position);
-                            if self.delete_range(new_pos, self.cursor_position) {
-                                return Some(Message::SessionQueryChanged(self.query.clone()));
-                            }
-                        }
-                        return None;
-                    }
-                    // Ctrl+U - Delete from cursor to beginning of line
-                    KeyCode::Char('u') => {
-                        if self.cursor_position > 0 && self.delete_range(0, self.cursor_position) {
-                            return Some(Message::SessionQueryChanged(self.query.clone()));
-                        }
-                        return None;
-                    }
-                    // Ctrl+K - Delete from cursor to end of line
-                    KeyCode::Char('k') => {
-                        let len = self.query.chars().count();
-                        if self.cursor_position < len
-                            && self.delete_range(self.cursor_position, len)
-                        {
-                            return Some(Message::SessionQueryChanged(self.query.clone()));
-                        }
-                        return None;
-                    }
-                    _ => {}
-                }
-            }
-
-            // Handle Alt key combinations
-            if key.modifiers.contains(KeyModifiers::ALT) {
-                match key.code {
-                    // Alt+B - Move cursor backward one word
-                    KeyCode::Char('b') => {
-                        self.cursor_position = self.find_prev_word_boundary(self.cursor_position);
-                        return None;
-                    }
-                    // Alt+F - Move cursor forward one word
-                    KeyCode::Char('f') => {
-                        self.cursor_position = self.find_next_word_boundary(self.cursor_position);
-                        return None;
-                    }
-                    _ => {}
-                }
-            }
-
-            // Handle regular keys
             match key.code {
-                KeyCode::Char(c) => {
-                    // Skip if it was a control character we already handled
-                    if key.modifiers.contains(KeyModifiers::CONTROL)
-                        || key.modifiers.contains(KeyModifiers::ALT)
-                    {
-                        return None;
-                    }
-
-                    let char_pos = self.cursor_position;
-                    let byte_pos = self
-                        .query
-                        .chars()
-                        .take(char_pos)
-                        .map(|c| c.len_utf8())
-                        .sum::<usize>();
-
-                    self.query.insert(byte_pos, c);
-                    self.cursor_position += 1;
-                    Some(Message::SessionQueryChanged(self.query.clone()))
-                }
-                KeyCode::Backspace => {
-                    if self.cursor_position > 0 {
-                        let char_pos = self.cursor_position - 1;
-                        let byte_start = self
-                            .query
-                            .chars()
-                            .take(char_pos)
-                            .map(|c| c.len_utf8())
-                            .sum::<usize>();
-                        let ch = self.query.chars().nth(char_pos).unwrap();
-                        let byte_end = byte_start + ch.len_utf8();
-
-                        self.query.drain(byte_start..byte_end);
-                        self.cursor_position -= 1;
-
-                        if self.query.is_empty() {
-                            self.is_searching = false;
-                        }
-                        Some(Message::SessionQueryChanged(self.query.clone()))
-                    } else {
-                        None
-                    }
-                }
-                KeyCode::Delete => {
-                    if self.cursor_position < self.query.chars().count() {
-                        let byte_start = self
-                            .query
-                            .chars()
-                            .take(self.cursor_position)
-                            .map(|c| c.len_utf8())
-                            .sum::<usize>();
-                        let ch = self.query.chars().nth(self.cursor_position).unwrap();
-                        let byte_end = byte_start + ch.len_utf8();
-
-                        self.query.drain(byte_start..byte_end);
-                        Some(Message::SessionQueryChanged(self.query.clone()))
-                    } else {
-                        None
-                    }
-                }
-                KeyCode::Left => {
-                    if self.cursor_position > 0 {
-                        self.cursor_position -= 1;
-                    }
-                    None
-                }
-                KeyCode::Right => {
-                    if self.cursor_position < self.query.chars().count() {
-                        self.cursor_position += 1;
-                    }
-                    None
-                }
-                KeyCode::Home => {
-                    self.cursor_position = 0;
-                    None
-                }
-                KeyCode::End => {
-                    self.cursor_position = self.query.chars().count();
-                    None
-                }
                 KeyCode::Esc => {
                     self.is_searching = false;
-                    self.query.clear();
-                    self.cursor_position = 0;
+                    self.text_input.set_text(String::new());
                     Some(Message::SessionQueryChanged(String::new()))
                 }
                 KeyCode::Enter => {
                     self.is_searching = false;
                     None
                 }
-                _ => None,
+                _ => {
+                    // Handle special case for Backspace when query becomes empty
+                    if key.code == KeyCode::Backspace && self.text_input.text().len() == 1 {
+                        self.is_searching = false;
+                        self.text_input.handle_key(key);
+                        Some(Message::SessionQueryChanged(String::new()))
+                    } else {
+                        let changed = self.text_input.handle_key(key);
+                        if changed {
+                            Some(Message::SessionQueryChanged(
+                                self.text_input.text().to_string(),
+                            ))
+                        } else {
+                            None
+                        }
+                    }
+                }
             }
         } else {
             match key.code {
@@ -487,7 +224,6 @@ impl Component for SessionViewer {
                 }
                 KeyCode::Char('/') => {
                     self.is_searching = true;
-                    self.cursor_position = self.query.chars().count();
                     None
                 }
                 KeyCode::Char('o') => Some(Message::ToggleSessionOrder),
