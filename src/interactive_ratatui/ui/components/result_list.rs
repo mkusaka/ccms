@@ -1,4 +1,4 @@
-use crate::interactive_ratatui::ui::components::{Component, list_viewer::ListViewer};
+use crate::interactive_ratatui::ui::components::{Component, list_viewer::ListViewer, view_layout::ViewLayout};
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -47,19 +47,28 @@ impl ResultList {
 
 impl Component for ResultList {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        self.list_viewer.render(f, area);
+        let layout = ViewLayout::new("Search Results".to_string())
+            .with_subtitle(format!(
+                "{} results found | Ctrl+T: Toggle truncation",
+                self.list_viewer.filtered_count()
+            ))
+            .with_status_text("↑/↓ or j/k: Navigate | Enter: View details | Esc: Exit | ?: Help".to_string());
+
+        layout.render(f, area, |f, content_area| {
+            self.list_viewer.render(f, content_area);
+        });
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
         match key.code {
-            KeyCode::Up => {
+            KeyCode::Up | KeyCode::Char('k') => {
                 if self.list_viewer.move_up() {
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
                     None
                 }
             }
-            KeyCode::Down => {
+            KeyCode::Down | KeyCode::Char('j') => {
                 if self.list_viewer.move_down() {
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {

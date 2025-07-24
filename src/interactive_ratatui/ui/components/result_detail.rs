@@ -1,11 +1,11 @@
-use crate::interactive_ratatui::ui::components::Component;
+use crate::interactive_ratatui::ui::components::{Component, view_layout::{ViewLayout, Styles}};
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
@@ -40,17 +40,14 @@ impl ResultDetail {
     pub fn set_message(&mut self, message: Option<String>) {
         self.message = message;
     }
-}
 
-impl Component for ResultDetail {
-    fn render(&mut self, f: &mut Frame, area: Rect) {
+    fn render_content(&mut self, f: &mut Frame, area: Rect) {
         let Some(result) = &self.result else {
             return;
         };
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .margin(2)
             .constraints([
                 Constraint::Min(0),     // Content
                 Constraint::Length(10), // Actions
@@ -67,27 +64,27 @@ impl Component for ResultDetail {
 
         let content = vec![
             Line::from(vec![
-                Span::styled("Role: ", Style::default().fg(Color::Yellow)),
+                Span::styled("Role: ", Styles::label()),
                 Span::raw(&result.role),
             ]),
             Line::from(vec![
-                Span::styled("Time: ", Style::default().fg(Color::Yellow)),
+                Span::styled("Time: ", Styles::label()),
                 Span::raw(&timestamp),
             ]),
             Line::from(vec![
-                Span::styled("File: ", Style::default().fg(Color::Yellow)),
+                Span::styled("File: ", Styles::label()),
                 Span::raw(&result.file),
             ]),
             Line::from(vec![
-                Span::styled("Project: ", Style::default().fg(Color::Yellow)),
+                Span::styled("Project: ", Styles::label()),
                 Span::raw(&result.project_path),
             ]),
             Line::from(vec![
-                Span::styled("UUID: ", Style::default().fg(Color::Yellow)),
+                Span::styled("UUID: ", Styles::label()),
                 Span::raw(&result.uuid),
             ]),
             Line::from(vec![
-                Span::styled("Session: ", Style::default().fg(Color::Yellow)),
+                Span::styled("Session: ", Styles::label()),
                 Span::raw(&result.session_id),
             ]),
             Line::from(""),
@@ -155,39 +152,39 @@ impl Component for ResultDetail {
         let actions = vec![
             Line::from(vec![Span::styled(
                 "Actions:",
-                Style::default().fg(Color::Cyan),
+                Styles::title(),
             )]),
             Line::from(vec![
-                Span::styled("[S]", Style::default().fg(Color::Yellow)),
-                Span::raw(" - View full session"),
+                Span::styled("[S]", Styles::action_key()),
+                Span::styled(" - View full session", Styles::action_description()),
             ]),
             Line::from(vec![
-                Span::styled("[F]", Style::default().fg(Color::Yellow)),
-                Span::raw(" - Copy file path"),
+                Span::styled("[F]", Styles::action_key()),
+                Span::styled(" - Copy file path", Styles::action_description()),
             ]),
             Line::from(vec![
-                Span::styled("[I]", Style::default().fg(Color::Yellow)),
-                Span::raw(" - Copy session ID"),
+                Span::styled("[I]", Styles::action_key()),
+                Span::styled(" - Copy session ID", Styles::action_description()),
             ]),
             Line::from(vec![
-                Span::styled("[P]", Style::default().fg(Color::Yellow)),
-                Span::raw(" - Copy project path"),
+                Span::styled("[P]", Styles::action_key()),
+                Span::styled(" - Copy project path", Styles::action_description()),
             ]),
             Line::from(vec![
-                Span::styled("[M]", Style::default().fg(Color::Yellow)),
-                Span::raw(" - Copy message text"),
+                Span::styled("[M]", Styles::action_key()),
+                Span::styled(" - Copy message text", Styles::action_description()),
             ]),
             Line::from(vec![
-                Span::styled("[R]", Style::default().fg(Color::Yellow)),
-                Span::raw(" - Copy raw JSON"),
+                Span::styled("[R]", Styles::action_key()),
+                Span::styled(" - Copy raw JSON", Styles::action_description()),
             ]),
             Line::from(vec![
-                Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
-                Span::raw(" - Back to search"),
+                Span::styled("[Esc]", Styles::action_key()),
+                Span::styled(" - Back to search", Styles::action_description()),
             ]),
             Line::from(vec![
-                Span::styled("[↑/↓ or j/k]", Style::default().fg(Color::Yellow)),
-                Span::raw(" - Scroll message"),
+                Span::styled("[↑/↓ or j/k]", Styles::action_key()),
+                Span::styled(" - Scroll message", Styles::action_description()),
             ]),
         ];
 
@@ -196,21 +193,35 @@ impl Component for ResultDetail {
 
         // Show message if any
         if let Some(ref msg) = self.message {
+            let style = if msg.starts_with('✓') {
+                Styles::success()
+            } else if msg.starts_with('⚠') {
+                Styles::warning()
+            } else {
+                Styles::normal().add_modifier(Modifier::BOLD)
+            };
+
             let message_widget = Paragraph::new(msg.clone())
-                .style(
-                    Style::default()
-                        .fg(if msg.starts_with('✓') {
-                            Color::Green
-                        } else if msg.starts_with('⚠') {
-                            Color::Yellow
-                        } else {
-                            Color::White
-                        })
-                        .add_modifier(Modifier::BOLD),
-                )
+                .style(style)
                 .alignment(ratatui::layout::Alignment::Center);
             f.render_widget(message_widget, chunks[2]);
         }
+    }
+}
+
+impl Component for ResultDetail {
+    fn render(&mut self, f: &mut Frame, area: Rect) {
+        let Some(result) = &self.result else {
+            return;
+        };
+
+        let layout = ViewLayout::new("Result Detail".to_string())
+            .with_subtitle(format!("Viewing result from {}", result.file))
+            .with_status_bar(false); // We'll handle status manually for now
+
+        layout.render(f, area, |f, content_area| {
+            self.render_content(f, content_area);
+        });
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {

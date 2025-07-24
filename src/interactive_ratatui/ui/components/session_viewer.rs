@@ -1,12 +1,12 @@
 use crate::interactive_ratatui::domain::models::SessionOrder;
 use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
-use crate::interactive_ratatui::ui::components::{Component, list_viewer::ListViewer};
+use crate::interactive_ratatui::ui::components::{Component, list_viewer::ListViewer, view_layout::{ViewLayout, ColorScheme}};
 use crate::interactive_ratatui::ui::events::Message;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
@@ -94,44 +94,15 @@ impl SessionViewer {
     pub fn stop_search(&mut self) {
         self.is_searching = false;
     }
-}
 
-impl Component for SessionViewer {
-    fn render(&mut self, f: &mut Frame, area: Rect) {
+    fn render_content(&mut self, f: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(5), // Header with metadata
-                Constraint::Length(3), // Search bar
+                Constraint::Length(3), // Search bar or info bar
                 Constraint::Min(0),    // Messages
-                Constraint::Length(2), // Status bar
             ])
             .split(area);
-
-        // Header with metadata
-        let mut header_lines = vec![Line::from(vec![Span::styled(
-            "Session Viewer",
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        )])];
-
-        if let Some(ref session_id) = self.session_id {
-            header_lines.push(Line::from(vec![
-                Span::styled("Session: ", Style::default().fg(Color::Yellow)),
-                Span::raw(session_id),
-            ]));
-        }
-
-        if let Some(ref file_path) = self.file_path {
-            header_lines.push(Line::from(vec![
-                Span::styled("File: ", Style::default().fg(Color::Yellow)),
-                Span::raw(file_path),
-            ]));
-        }
-
-        let header = Paragraph::new(header_lines).block(Block::default().borders(Borders::BOTTOM));
-        f.render_widget(header, chunks[0]);
 
         // Render search bar
         if self.is_searching {
@@ -143,9 +114,9 @@ impl Component for SessionViewer {
                 Block::default()
                     .title("Search in session (Esc to cancel)")
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Yellow)),
+                    .border_style(Style::default().fg(ColorScheme::SECONDARY)),
             );
-            f.render_widget(search_bar, chunks[1]);
+            f.render_widget(search_bar, chunks[0]);
         } else {
             let info_text = format!(
                 "Messages: {} (filtered: {}) | Order: {} | Press '/' to search",
@@ -159,16 +130,30 @@ impl Component for SessionViewer {
                 }
             );
             let info_bar = Paragraph::new(info_text).block(Block::default().borders(Borders::ALL));
-            f.render_widget(info_bar, chunks[1]);
+            f.render_widget(info_bar, chunks[0]);
         }
 
         // Render message list using ListViewer
-        self.list_viewer.render(f, chunks[2]);
+        self.list_viewer.render(f, chunks[1]);
+    }
+}
 
-        // Status bar
-        let status = "↑/↓: Navigate | o: Sort | c: Copy JSON | C: Copy All | F: File | I: Session ID | M: Message | /: Search | Esc: Back";
-        let status_bar = Paragraph::new(status).style(Style::default().fg(Color::DarkGray));
-        f.render_widget(status_bar, chunks[3]);
+impl Component for SessionViewer {
+    fn render(&mut self, f: &mut Frame, area: Rect) {
+        let subtitle = match (&self.session_id, &self.file_path) {
+            (Some(session), Some(file)) => format!("Session: {session} | File: {file}"),
+            (Some(session), None) => format!("Session: {session}"),
+            (None, Some(file)) => format!("File: {file}"),
+            (None, None) => String::new(),
+        };
+
+        let layout = ViewLayout::new("Session Viewer".to_string())
+            .with_subtitle(subtitle)
+            .with_status_text("↑/↓ or j/k: Navigate | o: Sort | c: Copy JSON | /: Search | Esc: Back".to_string());
+
+        layout.render(f, area, |f, content_area| {
+            self.render_content(f, content_area);
+        });
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
@@ -198,14 +183,14 @@ impl Component for SessionViewer {
             }
         } else {
             match key.code {
-                KeyCode::Up => {
+                KeyCode::Up | KeyCode::Char('k') => {
                     if self.list_viewer.move_up() {
                         Some(Message::SessionScrollUp)
                     } else {
                         None
                     }
                 }
-                KeyCode::Down => {
+                KeyCode::Down | KeyCode::Char('j') => {
                     if self.list_viewer.move_down() {
                         Some(Message::SessionScrollDown)
                     } else {
