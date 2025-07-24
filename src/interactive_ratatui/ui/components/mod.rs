@@ -5,6 +5,7 @@ pub mod result_detail;
 pub mod result_list;
 pub mod search_bar;
 pub mod session_viewer;
+pub mod text_input;
 pub mod view_layout;
 
 #[cfg(test)]
@@ -19,6 +20,8 @@ mod result_list_test;
 mod search_bar_test;
 #[cfg(test)]
 mod session_viewer_test;
+#[cfg(test)]
+mod text_input_test;
 #[cfg(test)]
 mod view_layout_test;
 
