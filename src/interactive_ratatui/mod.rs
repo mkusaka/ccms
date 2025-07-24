@@ -7,6 +7,7 @@ use crate::SearchOptions;
 mod application;
 mod domain;
 pub mod ui;
+pub mod tuirealm_v3;
 
 use self::ui::tuirealm_components::{
     app::Model,
