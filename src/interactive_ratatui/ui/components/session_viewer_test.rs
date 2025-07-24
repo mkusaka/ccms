@@ -300,4 +300,388 @@ mod tests {
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::empty()));
         assert!(matches!(msg, Some(Message::SessionScrollUp)));
     }
+
+    fn create_key_event_with_modifiers(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
+        KeyEvent {
+            code,
+            modifiers,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    #[test]
+    fn test_search_shortcuts_ctrl_a() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello world".to_string());
+        viewer.set_cursor_position(11); // At end
+
+        // Ctrl+A - Move to beginning
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('a'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 0);
+    }
+
+    #[test]
+    fn test_search_shortcuts_ctrl_e() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello world".to_string());
+        viewer.set_cursor_position(0); // At beginning
+
+        // Ctrl+E - Move to end
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('e'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 11); // "hello world" has 11 characters
+    }
+
+    #[test]
+    fn test_search_shortcuts_ctrl_b() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello".to_string());
+        viewer.set_cursor_position(3);
+
+        // Ctrl+B - Move backward
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('b'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 2);
+
+        // At beginning, should not move
+        viewer.set_cursor_position(0);
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('b'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 0);
+    }
+
+    #[test]
+    fn test_search_shortcuts_ctrl_f() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello".to_string());
+        viewer.set_cursor_position(2);
+
+        // Ctrl+F - Move forward
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('f'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 3);
+
+        // At end, should not move
+        viewer.set_cursor_position(5);
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('f'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 5);
+    }
+
+    #[test]
+    fn test_search_shortcuts_ctrl_h() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello".to_string());
+        viewer.set_cursor_position(5);
+
+        // Ctrl+H - Delete before cursor
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('h'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "hell"));
+        assert_eq!(viewer.query(), "hell");
+        assert_eq!(viewer.cursor_position(), 4);
+
+        // At beginning, should do nothing
+        viewer.set_cursor_position(0);
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('h'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.query(), "hell");
+    }
+
+    #[test]
+    fn test_search_shortcuts_ctrl_d() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello".to_string());
+        viewer.set_cursor_position(0);
+
+        // Ctrl+D - Delete under cursor
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "ello"));
+        assert_eq!(viewer.query(), "ello");
+        assert_eq!(viewer.cursor_position(), 0);
+
+        // At end, should do nothing
+        viewer.set_cursor_position(4);
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.query(), "ello");
+    }
+
+    #[test]
+    fn test_search_shortcuts_ctrl_w() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello world test".to_string());
+        viewer.set_cursor_position(16);
+
+        // Ctrl+W - Delete word before cursor
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('w'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "hello world "));
+        assert_eq!(viewer.cursor_position(), 12);
+
+        // Delete another word
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('w'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "hello "));
+        assert_eq!(viewer.cursor_position(), 6);
+
+        // At beginning, should do nothing
+        viewer.set_cursor_position(0);
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('w'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+    }
+
+    #[test]
+    fn test_search_shortcuts_ctrl_u() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello world".to_string());
+        viewer.set_cursor_position(6);
+
+        // Ctrl+U - Delete to beginning
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('u'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "world"));
+        assert_eq!(viewer.cursor_position(), 0);
+
+        // At beginning, should do nothing
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('u'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+    }
+
+    #[test]
+    fn test_search_shortcuts_ctrl_k() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello world".to_string());
+        viewer.set_cursor_position(6);
+
+        // Ctrl+K - Delete to end
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('k'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "hello "));
+        assert_eq!(viewer.cursor_position(), 6);
+
+        // At end, should do nothing
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('k'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+    }
+
+    #[test]
+    fn test_search_shortcuts_alt_b() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello world test".to_string());
+        viewer.set_cursor_position(16);
+
+        // Alt+B - Move backward by word
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('b'),
+            KeyModifiers::ALT,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 12); // Beginning of "test"
+
+        // Move backward again
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('b'),
+            KeyModifiers::ALT,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 6); // Beginning of "world"
+    }
+
+    #[test]
+    fn test_search_shortcuts_alt_f() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello world test".to_string());
+        viewer.set_cursor_position(0);
+
+        // Alt+F - Move forward by word
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('f'),
+            KeyModifiers::ALT,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 6); // After "hello "
+
+        // Move forward again
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('f'),
+            KeyModifiers::ALT,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 12); // After "world "
+    }
+
+    #[test]
+    fn test_search_shortcuts_with_unicode() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("こんにちは 世界 🌍".to_string());
+        viewer.set_cursor_position(10); // At end (10 characters total)
+
+        // Test Ctrl+W with unicode
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('w'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "こんにちは 世界 "));
+
+        // Test Alt+B with unicode
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('b'),
+            KeyModifiers::ALT,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 6); // Beginning of "世界"
+
+        // Test Ctrl+U with unicode
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('u'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "世界 "));
+        assert_eq!(viewer.cursor_position(), 0);
+    }
+
+    #[test]
+    fn test_search_mode_character_input() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello".to_string());
+        viewer.set_cursor_position(0);
+
+        // Type at beginning
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('X'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "Xhello"));
+        assert_eq!(viewer.cursor_position(), 1);
+    }
+
+    #[test]
+    fn test_control_chars_dont_insert() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello".to_string());
+        viewer.set_cursor_position(5);
+
+        // Control+character combinations should not insert the character
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('x'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.query(), "hello");
+
+        // Alt+character combinations should not insert the character
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('x'),
+            KeyModifiers::ALT,
+        ));
+        assert!(msg.is_none());
+        assert_eq!(viewer.query(), "hello");
+    }
+
+    #[test]
+    fn test_search_mode_arrow_keys() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello world".to_string());
+        viewer.set_cursor_position(11);
+
+        // Move cursor left
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Left, KeyModifiers::empty()));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 10);
+
+        // Move right
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::empty()));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 11);
+
+        // Move to beginning with Home
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Home, KeyModifiers::empty()));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 0);
+
+        // Move to end with End
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::End, KeyModifiers::empty()));
+        assert!(msg.is_none());
+        assert_eq!(viewer.cursor_position(), 11);
+    }
+
+    #[test]
+    fn test_search_mode_backspace_and_delete() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        viewer.set_query("hello".to_string());
+        viewer.set_cursor_position(5);
+
+        // Test backspace
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "hell"));
+        assert_eq!(viewer.cursor_position(), 4);
+
+        // Test delete at beginning
+        viewer.set_cursor_position(0);
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Delete, KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "ell"));
+        assert_eq!(viewer.cursor_position(), 0);
+    }
 }

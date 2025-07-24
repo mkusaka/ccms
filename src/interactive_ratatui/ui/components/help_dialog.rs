@@ -40,7 +40,7 @@ impl HelpDialog {
             Line::from("  ?           - Show this help"),
             Line::from(""),
             Line::from(vec![Span::styled(
-                "Text Editing Shortcuts:",
+                "Text Editing Shortcuts (Search & Session Viewer):",
                 Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),
