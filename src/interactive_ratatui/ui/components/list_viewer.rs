@@ -219,14 +219,24 @@ impl<T: ListItem> ListViewer<T> {
                 // Need to scroll down - find appropriate scroll offset
                 let mut test_offset = self.scroll_offset;
                 while test_offset < self.filtered_indices.len() {
+                    // Temporarily update scroll_offset to test if selected item would be visible
+                    let original_offset = self.scroll_offset;
+                    self.scroll_offset = test_offset;
                     let (_, test_end) =
                         self.calculate_visible_range(available_height, available_width);
+
                     if self.selected_index < test_end {
+                        // Found the right offset, keep it
                         break;
                     }
+
+                    // Restore original offset and try next
+                    self.scroll_offset = original_offset;
                     test_offset += 1;
-                    self.scroll_offset = test_offset;
                 }
+
+                // Update to the final test offset
+                self.scroll_offset = test_offset;
             }
         }
     }
