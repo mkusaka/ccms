@@ -1,4 +1,5 @@
 pub mod app;
+pub mod help_dialog;
 pub mod messages;
 pub mod result_detail;
 pub mod result_list;
@@ -16,3 +17,5 @@ mod result_list_test;
 mod result_detail_test;
 #[cfg(test)]
 mod session_viewer_test;
+#[cfg(test)]
+mod help_dialog_test;
