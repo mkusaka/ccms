@@ -54,6 +54,9 @@ ratatui = "0.29"
 crossterm = "0.29"
 tuirealm = "3"
 
+# Clipboard support
+arboard = "3"
+
 
 # Profiling and tracing
 pprof = { version = "0.15", features = ["flamegraph", "prost-codec"], optional = true }

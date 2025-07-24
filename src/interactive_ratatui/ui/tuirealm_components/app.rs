@@ -9,6 +9,7 @@ use crate::interactive_ratatui::application::cache_service::CacheService;
 use crate::interactive_ratatui::domain::models::{Mode, SearchRequest, SessionOrder};
 use crate::interactive_ratatui::ui::tuirealm_components::messages::{AppMessage, ComponentId};
 use crate::interactive_ratatui::ui::tuirealm_components::text_input::TextInput;
+use crate::interactive_ratatui::ui::tuirealm_components::async_search::{AsyncSearchHandler, SearchDebouncer};
 use crate::query::condition::{SearchOptions, SearchResult};
 
 /// Search-related state
@@ -59,7 +60,7 @@ pub struct Model {
     /// UI-related state
     pub ui_state: UiState,
     /// Search service
-    pub search_service: SearchService,
+    pub search_service: Arc<SearchService>,
     /// Session service
     pub session_service: SessionService,
     /// Cache service
@@ -70,6 +71,10 @@ pub struct Model {
     pub max_results: usize,
     /// Whether the application should quit
     pub quit: bool,
+    /// Async search handler
+    pub async_search: Option<AsyncSearchHandler>,
+    /// Search debouncer
+    pub search_debouncer: SearchDebouncer,
 }
 
 impl Model {
@@ -116,6 +121,13 @@ impl Model {
 
         let cache_service = Arc::new(Mutex::new(CacheService::new()));
         let session_service = SessionService::new(cache_service.clone());
+        let search_service = Arc::new(SearchService::new(search_options.clone()));
+
+        // Initialize async search handler
+        let mut async_search = AsyncSearchHandler::new(search_service.clone());
+        if init_terminal {
+            async_search.start();
+        }
 
         Ok(Self {
             app,
@@ -147,17 +159,38 @@ impl Model {
                 selected_result: None,
                 truncation_enabled: true,
             },
-            search_service: SearchService::new(search_options.clone()),
+            search_service,
             session_service,
             cache_service: cache_service.clone(),
             base_options: search_options,
             max_results,
             quit: false,
+            async_search: Some(async_search),
+            search_debouncer: SearchDebouncer::new(300), // 300ms debounce
         })
     }
 
     pub fn tick(&mut self, poll_strategy: PollStrategy) -> anyhow::Result<Vec<AppMessage>> {
-        Ok(self.app.tick(poll_strategy)?)
+        let mut messages = self.app.tick(poll_strategy)?;
+        
+        // Check for debounced search
+        if let Some(query) = self.search_debouncer.should_search() {
+            if query == self.search_state.query && !self.search_state.is_searching {
+                messages.push(AppMessage::SearchRequested);
+            }
+        }
+        
+        // Check for async search results
+        if let Some(async_search) = &self.async_search {
+            if let Some(response) = async_search.poll_results() {
+                // Only process if this is the latest search
+                if response.id >= self.search_state.current_search_id {
+                    messages.push(AppMessage::SearchCompleted(response.results));
+                }
+            }
+        }
+        
+        Ok(messages)
     }
 
     pub fn view(&mut self) -> anyhow::Result<()> {
@@ -210,10 +243,10 @@ impl Update<AppMessage> for Model {
     fn update(&mut self, msg: Option<AppMessage>) -> Option<AppMessage> {
         match msg {
             Some(AppMessage::QueryChanged(q)) => {
-                self.search_state.query = q;
+                self.search_state.query = q.clone();
                 self.ui_state.message = Some("typing...".to_string());
-                // In tui-realm, we'll handle the search scheduling differently
-                // For now, just update the query
+                // Update debouncer with new query
+                self.search_debouncer.update_query(q);
                 None
             }
             Some(AppMessage::SearchRequested) => {
@@ -221,7 +254,7 @@ impl Update<AppMessage> for Model {
                 self.ui_state.message = Some("searching...".to_string());
                 self.search_state.current_search_id += 1;
                 
-                // Execute search
+                // Create search request
                 let request = SearchRequest {
                     id: self.search_state.current_search_id,
                     query: self.search_state.query.clone(),
@@ -229,17 +262,26 @@ impl Update<AppMessage> for Model {
                     pattern: "**/*.jsonl".to_string(),  // Default pattern for JSONL files
                 };
                 
-                match self.search_service.search(request) {
-                    Ok(response) => {
-                        self.search_state.results = response.results;
-                        self.search_state.is_searching = false;
-                        self.search_state.selected_index = 0;
-                        self.search_state.scroll_offset = 0;
-                        self.ui_state.message = None;
-                    }
-                    Err(e) => {
+                // Send async search request
+                if let Some(async_search) = &self.async_search {
+                    if let Err(e) = async_search.search(request) {
                         self.search_state.is_searching = false;
                         self.ui_state.message = Some(format!("Search error: {}", e));
+                    }
+                } else {
+                    // Fallback to sync search for testing
+                    match self.search_service.search(request) {
+                        Ok(response) => {
+                            self.search_state.results = response.results;
+                            self.search_state.is_searching = false;
+                            self.search_state.selected_index = 0;
+                            self.search_state.scroll_offset = 0;
+                            self.ui_state.message = None;
+                        }
+                        Err(e) => {
+                            self.search_state.is_searching = false;
+                            self.ui_state.message = Some(format!("Search error: {}", e));
+                        }
                     }
                 }
                 None
@@ -395,9 +437,22 @@ impl Update<AppMessage> for Model {
                 None
             }
             Some(AppMessage::CopyToClipboard(text)) => {
-                // In tui-realm, we'll handle clipboard operations differently
-                // For now, just log it
-                eprintln!("Copy to clipboard: {}", text);
+                // Use arboard for clipboard operations
+                match arboard::Clipboard::new() {
+                    Ok(mut clipboard) => {
+                        match clipboard.set_text(&text) {
+                            Ok(_) => {
+                                self.ui_state.message = Some("Copied!".to_string());
+                            }
+                            Err(e) => {
+                                self.ui_state.message = Some(format!("Failed to copy: {}", e));
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        self.ui_state.message = Some(format!("Clipboard error: {}", e));
+                    }
+                }
                 None
             }
             Some(AppMessage::Quit) => {

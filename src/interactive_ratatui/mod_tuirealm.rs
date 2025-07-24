@@ -20,6 +20,7 @@ use self::ui::tuirealm_components::{
 
 pub struct InteractiveSearch {
     model: Model,
+    pattern: String,
 }
 
 impl InteractiveSearch {
@@ -27,10 +28,15 @@ impl InteractiveSearch {
         let max_results = options.max_results.unwrap_or(100);
         let model = Model::new(options, max_results)?;
         
-        Ok(Self { model })
+        Ok(Self { 
+            model,
+            pattern: String::new(),
+        })
     }
 
     pub fn run(&mut self, pattern: &str) -> Result<()> {
+        self.pattern = pattern.to_string();
+        
         // Set initial pattern if provided
         if !pattern.is_empty() {
             self.model.update(Some(AppMessage::QueryChanged(pattern.to_string())));
@@ -54,8 +60,25 @@ impl InteractiveSearch {
                 break;
             }
 
-            // Render
-            self.model.view()?;
+            // Render based on current mode
+            match self.model.mode {
+                domain::models::Mode::Search => {
+                    self.model.app.active(&ComponentId::SearchBar)?;
+                    self.render_search_mode()?;
+                }
+                domain::models::Mode::ResultDetail => {
+                    self.model.app.active(&ComponentId::ResultDetail)?;
+                    self.render_result_detail_mode()?;
+                }
+                domain::models::Mode::SessionViewer => {
+                    self.model.app.active(&ComponentId::SessionViewer)?;
+                    self.render_session_viewer_mode()?;
+                }
+                domain::models::Mode::Help => {
+                    self.model.app.active(&ComponentId::HelpDialog)?;
+                    self.render_help_mode()?;
+                }
+            }
 
             // Check for keyboard input
             if let Ok(true) = crossterm::event::poll(std::time::Duration::from_millis(50)) {
@@ -216,5 +239,102 @@ impl InteractiveSearch {
             }
             _ => None,
         }
+    }
+
+    fn render_search_mode(&mut self) -> Result<()> {
+        if let Some(terminal) = &mut self.model.terminal {
+            terminal.raw_mut().draw(|f| {
+                use tuirealm::tui::layout::{Constraint, Direction, Layout};
+                
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Length(3),    // Search bar
+                        Constraint::Min(0),       // Results
+                        Constraint::Length(1),    // Status
+                    ])
+                    .split(f.area());
+
+                // Update components with data
+                if let Ok(search_bar) = self.model.app.query_from_id(&ComponentId::SearchBar) {
+                    if let Some(search_bar) = search_bar.downcast_ref::<SearchBar>() {
+                        let mut search_bar_clone = search_bar.clone();
+                        search_bar_clone.set_query(self.model.search_state.query.clone());
+                        search_bar_clone.set_searching(self.model.search_state.is_searching);
+                        search_bar_clone.set_role_filter(self.model.search_state.role_filter.clone());
+                        if let Some(msg) = &self.model.ui_state.message {
+                            search_bar_clone.set_message(Some(msg.clone()));
+                        }
+                        let _ = self.model.app.remount(ComponentId::SearchBar, Box::new(search_bar_clone), vec![]);
+                    }
+                }
+
+                if let Ok(result_list) = self.model.app.query_from_id(&ComponentId::ResultList) {
+                    if let Some(result_list) = result_list.downcast_ref::<ResultList>() {
+                        let mut result_list_clone = result_list.clone();
+                        result_list_clone.set_results(self.model.search_state.results.clone());
+                        result_list_clone.set_selected_index(self.model.search_state.selected_index);
+                        result_list_clone.set_truncation_enabled(self.model.ui_state.truncation_enabled);
+                        let _ = self.model.app.remount(ComponentId::ResultList, Box::new(result_list_clone), vec![]);
+                    }
+                }
+
+                // Render components
+                let _ = self.model.app.view(&ComponentId::SearchBar, f, chunks[0]);
+                let _ = self.model.app.view(&ComponentId::ResultList, f, chunks[1]);
+            })?;
+        }
+        Ok(())
+    }
+
+    fn render_result_detail_mode(&mut self) -> Result<()> {
+        if let Some(terminal) = &mut self.model.terminal {
+            terminal.raw_mut().draw(|f| {
+                if let Ok(result_detail) = self.model.app.query_from_id(&ComponentId::ResultDetail) {
+                    if let Some(result_detail) = result_detail.downcast_ref::<ResultDetail>() {
+                        let mut result_detail_clone = result_detail.clone();
+                        if let Some(result) = &self.model.ui_state.selected_result {
+                            result_detail_clone.set_result(Some(result.clone()));
+                        }
+                        if let Some(msg) = &self.model.ui_state.message {
+                            result_detail_clone.set_message(Some(msg.clone()));
+                        }
+                        let _ = self.model.app.remount(ComponentId::ResultDetail, Box::new(result_detail_clone), vec![]);
+                    }
+                }
+                let _ = self.model.app.view(&ComponentId::ResultDetail, f, f.area());
+            })?;
+        }
+        Ok(())
+    }
+
+    fn render_session_viewer_mode(&mut self) -> Result<()> {
+        if let Some(terminal) = &mut self.model.terminal {
+            terminal.raw_mut().draw(|f| {
+                if let Ok(session_viewer) = self.model.app.query_from_id(&ComponentId::SessionViewer) {
+                    if let Some(session_viewer) = session_viewer.downcast_ref::<SessionViewer>() {
+                        let mut session_viewer_clone = session_viewer.clone();
+                        session_viewer_clone.set_messages(self.model.session_state.messages.clone());
+                        session_viewer_clone.set_filtered_indices(self.model.session_state.filtered_indices.clone());
+                        session_viewer_clone.set_selected_index(self.model.session_state.selected_index);
+                        if let Some(order) = &self.model.session_state.order {
+                            session_viewer_clone.set_order(Some(order.clone()));
+                        }
+                        let _ = self.model.app.remount(ComponentId::SessionViewer, Box::new(session_viewer_clone), vec![]);
+                    }
+                }
+                let _ = self.model.app.view(&ComponentId::SessionViewer, f, f.area());
+            })?;
+        }
+        Ok(())
+    }
+
+    fn render_help_mode(&mut self) -> Result<()> {
+        if let Some(terminal) = &mut self.model.terminal {
+            terminal.raw_mut().draw(|f| {
+                let _ = self.model.app.view(&ComponentId::HelpDialog, f, f.area());
+            })?;
+        }
+        Ok(())
     }
 }

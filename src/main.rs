@@ -174,7 +174,7 @@ fn main() -> Result<()> {
             project_path: cli.project_path.clone(),
         };
 
-        let mut interactive = InteractiveSearch::new(options);
+        let mut interactive = InteractiveSearch::new(options)?;
         return interactive.run(pattern);
     }
 
