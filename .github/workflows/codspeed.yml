@@ -3,8 +3,16 @@ name: CodSpeed Performance Monitoring
 on:
   push:
     branches: [main, codespeed]
+    paths:
+      - '**.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
   pull_request:
     branches: [main]
+    paths:
+      - '**.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
 
 env:
   CARGO_TERM_COLOR: always
