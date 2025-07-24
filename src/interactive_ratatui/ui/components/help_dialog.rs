@@ -40,6 +40,24 @@ impl HelpDialog {
             Line::from("  ?           - Show this help"),
             Line::from(""),
             Line::from(vec![Span::styled(
+                "Text Editing Shortcuts:",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )]),
+            Line::from("  Ctrl+A      - Move cursor to beginning of line"),
+            Line::from("  Ctrl+E      - Move cursor to end of line"),
+            Line::from("  Ctrl+B      - Move cursor backward one character"),
+            Line::from("  Ctrl+F      - Move cursor forward one character"),
+            Line::from("  Alt+B       - Move cursor backward one word"),
+            Line::from("  Alt+F       - Move cursor forward one word"),
+            Line::from("  Ctrl+W      - Delete word before cursor"),
+            Line::from("  Ctrl+U      - Delete from cursor to beginning of line"),
+            Line::from("  Ctrl+K      - Delete from cursor to end of line"),
+            Line::from("  Ctrl+D      - Delete character under cursor"),
+            Line::from("  Ctrl+H      - Delete character before cursor"),
+            Line::from(""),
+            Line::from(vec![Span::styled(
                 "Result Detail Mode:",
                 Style::default()
                     .fg(Color::Yellow)
@@ -89,7 +107,7 @@ impl Component for HelpDialog {
         let help_text = Self::get_help_text();
 
         // Calculate dimensions for the help dialog
-        let width = 80.min(area.width - 4);
+        let width = 85.min(area.width - 4);
         let height = (help_text.len() as u16 + 4).min(area.height - 4);
 
         // Center the dialog
