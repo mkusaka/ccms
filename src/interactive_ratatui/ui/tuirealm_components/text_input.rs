@@ -45,6 +45,11 @@ impl TextInput {
         &self.text
     }
 
+    /// Get the current cursor position
+    pub fn cursor_position(&self) -> usize {
+        self.cursor_position
+    }
+
     /// Set the text and move cursor to the end
     pub fn set_text(&mut self, text: String) {
         self.cursor_position = text.chars().count();
@@ -113,7 +118,7 @@ impl TextInput {
     }
 
     /// Render the text with cursor as styled spans
-    fn render_cursor_spans(&self) -> Vec<Span> {
+    pub fn render_cursor_spans(&self) -> Vec<Span> {
         if self.text.is_empty() {
             // Show cursor on empty space
             vec![Span::styled(
