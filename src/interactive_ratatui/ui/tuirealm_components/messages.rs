@@ -29,6 +29,7 @@ pub enum AppMessage {
     NavigatePageDown,
     NavigateHome,
     NavigateEnd,
+    SelectResult(usize),
     
     // Mode changes
     EnterResultDetail,
