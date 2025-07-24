@@ -234,7 +234,7 @@ mod tests {
             .map(|i| MockListItem {
                 role: if i % 2 == 0 { "user" } else { "assistant" }.to_string(),
                 timestamp: format!("2024-01-{:02}T12:00:00Z", (i % 30) + 1),
-                content: format!("Message #{} with some content", i),
+                content: format!("Message #{i} with some content"),
             })
             .collect();
         viewer.set_items(items);
