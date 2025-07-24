@@ -282,4 +282,22 @@ mod tests {
         // Should handle empty filtered results gracefully
         assert!(buffer_contains(&buffer, "Session Messages"));
     }
+
+    #[test]
+    fn test_vim_navigation() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_messages(vec![
+            r#"{"type":"user","message":{"content":"message 1"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 2"},"timestamp":"2024-01-01T00:00:01Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 3"},"timestamp":"2024-01-01T00:00:02Z"}"#.to_string(),
+        ]);
+
+        // Test down navigation with 'j' - should return SessionScrollDown when moving down
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionScrollDown)));
+
+        // Test up navigation with 'k' - should return SessionScrollUp when moving up
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionScrollUp)));
+    }
 }
