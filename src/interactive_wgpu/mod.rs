@@ -446,7 +446,6 @@ impl ApplicationHandler for InteractiveSearchWgpu {
         match event {
             WindowEvent::CloseRequested => {
                 event_loop.exit();
-                return;
             }
             WindowEvent::Resized(size) => {
                 if let Some(terminal) = self.terminal.as_mut() {
@@ -461,7 +460,6 @@ impl ApplicationHandler for InteractiveSearchWgpu {
                 if let Ok(should_quit) = self.handle_key_event(key_event, self.modifiers) {
                     if should_quit {
                         event_loop.exit();
-                        return;
                     }
                 }
             }

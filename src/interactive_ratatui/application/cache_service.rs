@@ -4,15 +4,14 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+#[derive(Default)]
 pub struct CacheService {
     files: HashMap<PathBuf, CachedFile>,
 }
 
 impl CacheService {
     pub fn new() -> Self {
-        Self {
-            files: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn get_messages(&mut self, path: &Path) -> Result<&CachedFile> {
