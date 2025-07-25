@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
 
 pub struct ViewLayout {
@@ -38,20 +38,36 @@ impl ViewLayout {
         self
     }
 
+    fn calculate_title_bar_height(&self) -> u16 {
+        // Base height: 1 for title + 1 for bottom border
+        let mut height = 2;
+
+        // Add lines for subtitle if present
+        if let Some(ref subtitle) = self.subtitle {
+            let subtitle_lines = subtitle.lines().count() as u16;
+            height += subtitle_lines;
+        }
+
+        height
+    }
+
     pub fn render<F>(&self, f: &mut Frame, area: Rect, render_content: F)
     where
         F: FnOnce(&mut Frame, Rect),
     {
+        // Calculate title bar height based on content
+        let title_bar_height = self.calculate_title_bar_height();
+
         let constraints = if self.show_status_bar {
             vec![
-                Constraint::Length(3), // Title bar
-                Constraint::Min(0),    // Content
-                Constraint::Length(2), // Status bar
+                Constraint::Length(title_bar_height), // Title bar
+                Constraint::Min(0),                   // Content
+                Constraint::Length(2),                // Status bar
             ]
         } else {
             vec![
-                Constraint::Length(3), // Title bar
-                Constraint::Min(0),    // Content
+                Constraint::Length(title_bar_height), // Title bar
+                Constraint::Min(0),                   // Content
             ]
         };
 
@@ -81,15 +97,19 @@ impl ViewLayout {
         )])];
 
         if let Some(ref subtitle) = self.subtitle {
-            title_lines.push(Line::from(vec![
-                Span::styled("", Style::default().fg(Color::DarkGray)),
-                Span::raw(subtitle),
-            ]));
+            // Split subtitle by newlines to support multi-line subtitles
+            for line in subtitle.lines() {
+                title_lines.push(Line::from(vec![
+                    Span::styled("", Style::default().fg(Color::DarkGray)),
+                    Span::raw(line),
+                ]));
+            }
         }
 
         let title_block = Paragraph::new(title_lines)
             .block(Block::default().borders(Borders::BOTTOM))
-            .alignment(ratatui::layout::Alignment::Left);
+            .alignment(ratatui::layout::Alignment::Left)
+            .wrap(Wrap { trim: true });
 
         f.render_widget(title_block, area);
     }

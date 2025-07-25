@@ -65,16 +65,102 @@ mod tests {
     }
 
     #[test]
-    fn test_metadata_display() {
+    fn test_metadata_display_vertical() {
         let mut viewer = SessionViewer::new();
         viewer.set_file_path(Some("/path/to/session.jsonl".to_string()));
         viewer.set_session_id(Some("session-123".to_string()));
 
         let buffer = render_component(&mut viewer, 80, 24);
 
-        // Check that metadata is displayed
+        // Check that metadata is displayed vertically
         assert!(buffer_contains(&buffer, "Session: session-123"));
         assert!(buffer_contains(&buffer, "File: /path/to/session.jsonl"));
+
+        // Check that they are on separate lines by examining the buffer content
+        let content = buffer
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+
+        // Find positions of Session and File labels
+        let session_pos = content
+            .find("Session: session-123")
+            .expect("Session not found");
+        let file_pos = content
+            .find("File: /path/to/session.jsonl")
+            .expect("File not found");
+
+        // They should be on different lines (80 chars per line)
+        let session_line = session_pos / 80;
+        let file_line = file_pos / 80;
+        assert!(
+            file_line > session_line,
+            "File should be on a line below Session"
+        );
+    }
+
+    #[test]
+    fn test_metadata_display_empty_file_path() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_file_path(Some("".to_string()));
+        viewer.set_session_id(Some("session-123".to_string()));
+
+        let buffer = render_component(&mut viewer, 80, 24);
+
+        // Check that metadata is displayed
+        assert!(buffer_contains(&buffer, "Session: session-123"));
+        assert!(buffer_contains(&buffer, "File:"));
+    }
+
+    #[test]
+    fn test_metadata_display_none_file_path() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_file_path(None);
+        viewer.set_session_id(Some("session-123".to_string()));
+
+        let buffer = render_component(&mut viewer, 80, 24);
+
+        // Should only show Session, not File
+        assert!(buffer_contains(&buffer, "Session: session-123"));
+        assert!(!buffer_contains(&buffer, "File:"));
+    }
+
+    #[test]
+    fn test_metadata_display_with_long_paths() {
+        let mut viewer = SessionViewer::new();
+        let long_path = "/very/long/path/that/should/wrap/around/the/screen/width/when/displayed/in/the/title/bar/session.jsonl";
+        viewer.set_file_path(Some(long_path.to_string()));
+        viewer.set_session_id(Some(
+            "very-long-session-id-that-should-also-wrap-when-necessary-1234567890".to_string(),
+        ));
+
+        let buffer = render_component(&mut viewer, 80, 24);
+
+        // Check that both are displayed (wrapping is handled by ratatui)
+        assert!(buffer_contains(&buffer, "Session:"));
+        assert!(buffer_contains(&buffer, "File:"));
+    }
+
+    #[test]
+    fn test_metadata_display_real_path() {
+        let mut viewer = SessionViewer::new();
+        let real_path = "/Users/masatomokusaka/.claude/projects/-Users-masatomokusaka-src-github-com-clerk-clerk-playwright-nextjs/fb101a01-0e24-4a45-9e42-74117ebc20e6.jsonl";
+        viewer.set_file_path(Some(real_path.to_string()));
+        viewer.set_session_id(Some("fb101a01-0e24-4a45-9e42-74117ebc20e6".to_string()));
+
+        let buffer = render_component(&mut viewer, 180, 24);
+
+        // Check that both are displayed
+        assert!(buffer_contains(
+            &buffer,
+            "Session: fb101a01-0e24-4a45-9e42-74117ebc20e6"
+        ));
+        assert!(buffer_contains(
+            &buffer,
+            "File: /Users/masatomokusaka/.claude/projects"
+        ));
+
     }
 
     #[test]
