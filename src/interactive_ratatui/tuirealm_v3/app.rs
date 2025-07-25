@@ -71,6 +71,8 @@ impl App {
             details: e.to_string(),
         })?;
         
+        // ResultList needs to receive keyboard events for navigation
+        
         app.mount(
             ComponentId::ResultDetail,
             Box::new(ResultDetail::new()),
@@ -817,8 +819,22 @@ impl Update<AppMessage> for App {
                     self.state.set_message(format!("Search failed: {err}"));
                 }
                 
-                AppMessage::ResultSelect(_) => {
-                    // Already handled elsewhere
+                AppMessage::ResultSelect(index) => {
+                    // Use current selection if index is MAX
+                    let target_index = if index == usize::MAX {
+                        self.state.selected_index
+                    } else {
+                        index
+                    };
+                    
+                    if let Some(result) = self.state.search_results.get(target_index) {
+                        self.state.current_result = Some(result.clone());
+                        self.state.detail_scroll_offset = 0;
+                        self.state.clear_message();
+                        self.state.change_mode(AppMode::ResultDetail);
+                    } else {
+                        self.state.set_message("No result selected".to_string());
+                    }
                 }
                 
                 AppMessage::ClipboardSuccess(msg) => {

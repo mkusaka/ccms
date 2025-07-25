@@ -117,13 +117,34 @@ impl GlobalShortcuts {
     
     fn handle_search_shortcuts(&self, key: KeyEvent) -> Option<AppMessage> {
         match (key.code, key.modifiers) {
+            // Arrow key navigation
+            (Key::Down, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultDown),
+            (Key::Up, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultUp),
+            (Key::PageDown, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultPageDown),
+            (Key::PageUp, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultPageUp),
+            (Key::Home, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultHome),
+            (Key::End, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultEnd),
+            
             // Vim-style navigation
             (Key::Char('j'), modifiers) if modifiers.is_empty() => Some(AppMessage::ResultDown),
             (Key::Char('k'), modifiers) if modifiers.is_empty() => Some(AppMessage::ResultUp),
             
+            // Page navigation
+            (Key::Char('f'), modifiers) if modifiers == KeyModifiers::CONTROL => {
+                Some(AppMessage::ResultPageDown)
+            }
+            (Key::Char('b'), modifiers) if modifiers == KeyModifiers::CONTROL => {
+                Some(AppMessage::ResultPageUp)
+            }
+            
             // Copy shortcuts
             (Key::Char('y'), modifiers) if modifiers == KeyModifiers::CONTROL => {
                 Some(AppMessage::CopyRawJson)
+            }
+            
+            // Enter to view detail
+            (Key::Enter, modifiers) if modifiers.is_empty() => {
+                Some(AppMessage::ResultSelect(usize::MAX)) // Use MAX to indicate current selection
             }
             
             _ => None,
@@ -132,14 +153,31 @@ impl GlobalShortcuts {
     
     fn handle_detail_shortcuts(&self, key: KeyEvent) -> Option<AppMessage> {
         match (key.code, key.modifiers) {
+            // Arrow key navigation
+            (Key::Down, modifiers) if modifiers.is_empty() => Some(AppMessage::DetailScrollDown),
+            (Key::Up, modifiers) if modifiers.is_empty() => Some(AppMessage::DetailScrollUp),
+            (Key::PageDown, modifiers) if modifiers.is_empty() => Some(AppMessage::DetailPageDown),
+            (Key::PageUp, modifiers) if modifiers.is_empty() => Some(AppMessage::DetailPageUp),
+            
             // Vim-style navigation
             (Key::Char('j'), modifiers) if modifiers.is_empty() => Some(AppMessage::DetailScrollDown),
             (Key::Char('k'), modifiers) if modifiers.is_empty() => Some(AppMessage::DetailScrollUp),
+            
+            // Page navigation
+            (Key::Char('f'), modifiers) if modifiers == KeyModifiers::CONTROL => {
+                Some(AppMessage::DetailPageDown)
+            }
+            (Key::Char('b'), modifiers) if modifiers == KeyModifiers::CONTROL => {
+                Some(AppMessage::DetailPageUp)
+            }
             
             // Copy shortcuts
             (Key::Char('y'), modifiers) if modifiers == KeyModifiers::CONTROL => {
                 Some(AppMessage::CopyRawJson)
             }
+            
+            // Escape to go back
+            (Key::Esc, modifiers) if modifiers.is_empty() => Some(AppMessage::ExitResultDetail),
             
             _ => None,
         }
@@ -147,14 +185,35 @@ impl GlobalShortcuts {
     
     fn handle_session_shortcuts(&self, key: KeyEvent) -> Option<AppMessage> {
         match (key.code, key.modifiers) {
+            // Arrow key navigation
+            (Key::Down, modifiers) if modifiers.is_empty() => Some(AppMessage::SessionScrollDown),
+            (Key::Up, modifiers) if modifiers.is_empty() => Some(AppMessage::SessionScrollUp),
+            (Key::PageDown, modifiers) if modifiers.is_empty() => Some(AppMessage::SessionPageDown),
+            (Key::PageUp, modifiers) if modifiers.is_empty() => Some(AppMessage::SessionPageUp),
+            
             // Vim-style navigation
             (Key::Char('j'), modifiers) if modifiers.is_empty() => Some(AppMessage::SessionScrollDown),
             (Key::Char('k'), modifiers) if modifiers.is_empty() => Some(AppMessage::SessionScrollUp),
+            
+            // Page navigation
+            (Key::Char('f'), modifiers) if modifiers == KeyModifiers::CONTROL => {
+                Some(AppMessage::SessionPageDown)
+            }
+            (Key::Char('b'), modifiers) if modifiers == KeyModifiers::CONTROL => {
+                Some(AppMessage::SessionPageUp)
+            }
+            
+            // Session features
+            (Key::Char('o'), modifiers) if modifiers.is_empty() => Some(AppMessage::SessionToggleOrder),
+            (Key::Char('/'), modifiers) if modifiers.is_empty() => Some(AppMessage::SessionSearchStart),
             
             // Copy shortcuts
             (Key::Char('y'), modifiers) if modifiers == KeyModifiers::CONTROL => {
                 Some(AppMessage::CopyRawJson)
             }
+            
+            // Escape to go back
+            (Key::Esc, modifiers) if modifiers.is_empty() => Some(AppMessage::ExitSessionViewer),
             
             _ => None,
         }
