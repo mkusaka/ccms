@@ -1,6 +1,7 @@
 use std::sync::mpsc;
 use std::thread;
 use std::path::PathBuf;
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 
 use crate::query::condition::{SearchResult, SearchOptions};
 use crate::search::engine::SearchEngine;
@@ -13,6 +14,7 @@ pub struct SearchService {
     pub timestamp_gte: Option<String>,
     pub timestamp_lt: Option<String>,
     pub session_id: Option<String>,
+    cancel_token: Arc<AtomicBool>,
 }
 
 impl SearchService {
@@ -22,6 +24,7 @@ impl SearchService {
             timestamp_gte: None,
             timestamp_lt: None,
             session_id: None,
+            cancel_token: Arc::new(AtomicBool::new(false)),
         }
     }
     
@@ -41,17 +44,29 @@ impl SearchService {
     
     /// Execute search asynchronously
     pub fn search_async(
-        &self,
+        &mut self,
         query: String,
         role_filter: Option<String>,
         tx: mpsc::Sender<Vec<SearchResult>>,
     ) {
+        // Cancel any previous search
+        self.cancel_token.store(true, Ordering::Relaxed);
+        
+        // Create a new cancel token for this search
+        let cancel_token = Arc::new(AtomicBool::new(false));
+        self.cancel_token.clone_from(&cancel_token);
+        
         let pattern = self.pattern.clone();
         let timestamp_gte = self.timestamp_gte.clone();
         let timestamp_lt = self.timestamp_lt.clone();
         let session_id = self.session_id.clone();
         
         thread::spawn(move || {
+            // Check if cancelled before starting
+            if cancel_token.load(Ordering::Relaxed) {
+                return;
+            }
+            
             let results = Self::execute_search(
                 query,
                 role_filter,
@@ -64,8 +79,10 @@ impl SearchService {
                 vec![]
             });
             
-            // Send results back
-            let _ = tx.send(results);
+            // Only send results if not cancelled
+            if !cancel_token.load(Ordering::Relaxed) {
+                let _ = tx.send(results);
+            }
         });
     }
     

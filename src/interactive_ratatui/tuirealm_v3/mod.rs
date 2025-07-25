@@ -81,10 +81,12 @@ pub fn run_interactive_search(
             }
         }
         
-        // Check for debounced search
-        if let Some(msg) = app_logic.check_debounced_search() {
-            if let Some(AppMessage::Quit) = app_logic.update(Some(msg)) {
-                should_quit = true;
+        // Check for debounced search only when not already searching
+        if !app_logic.state.is_searching {
+            if let Some(msg) = app_logic.check_debounced_search() {
+                if let Some(AppMessage::Quit) = app_logic.update(Some(msg)) {
+                    should_quit = true;
+                }
             }
         }
         

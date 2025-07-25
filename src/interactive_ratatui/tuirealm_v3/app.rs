@@ -385,8 +385,16 @@ impl App {
             return;
         }
         
+        // Don't start a new search if one is already running
+        if self.state.is_searching {
+            return;
+        }
+        
         self.state.is_searching = true;
         self.state.clear_message();
+        
+        // Drop the previous receiver to cancel any ongoing search
+        self.search_rx = None;
         
         let (tx, rx) = mpsc::channel();
         self.search_rx = Some(rx);
@@ -440,10 +448,14 @@ impl App {
     }
     
     /// Check if debounced search is ready
-    pub fn check_debounced_search(&self) -> Option<AppMessage> {
+    pub fn check_debounced_search(&mut self) -> Option<AppMessage> {
         if let (Some(last_update), Some(query)) = (&self.state.last_search_update, &self.state.pending_search_query) {
             if last_update.elapsed() >= std::time::Duration::from_millis(300) {
-                return Some(AppMessage::DebouncedSearchReady(query.clone()));
+                // Clear the pending query to prevent repeated execution
+                let query_clone = query.clone();
+                self.state.pending_search_query = None;
+                self.state.last_search_update = None;
+                return Some(AppMessage::DebouncedSearchReady(query_clone));
             }
         }
         None
@@ -854,8 +866,8 @@ impl Update<AppMessage> for App {
                 }
                 
                 AppMessage::DebouncedSearchReady(query) => {
-                    if self.state.pending_search_query.as_ref() == Some(&query) {
-                        self.state.pending_search_query = None;
+                    // Only execute search if the query matches what we're expecting
+                    if self.state.search_query == query {
                         self.execute_search();
                     }
                 }
