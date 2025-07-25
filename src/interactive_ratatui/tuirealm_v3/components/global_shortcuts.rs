@@ -122,14 +122,8 @@ impl GlobalShortcuts {
             (Key::Up, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultUp),
             (Key::PageDown, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultPageDown),
             (Key::PageUp, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultPageUp),
-            (Key::Home, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultHome),
-            (Key::End, modifiers) if modifiers.is_empty() => Some(AppMessage::ResultEnd),
             
-            // Vim-style navigation
-            (Key::Char('j'), modifiers) if modifiers.is_empty() => Some(AppMessage::ResultDown),
-            (Key::Char('k'), modifiers) if modifiers.is_empty() => Some(AppMessage::ResultUp),
-            
-            // Page navigation
+            // Page navigation with Ctrl
             (Key::Char('f'), modifiers) if modifiers == KeyModifiers::CONTROL => {
                 Some(AppMessage::ResultPageDown)
             }
@@ -140,11 +134,6 @@ impl GlobalShortcuts {
             // Copy shortcuts
             (Key::Char('y'), modifiers) if modifiers == KeyModifiers::CONTROL => {
                 Some(AppMessage::CopyRawJson)
-            }
-            
-            // Enter to view detail
-            (Key::Enter, modifiers) if modifiers.is_empty() => {
-                Some(AppMessage::ResultSelect(usize::MAX)) // Use MAX to indicate current selection
             }
             
             _ => None,

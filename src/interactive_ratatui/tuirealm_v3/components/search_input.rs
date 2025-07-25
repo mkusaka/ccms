@@ -245,6 +245,20 @@ impl MockComponent for SearchInput {
 impl Component<AppMessage, NoUserEvent> for SearchInput {
     fn on(&mut self, ev: Event<NoUserEvent>) -> Option<AppMessage> {
         match ev {
+            // Global shortcuts
+            Event::Keyboard(KeyEvent { code: Key::Char('c'), modifiers: KeyModifiers::CONTROL }) => {
+                Some(AppMessage::Quit)
+            }
+            Event::Keyboard(KeyEvent { code: Key::Char('t'), modifiers: KeyModifiers::CONTROL }) => {
+                Some(AppMessage::ToggleTruncation)
+            }
+            Event::Keyboard(KeyEvent { code: Key::Char('?'), modifiers }) if modifiers.is_empty() => {
+                Some(AppMessage::ShowHelp)
+            }
+            Event::Keyboard(KeyEvent { code: Key::Char('h'), modifiers }) if modifiers.is_empty() => {
+                Some(AppMessage::ShowHelp)
+            }
+            
             // Character input
             Event::Keyboard(KeyEvent { code: Key::Char(c), modifiers }) if modifiers.is_empty() => {
                 let mut query = self.props
@@ -253,12 +267,15 @@ impl Component<AppMessage, NoUserEvent> for SearchInput {
                     .unwrap_or_default();
                     
                 let chars: Vec<char> = query.chars().collect();
-                let mut new_chars = chars[..self.state.cursor_position].to_vec();
+                // Ensure cursor position is within bounds
+                let cursor_pos = self.state.cursor_position.min(chars.len());
+                
+                let mut new_chars = chars[..cursor_pos].to_vec();
                 new_chars.push(c);
-                new_chars.extend_from_slice(&chars[self.state.cursor_position..]);
+                new_chars.extend_from_slice(&chars[cursor_pos..]);
                 
                 query = new_chars.into_iter().collect();
-                self.state.cursor_position += 1;
+                self.state.cursor_position = cursor_pos + 1;
                 
                 Some(AppMessage::SearchQueryChanged(query))
             }
@@ -309,13 +326,19 @@ impl Component<AppMessage, NoUserEvent> for SearchInput {
                         .unwrap_or_default();
                         
                     let chars: Vec<char> = query.chars().collect();
-                    let mut new_chars = chars[..self.state.cursor_position - 1].to_vec();
-                    new_chars.extend_from_slice(&chars[self.state.cursor_position..]);
-                    
-                    query = new_chars.into_iter().collect();
-                    self.state.cursor_position -= 1;
-                    
-                    Some(AppMessage::SearchQueryChanged(query))
+                    // Ensure cursor position is within bounds
+                    let cursor_pos = self.state.cursor_position.min(chars.len());
+                    if cursor_pos > 0 {
+                        let mut new_chars = chars[..cursor_pos - 1].to_vec();
+                        new_chars.extend_from_slice(&chars[cursor_pos..]);
+                        
+                        query = new_chars.into_iter().collect();
+                        self.state.cursor_position = cursor_pos - 1;
+                        
+                        Some(AppMessage::SearchQueryChanged(query))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
@@ -349,7 +372,8 @@ impl Component<AppMessage, NoUserEvent> for SearchInput {
                         .unwrap_or_default();
                         
                     let chars: Vec<char> = query.chars().collect();
-                    let new_query: String = chars[self.state.cursor_position..].iter().collect();
+                    let cursor_pos = self.state.cursor_position.min(chars.len());
+                    let new_query: String = chars[cursor_pos..].iter().collect();
                     self.state.cursor_position = 0;
                     
                     Some(AppMessage::SearchQueryChanged(new_query))
@@ -383,8 +407,9 @@ impl Component<AppMessage, NoUserEvent> for SearchInput {
                         .unwrap_or_default();
                         
                     let chars: Vec<char> = query.chars().collect();
-                    let before_cursor: String = chars[..self.state.cursor_position].iter().collect();
-                    let after_cursor: String = chars[self.state.cursor_position..].iter().collect();
+                    let cursor_pos = self.state.cursor_position.min(chars.len());
+                    let before_cursor: String = chars[..cursor_pos].iter().collect();
+                    let after_cursor: String = chars[cursor_pos..].iter().collect();
                     
                     // Find word boundary
                     let trimmed = before_cursor.trim_end();
@@ -409,7 +434,8 @@ impl Component<AppMessage, NoUserEvent> for SearchInput {
                         .unwrap_or_default();
                         
                     let chars: Vec<char> = query.chars().collect();
-                    let before_cursor: String = chars[..self.state.cursor_position].iter().collect();
+                    let cursor_pos = self.state.cursor_position.min(chars.len());
+                    let before_cursor: String = chars[..cursor_pos].iter().collect();
                     
                     let trimmed = before_cursor.trim_end();
                     let last_space = trimmed.rfind(' ').map(|i| i + 1).unwrap_or(0);

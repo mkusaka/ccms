@@ -8,7 +8,7 @@ use crate::query::condition::SearchResult;
 use super::models::SessionOrder;
 use super::messages::{AppMessage, AppMode, ComponentId};
 use super::state::AppState;
-use super::components::{SearchInput, ResultList, ResultDetail, SessionViewer, HelpDialog, ErrorDialog, GlobalShortcuts};
+use super::components::{SearchInput, ResultList, ResultDetail, SessionViewer, HelpDialog, ErrorDialog};
 use super::services::{SearchService, SessionService, ClipboardService};
 use super::error::{AppError, AppResult};
 use super::type_safe_wrapper::{SearchResults, SessionMessages, helpers};
@@ -71,8 +71,6 @@ impl App {
             details: e.to_string(),
         })?;
         
-        // ResultList needs to receive keyboard events for navigation
-        
         app.mount(
             ComponentId::ResultDetail,
             Box::new(ResultDetail::new()),
@@ -109,17 +107,9 @@ impl App {
             details: e.to_string(),
         })?;
         
-        app.mount(
-            ComponentId::GlobalShortcuts,
-            Box::new(GlobalShortcuts::new()),
-            vec![],
-        ).map_err(|e| AppError::ComponentInitError {
-            component: "GlobalShortcuts".to_string(),
-            details: e.to_string(),
-        })?;
+        // GlobalShortcuts is not mounted as a component
+        // Instead, each component handles global shortcuts internally
         
-        // GlobalShortcuts doesn't need explicit subscription
-        // It will process events through the view() method
         
         // Set initial active component
         app.active(&ComponentId::SearchInput).map_err(|e| AppError::ComponentInitError {
@@ -362,19 +352,7 @@ impl App {
             )?;
         }
         
-        // Update GlobalShortcuts with current mode
-        Self::update_attr(
-            app,
-            &ComponentId::GlobalShortcuts,
-            Attribute::Custom("current_mode"),
-            AttrValue::Number(match self.state.mode {
-                AppMode::Search => 0,
-                AppMode::ResultDetail => 1,
-                AppMode::SessionViewer => 2,
-                AppMode::Help => 3,
-                AppMode::Error => 4,
-            }),
-        )?;
+        // GlobalShortcuts is not used anymore
         
         Ok(())
     }
@@ -606,8 +584,8 @@ impl App {
             }
         }
         
-        // Always process global shortcuts
-        app.view(&ComponentId::GlobalShortcuts, f, f.area());
+        // Process global shortcuts only when they don't interfere with input
+        // GlobalShortcuts is handled through render but not for keyboard events in Search mode
     }
 }
 
