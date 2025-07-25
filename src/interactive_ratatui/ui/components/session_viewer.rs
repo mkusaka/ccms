@@ -11,7 +11,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::Style,
+    style::{Color, Modifier, Style},
     text::Line,
     widgets::{Block, Borders, Paragraph},
 };
@@ -31,6 +31,7 @@ pub struct SessionViewer {
     file_path: Option<String>,
     session_id: Option<String>,
     messages_hash: u64,
+    message: Option<String>,
 }
 
 impl SessionViewer {
@@ -47,6 +48,7 @@ impl SessionViewer {
             file_path: None,
             session_id: None,
             messages_hash: 0,
+            message: None,
         }
     }
 
@@ -103,6 +105,10 @@ impl SessionViewer {
 
     pub fn set_truncation_enabled(&mut self, enabled: bool) {
         self.list_viewer.set_truncation_enabled(enabled);
+    }
+
+    pub fn set_message(&mut self, message: Option<String>) {
+        self.message = message;
     }
 
     #[allow(dead_code)]
@@ -181,16 +187,62 @@ impl Component for SessionViewer {
             (None, None) => String::new(),
         };
 
+        // Layout with message area
+        let chunks = if self.message.is_some() {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(0),    // Main content
+                    Constraint::Length(1), // Message
+                    Constraint::Length(2), // Status bar
+                ])
+                .split(area)
+        } else {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(0),    // Main content
+                    Constraint::Length(2), // Status bar
+                ])
+                .split(area)
+        };
+
+        // Render main content with ViewLayout
         let layout = ViewLayout::new("Session Viewer".to_string())
             .with_subtitle(subtitle)
-            .with_status_text(
-                "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View Detail | o: Sort | c: Copy JSON | /: Search | Esc: Back"
-                    .to_string(),
-            );
+            .with_status_bar(false); // We'll render our own status bar
 
-        layout.render(f, area, |f, content_area| {
+        layout.render(f, chunks[0], |f, content_area| {
             self.render_content(f, content_area);
         });
+
+        // Render message if present
+        if let Some(ref msg) = self.message {
+            let style = if msg.starts_with('✓') {
+                Style::default()
+                    .fg(ColorScheme::SUCCESS)
+                    .add_modifier(Modifier::BOLD)
+            } else if msg.starts_with('⚠') {
+                Style::default().fg(ColorScheme::WARNING)
+            } else {
+                Style::default().add_modifier(Modifier::BOLD)
+            };
+
+            let message_widget = Paragraph::new(msg.clone())
+                .style(style)
+                .alignment(ratatui::layout::Alignment::Center);
+            f.render_widget(message_widget, chunks[1]);
+        }
+
+        // Render status bar
+        let status_idx = if self.message.is_some() { 2 } else { 1 };
+        if chunks.len() > status_idx {
+            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | f: Copy File Path | /: Search | Esc: Back";
+            let status_bar = Paragraph::new(status_text)
+                .style(Style::default().fg(Color::DarkGray))
+                .alignment(ratatui::layout::Alignment::Center);
+            f.render_widget(status_bar, chunks[status_idx]);
+        }
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {

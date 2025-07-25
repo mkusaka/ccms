@@ -45,6 +45,8 @@ pub struct InteractiveSearch {
     scheduled_search_delay: Option<u64>,
     pattern: String,
     last_ctrl_c_press: Option<std::time::Instant>,
+    message_timer: Option<std::time::Instant>,
+    message_clear_delay: u64,
 }
 
 impl InteractiveSearch {
@@ -67,6 +69,8 @@ impl InteractiveSearch {
             scheduled_search_delay: None,
             pattern: String::new(),
             last_ctrl_c_press: None,
+            message_timer: None,
+            message_clear_delay: 3000, // 3秒後に消える
         }
     }
 
@@ -133,6 +137,14 @@ impl InteractiveSearch {
                         self.last_search_timer = None;
                         self.execute_command(Command::ExecuteSearch);
                     }
+                }
+            }
+
+            // Check for scheduled message clear
+            if let Some(timer) = self.message_timer {
+                if timer.elapsed() >= Duration::from_millis(self.message_clear_delay) {
+                    self.message_timer = None;
+                    self.execute_command(Command::ClearMessage);
                 }
             }
 
@@ -252,6 +264,9 @@ impl InteractiveSearch {
                         "✓ Copied message text"
                     };
                     self.state.ui.message = Some(copy_message.to_string());
+
+                    // Schedule message clear after delay
+                    self.message_timer = Some(std::time::Instant::now());
                 }
             }
             Command::ShowMessage(msg) => {
@@ -259,6 +274,11 @@ impl InteractiveSearch {
             }
             Command::ClearMessage => {
                 self.state.ui.message = None;
+                self.message_timer = None;
+            }
+            Command::ScheduleClearMessage(delay) => {
+                self.message_timer = Some(std::time::Instant::now());
+                self.message_clear_delay = delay;
             }
         }
     }
