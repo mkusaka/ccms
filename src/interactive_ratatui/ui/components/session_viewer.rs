@@ -7,7 +7,7 @@ use crate::interactive_ratatui::ui::components::{
     view_layout::{ColorScheme, ViewLayout},
 };
 use crate::interactive_ratatui::ui::events::Message;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -15,9 +15,14 @@ use ratatui::{
     text::Line,
     widgets::{Block, Borders, Paragraph},
 };
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 #[derive(Default)]
 pub struct SessionViewer {
+    #[cfg(test)]
+    pub list_viewer: ListViewer<SessionListItem>,
+    #[cfg(not(test))]
     list_viewer: ListViewer<SessionListItem>,
     raw_messages: Vec<String>,
     text_input: TextInput,
@@ -25,6 +30,7 @@ pub struct SessionViewer {
     is_searching: bool,
     file_path: Option<String>,
     session_id: Option<String>,
+    messages_hash: u64,
 }
 
 impl SessionViewer {
@@ -40,21 +46,31 @@ impl SessionViewer {
             is_searching: false,
             file_path: None,
             session_id: None,
+            messages_hash: 0,
         }
     }
 
     pub fn set_messages(&mut self, messages: Vec<String>) {
-        self.raw_messages = messages;
+        // Calculate hash of new messages to check if they changed
+        let mut hasher = DefaultHasher::new();
+        messages.hash(&mut hasher);
+        let new_hash = hasher.finish();
 
-        // Convert raw messages to SessionListItems
-        let items: Vec<SessionListItem> = self
-            .raw_messages
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
-            .collect();
+        // Only update if messages have changed
+        if new_hash != self.messages_hash {
+            self.messages_hash = new_hash;
+            self.raw_messages = messages;
 
-        self.list_viewer.set_items(items);
+            // Convert raw messages to SessionListItems
+            let items: Vec<SessionListItem> = self
+                .raw_messages
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+                .collect();
+
+            self.list_viewer.set_items(items);
+        }
     }
 
     pub fn set_filtered_indices(&mut self, indices: Vec<usize>) {
@@ -130,7 +146,7 @@ impl SessionViewer {
 
             let search_bar = Paragraph::new(Line::from(search_text)).block(
                 Block::default()
-                    .title("Search in session (Esc to cancel)")
+                    .title("Search in session (Esc to cancel, ↑/↓ or Ctrl+P/N to scroll)")
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(ColorScheme::SECONDARY)),
             );
@@ -168,7 +184,8 @@ impl Component for SessionViewer {
         let layout = ViewLayout::new("Session Viewer".to_string())
             .with_subtitle(subtitle)
             .with_status_text(
-                "↑/↓ or j/k: Navigate | o: Sort | c: Copy JSON | /: Search | Esc: Back".to_string(),
+                "↑/↓ or j/k or Ctrl+P/N: Navigate | o: Sort | c: Copy JSON | /: Search | Esc: Back"
+                    .to_string(),
             );
 
         layout.render(f, area, |f, content_area| {
@@ -188,6 +205,22 @@ impl Component for SessionViewer {
                     self.is_searching = false;
                     None
                 }
+                KeyCode::Up => {
+                    self.list_viewer.move_up();
+                    Some(Message::SessionNavigated)
+                }
+                KeyCode::Down => {
+                    self.list_viewer.move_down();
+                    Some(Message::SessionNavigated)
+                }
+                KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.list_viewer.move_up();
+                    Some(Message::SessionNavigated)
+                }
+                KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.list_viewer.move_down();
+                    Some(Message::SessionNavigated)
+                }
                 _ => {
                     let changed = self.text_input.handle_key(key);
                     if changed {
@@ -202,18 +235,20 @@ impl Component for SessionViewer {
         } else {
             match key.code {
                 KeyCode::Up | KeyCode::Char('k') => {
-                    if self.list_viewer.move_up() {
-                        Some(Message::SessionScrollUp)
-                    } else {
-                        None
-                    }
+                    self.list_viewer.move_up();
+                    Some(Message::SessionNavigated)
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
-                    if self.list_viewer.move_down() {
-                        Some(Message::SessionScrollDown)
-                    } else {
-                        None
-                    }
+                    self.list_viewer.move_down();
+                    Some(Message::SessionNavigated)
+                }
+                KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.list_viewer.move_up();
+                    Some(Message::SessionNavigated)
+                }
+                KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.list_viewer.move_down();
+                    Some(Message::SessionNavigated)
                 }
                 KeyCode::Char('/') => {
                     self.is_searching = true;

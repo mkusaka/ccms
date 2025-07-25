@@ -25,6 +25,7 @@ pub enum Message {
     SessionScrollDown,
     SessionSelectUp,
     SessionSelectDown,
+    SessionNavigated,
     ToggleSessionOrder,
 
     // Role filter

@@ -191,17 +191,15 @@ impl AppState {
                 Command::None
             }
             Message::SessionScrollUp => {
-                if self.session.selected_index > 0 {
-                    self.session.selected_index -= 1;
-                    self.adjust_session_scroll_offset();
-                }
+                // Deprecated: Navigation is now handled internally by SessionViewer
                 Command::None
             }
             Message::SessionScrollDown => {
-                if self.session.selected_index + 1 < self.session.filtered_indices.len() {
-                    self.session.selected_index += 1;
-                    self.adjust_session_scroll_offset();
-                }
+                // Deprecated: Navigation is now handled internally by SessionViewer
+                Command::None
+            }
+            Message::SessionNavigated => {
+                // Navigation is handled internally by SessionViewer's ListViewer
                 Command::None
             }
             Message::ToggleSessionOrder => {
@@ -233,16 +231,6 @@ impl AppState {
 
     fn get_selected_result(&self) -> Option<&SearchResult> {
         self.search.results.get(self.search.selected_index)
-    }
-
-    fn adjust_session_scroll_offset(&mut self) {
-        let visible_height = 20; // This should come from terminal size
-
-        if self.session.selected_index < self.session.scroll_offset {
-            self.session.scroll_offset = self.session.selected_index;
-        } else if self.session.selected_index >= self.session.scroll_offset + visible_height {
-            self.session.scroll_offset = self.session.selected_index - visible_height + 1;
-        }
     }
 
     fn update_session_filter(&mut self) {
