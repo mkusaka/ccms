@@ -20,16 +20,16 @@ fn create_test_search_results(count: usize) -> Vec<SearchResult> {
     (0..count)
         .map(|i| {
             let content = if i % 10 == 0 {
-                format!("Japanese message {} 🦀 with emoji test content", i)
+                format!("Japanese message {i} 🦀 with emoji test content")
             } else if i % 5 == 0 {
-                format!("Very long message content that should be truncated properly when displayed in the UI. This is message number {}. Lorem ipsum dolor sit amet, consectetur adipiscing elit.", i)
+                format!("Very long message content that should be truncated properly when displayed in the UI. This is message number {i}. Lorem ipsum dolor sit amet, consectetur adipiscing elit.")
             } else {
-                format!("Test message {} with normal content", i)
+                format!("Test message {i} with normal content")
             };
             
             SearchResult {
                 file: format!("/path/to/file{}.jsonl", i % 3),
-                uuid: format!("uuid-{}", i),
+                uuid: format!("uuid-{i}"),
                 timestamp: "2024-01-01T00:00:00Z".to_string(),
                 session_id: format!("session-{}", i % 10),
                 role: "user".to_string(),
@@ -414,11 +414,11 @@ fn create_test_session_messages(count: usize) -> Vec<SessionMessage> {
     (0..count)
         .map(|i| {
             let content = if i % 10 == 0 {
-                format!("Japanese message {} 🦀 with emoji test content", i)
+                format!("Japanese message {i} 🦀 with emoji test content")
             } else if i % 5 == 0 {
-                format!("Very long message content that should be truncated properly when displayed in the UI. This is message number {}. Lorem ipsum dolor sit amet, consectetur adipiscing elit.", i)
+                format!("Very long message content that should be truncated properly when displayed in the UI. This is message number {i}. Lorem ipsum dolor sit amet, consectetur adipiscing elit.")
             } else {
-                format!("Test message {} with normal content", i)
+                format!("Test message {i} with normal content")
             };
             
             SessionMessage::User {
@@ -429,7 +429,7 @@ fn create_test_session_messages(count: usize) -> Vec<SessionMessage> {
                     cwd: "/test".to_string(),
                     session_id: format!("session-{}", i % 10),
                     version: "1.0".to_string(),
-                    uuid: format!("uuid-{}", i),
+                    uuid: format!("uuid-{i}"),
                     timestamp: "2024-01-01T00:00:00Z".to_string(),
                 },
                 message: UserMessageContent {
