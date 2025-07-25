@@ -112,13 +112,13 @@ mod tests {
             r#"{"type":"user","message":{"content":"message 3"},"timestamp":"2024-01-01T00:00:02Z"}"#.to_string(),
         ]);
 
-        // Test down navigation - should return SessionScrollDown when moving down
+        // Test down navigation - should return SessionNavigated message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionScrollDown)));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
 
-        // Test up navigation - should return SessionScrollUp when moving up
+        // Test up navigation - should return SessionNavigated message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Up, KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionScrollUp)));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
     }
 
     #[test]
@@ -292,13 +292,13 @@ mod tests {
             r#"{"type":"user","message":{"content":"message 3"},"timestamp":"2024-01-01T00:00:02Z"}"#.to_string(),
         ]);
 
-        // Test down navigation with 'j' - should return SessionScrollDown when moving down
+        // Test down navigation with 'j' - should return SessionNavigated message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionScrollDown)));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
 
-        // Test up navigation with 'k' - should return SessionScrollUp when moving up
+        // Test up navigation with 'k' - should return SessionNavigated message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionScrollUp)));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
     }
 
     fn create_key_event_with_modifiers(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
@@ -719,5 +719,147 @@ mod tests {
         // Should still be in search mode - can type
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('x'), KeyModifiers::empty()));
         assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "x"));
+    }
+
+    #[test]
+    fn test_navigation_moves_selection() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_messages(vec![
+            r#"{"type":"user","message":{"content":"message 1"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 2"},"timestamp":"2024-01-01T00:00:01Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 3"},"timestamp":"2024-01-01T00:00:02Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 4"},"timestamp":"2024-01-01T00:00:03Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 5"},"timestamp":"2024-01-01T00:00:04Z"}"#.to_string(),
+        ]);
+
+        // Initially at index 0
+        assert_eq!(viewer.list_viewer.selected_index, 0);
+
+        // Move down
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        assert_eq!(viewer.list_viewer.selected_index, 1);
+
+        // Move down again
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        assert_eq!(viewer.list_viewer.selected_index, 2);
+
+        // Move up
+        viewer.handle_key(KeyEvent::new(KeyCode::Up, KeyModifiers::empty()));
+        assert_eq!(viewer.list_viewer.selected_index, 1);
+
+        // Move to end
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        assert_eq!(viewer.list_viewer.selected_index, 4);
+
+        // Try to move past end
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        assert_eq!(viewer.list_viewer.selected_index, 4); // Should stay at 4
+    }
+
+    #[test]
+    fn test_search_mode_navigation() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_messages(vec![
+            r#"{"type":"user","message":{"content":"message 1"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 2"},"timestamp":"2024-01-01T00:00:01Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 3"},"timestamp":"2024-01-01T00:00:02Z"}"#.to_string(),
+        ]);
+
+        // Enter search mode
+        viewer.handle_key(KeyEvent::new(KeyCode::Char('/'), KeyModifiers::empty()));
+
+        // Navigate while in search mode
+        assert_eq!(viewer.list_viewer.selected_index, 0);
+        
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        assert_eq!(viewer.list_viewer.selected_index, 1);
+
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        assert_eq!(viewer.list_viewer.selected_index, 2);
+
+        // Test Ctrl+P/N
+        viewer.handle_key(create_key_event_with_modifiers(KeyCode::Char('p'), KeyModifiers::CONTROL));
+        assert_eq!(viewer.list_viewer.selected_index, 1);
+
+        viewer.handle_key(create_key_event_with_modifiers(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        assert_eq!(viewer.list_viewer.selected_index, 2);
+    }
+
+    #[test]
+    fn test_set_messages_preserves_selection_when_unchanged() {
+        let mut viewer = SessionViewer::new();
+        let messages = vec![
+            r#"{"type":"user","message":{"content":"message 1"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 2"},"timestamp":"2024-01-01T00:00:01Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 3"},"timestamp":"2024-01-01T00:00:02Z"}"#.to_string(),
+        ];
+
+        // Set messages initially
+        viewer.set_messages(messages.clone());
+        assert_eq!(viewer.list_viewer.selected_index, 0);
+
+        // Move selection down
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        assert_eq!(viewer.list_viewer.selected_index, 2);
+
+        // Set the same messages again - selection should be preserved
+        viewer.set_messages(messages);
+        assert_eq!(viewer.list_viewer.selected_index, 2);
+    }
+
+    #[test]
+    fn test_set_messages_resets_selection_when_changed() {
+        let mut viewer = SessionViewer::new();
+        let messages1 = vec![
+            r#"{"type":"user","message":{"content":"message 1"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 2"},"timestamp":"2024-01-01T00:00:01Z"}"#.to_string(),
+        ];
+
+        // Set messages initially
+        viewer.set_messages(messages1);
+        assert_eq!(viewer.list_viewer.selected_index, 0);
+
+        // Move selection down
+        viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        assert_eq!(viewer.list_viewer.selected_index, 1);
+
+        // Set different messages - selection should reset
+        let messages2 = vec![
+            r#"{"type":"user","message":{"content":"new message 1"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"new message 2"},"timestamp":"2024-01-01T00:00:01Z"}"#.to_string(),
+        ];
+        viewer.set_messages(messages2);
+        assert_eq!(viewer.list_viewer.selected_index, 0);
+    }
+
+    #[test]
+    fn test_ctrl_p_n_in_normal_mode() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_messages(vec![
+            r#"{"type":"user","message":{"content":"message 1"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 2"},"timestamp":"2024-01-01T00:00:01Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"message 3"},"timestamp":"2024-01-01T00:00:02Z"}"#.to_string(),
+        ]);
+
+        // Initially at index 0
+        assert_eq!(viewer.list_viewer.selected_index, 0);
+
+        // Ctrl+N to move down
+        let msg = viewer.handle_key(create_key_event_with_modifiers(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert_eq!(viewer.list_viewer.selected_index, 1);
+
+        // Ctrl+N again
+        let msg = viewer.handle_key(create_key_event_with_modifiers(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert_eq!(viewer.list_viewer.selected_index, 2);
+
+        // Ctrl+P to move up
+        let msg = viewer.handle_key(create_key_event_with_modifiers(KeyCode::Char('p'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert_eq!(viewer.list_viewer.selected_index, 1);
     }
 }

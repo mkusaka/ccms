@@ -3,7 +3,7 @@ use crate::interactive_ratatui::ui::components::{
 };
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Frame, layout::Rect};
 
 #[derive(Default)]
@@ -55,7 +55,7 @@ impl Component for ResultList {
                 self.list_viewer.filtered_count()
             ))
             .with_status_text(
-                "↑/↓ or j/k: Navigate | Enter: View details | Esc: Exit | ?: Help".to_string(),
+                "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Esc: Exit | ?: Help".to_string(),
             );
 
         layout.render(f, area, |f, content_area| {
@@ -73,6 +73,20 @@ impl Component for ResultList {
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
+                if self.list_viewer.move_down() {
+                    Some(Message::SelectResult(self.list_viewer.selected_index()))
+                } else {
+                    None
+                }
+            }
+            KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
+                if self.list_viewer.move_up() {
+                    Some(Message::SelectResult(self.list_viewer.selected_index()))
+                } else {
+                    None
+                }
+            }
+            KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
                 if self.list_viewer.move_down() {
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {

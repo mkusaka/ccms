@@ -198,4 +198,47 @@ mod tests {
         let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
         assert!(msg.is_none());
     }
+
+    #[test]
+    fn test_ctrl_p_n_navigation() {
+        let mut list = ResultList::new();
+        let results = vec![
+            create_test_result("user", "First"),
+            create_test_result("assistant", "Second"),
+            create_test_result("user", "Third"),
+        ];
+
+        list.update_results(results, 0);
+
+        // Initially at index 0
+        assert_eq!(list.selected_result().unwrap().text, "First");
+
+        // Move down with Ctrl+N
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Second");
+
+        // Move down again with Ctrl+N
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Third");
+
+        // Can't move down from last item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        assert!(msg.is_none());
+
+        // Move up with Ctrl+P
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Second");
+
+        // Move up again with Ctrl+P
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "First");
+
+        // Can't move up from first item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL));
+        assert!(msg.is_none());
+    }
 }

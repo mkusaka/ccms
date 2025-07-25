@@ -100,10 +100,11 @@ impl Renderer {
             .set_file_path(state.session.file_path.clone());
         self.session_viewer
             .set_session_id(state.session.session_id.clone());
-        self.session_viewer
-            .set_selected_index(state.session.selected_index);
-        self.session_viewer
-            .set_scroll_offset(state.session.scroll_offset);
+        // Don't override the internal ListViewer's selected_index and scroll_offset
+        // self.session_viewer
+        //     .set_selected_index(state.session.selected_index);
+        // self.session_viewer
+        //     .set_scroll_offset(state.session.scroll_offset);
         self.session_viewer
             .set_truncation_enabled(state.ui.truncation_enabled);
 
