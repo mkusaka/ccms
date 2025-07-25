@@ -14,6 +14,7 @@ pub enum Message {
     // Mode changes
     EnterResultDetail,
     EnterSessionViewer,
+    EnterResultDetailFromSession(String, String, Option<String>), // (raw_json, file_path, session_id)
     ExitToSearch,
     ShowHelp,
     CloseHelp,

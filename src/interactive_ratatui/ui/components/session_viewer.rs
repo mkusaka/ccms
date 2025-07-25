@@ -184,7 +184,7 @@ impl Component for SessionViewer {
         let layout = ViewLayout::new("Session Viewer".to_string())
             .with_subtitle(subtitle)
             .with_status_text(
-                "↑/↓ or j/k or Ctrl+P/N: Navigate | o: Sort | c: Copy JSON | /: Search | Esc: Back"
+                "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View Detail | o: Sort | c: Copy JSON | /: Search | Esc: Back"
                     .to_string(),
             );
 
@@ -274,6 +274,15 @@ impl Component for SessionViewer {
                     .list_viewer
                     .get_selected_item()
                     .map(|item| Message::CopyToClipboard(item.content.clone())),
+                KeyCode::Enter => self.list_viewer.get_selected_item().and_then(|item| {
+                    self.file_path.as_ref().map(|path| {
+                        Message::EnterResultDetailFromSession(
+                            item.raw_json.clone(),
+                            path.clone(),
+                            self.session_id.clone(),
+                        )
+                    })
+                }),
                 KeyCode::Esc => Some(Message::ExitToSearch),
                 _ => None,
             }
