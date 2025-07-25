@@ -1,20 +1,15 @@
 use ccms::interactive_ratatui::ui::{
     app_state::AppState,
     components::{
-        Component, result_list::ResultList,
-        search_bar::SearchBar, session_viewer::SessionViewer,
+        Component, result_list::ResultList, search_bar::SearchBar, session_viewer::SessionViewer,
     },
     events::Message,
     renderer::Renderer,
 };
-use ccms::{SessionMessage, SearchResult, SearchOptions, QueryCondition};
-use ccms::schemas::{BaseMessage, UserMessageContent, UserContent};
-use codspeed_criterion_compat::{Criterion, black_box, criterion_group, criterion_main, BatchSize};
-use ratatui::{
-    backend::TestBackend,
-    layout::Rect,
-    Terminal,
-};
+use ccms::schemas::{BaseMessage, UserContent, UserMessageContent};
+use ccms::{QueryCondition, SearchOptions, SearchResult, SessionMessage};
+use codspeed_criterion_compat::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
+use ratatui::{Terminal, backend::TestBackend, layout::Rect};
 
 fn create_test_search_results(count: usize) -> Vec<SearchResult> {
     (0..count)
@@ -26,7 +21,7 @@ fn create_test_search_results(count: usize) -> Vec<SearchResult> {
             } else {
                 format!("Test message {i} with normal content")
             };
-            
+
             SearchResult {
                 file: format!("/path/to/file{}.jsonl", i % 3),
                 uuid: format!("uuid-{i}"),
@@ -37,9 +32,9 @@ fn create_test_search_results(count: usize) -> Vec<SearchResult> {
                 has_tools: false,
                 has_thinking: false,
                 message_type: "user".to_string(),
-                query: QueryCondition::Literal { 
-                    pattern: "test".to_string(), 
-                    case_sensitive: false 
+                query: QueryCondition::Literal {
+                    pattern: "test".to_string(),
+                    case_sensitive: false
                 },
                 project_path: "/test".to_string(),
                 raw_json: None,
@@ -51,146 +46,160 @@ fn create_test_search_results(count: usize) -> Vec<SearchResult> {
 fn benchmark_search_bar_rendering(c: &mut Criterion) {
     let mut group = c.benchmark_group("search_bar");
     let test_area = Rect::new(0, 0, 80, 3);
-    
+
     // Basic rendering
     group.bench_function("render_basic", |b| {
         let mut search_bar = SearchBar::new();
         search_bar.set_query("test query".to_string());
-        
+
         b.iter_batched(
             || TestBackend::new(80, 24),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    search_bar.render(f, test_area);
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        search_bar.render(f, test_area);
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     // Rendering with searching state
     group.bench_function("render_searching", |b| {
         let mut search_bar = SearchBar::new();
         search_bar.set_query("complex AND query OR test".to_string());
         search_bar.set_searching(true);
         search_bar.set_message(Some("Searching...".to_string()));
-        
+
         b.iter_batched(
             || TestBackend::new(80, 24),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    search_bar.render(f, test_area);
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        search_bar.render(f, test_area);
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     // Rendering with Japanese query
     group.bench_function("render_japanese", |b| {
         let mut search_bar = SearchBar::new();
         search_bar.set_query("Japanese query 🦀 with emoji".to_string());
-        
+
         b.iter_batched(
             || TestBackend::new(80, 24),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    search_bar.render(f, test_area);
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        search_bar.render(f, test_area);
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     group.finish();
 }
 
 fn benchmark_result_list_rendering(c: &mut Criterion) {
     let mut group = c.benchmark_group("result_list");
     let test_area = Rect::new(0, 0, 80, 20);
-    
+
     // Small result set
     group.bench_function("render_10_results", |b| {
         let mut result_list = ResultList::new();
         result_list.set_results(create_test_search_results(10));
         result_list.set_selected_index(5);
-        
+
         b.iter_batched(
             || TestBackend::new(80, 24),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    result_list.render(f, test_area);
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        result_list.render(f, test_area);
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     // Large result set
     group.bench_function("render_1000_results", |b| {
         let mut result_list = ResultList::new();
         result_list.set_results(create_test_search_results(1000));
         result_list.set_selected_index(500);
-        
+
         b.iter_batched(
             || TestBackend::new(80, 24),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    result_list.render(f, test_area);
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        result_list.render(f, test_area);
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     // Production-scale result set (100k entries)
     group.bench_function("render_100k_results", |b| {
         let mut result_list = ResultList::new();
         result_list.set_results(create_test_search_results(100_000));
         result_list.set_selected_index(50_000);
-        
+
         b.iter_batched(
             || TestBackend::new(80, 24),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    result_list.render(f, test_area);
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        result_list.render(f, test_area);
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     // With truncation enabled
     group.bench_function("render_truncated", |b| {
         let mut result_list = ResultList::new();
         result_list.set_results(create_test_search_results(100));
         result_list.set_truncation_enabled(true);
         result_list.set_selected_index(50);
-        
+
         b.iter_batched(
             || TestBackend::new(80, 24),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    result_list.render(f, test_area);
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        result_list.render(f, test_area);
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     group.finish();
 }
 
 fn benchmark_app_state_updates(c: &mut Criterion) {
     let mut group = c.benchmark_group("app_state");
-    
+
     // Query change processing
     group.bench_function("update_query_changed", |b| {
         b.iter_batched(
@@ -206,11 +215,11 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
-    
+
     // Search completion processing
     group.bench_function("update_search_completed_1k", |b| {
         let results = create_test_search_results(1000);
-        
+
         b.iter_batched(
             || AppState::new(SearchOptions::default(), 1000),
             |mut state| {
@@ -220,11 +229,11 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
-    
+
     // Production-scale search results (100k entries)
     group.bench_function("update_search_completed_100k", |b| {
         let results = create_test_search_results(100_000);
-        
+
         b.iter_batched(
             || AppState::new(SearchOptions::default(), 100_000),
             |mut state| {
@@ -234,7 +243,7 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
-    
+
     // Selection movement processing
     group.bench_function("update_move_down", |b| {
         b.iter_batched(
@@ -251,7 +260,7 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
-    
+
     // Mode transition processing
     group.bench_function("update_enter_detail", |b| {
         b.iter_batched(
@@ -268,13 +277,13 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
-    
+
     group.finish();
 }
 
 fn benchmark_full_frame_rendering(c: &mut Criterion) {
     let mut group = c.benchmark_group("full_frame");
-    
+
     // Full frame rendering in search mode (small dataset)
     group.bench_function("render_search_mode_100", |b| {
         let mut renderer = Renderer::new();
@@ -283,19 +292,21 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
         state.search.selected_index = 50;
         state.search.is_searching = false;
         state.search.query = "test query".to_string();
-        
+
         b.iter_batched(
             || TestBackend::new(120, 40),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    renderer.render(f, &state);
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        renderer.render(f, &state);
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     // Production-scale full frame rendering (100k entries)
     group.bench_function("render_search_mode_100k", |b| {
         let mut renderer = Renderer::new();
@@ -303,20 +314,23 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
         state.search.results = create_test_search_results(100_000);
         state.search.selected_index = 50_000;
         state.search.is_searching = false;
-        state.search.query = "complex query with multiple terms AND conditions OR regex /pattern/i".to_string();
-        
+        state.search.query =
+            "complex query with multiple terms AND conditions OR regex /pattern/i".to_string();
+
         b.iter_batched(
             || TestBackend::new(120, 40),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    renderer.render(f, &state);
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        renderer.render(f, &state);
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     // Full frame rendering in detail mode
     group.bench_function("render_detail_mode", |b| {
         let mut renderer = Renderer::new();
@@ -324,19 +338,21 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
         let test_results = create_test_search_results(10);
         state.ui.selected_result = Some(test_results[0].clone());
         state.mode = ccms::interactive_ratatui::ui::app_state::Mode::ResultDetail;
-        
+
         b.iter_batched(
             || TestBackend::new(120, 40),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    renderer.render(f, &state);
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        renderer.render(f, &state);
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     // Real-time typing simulation (short query)
     group.bench_function("render_typing_short", |b| {
         let queries = vec![
@@ -351,7 +367,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
             "test quer",
             "test query",
         ];
-        
+
         b.iter_batched(
             || {
                 let renderer = Renderer::new();
@@ -360,19 +376,21 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
             },
             |(mut renderer, mut state, backend)| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                
+
                 // Simulate typing
                 for query in &queries {
                     state.update(Message::QueryChanged(query.to_string()));
-                    terminal.draw(|f| {
-                        renderer.render(f, &state);
-                    }).unwrap();
+                    terminal
+                        .draw(|f| {
+                            renderer.render(f, &state);
+                        })
+                        .unwrap();
                 }
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     // Realistic long query typing simulation
     group.bench_function("render_typing_realistic", |b| {
         // Build complex query progressively as real users would type
@@ -383,7 +401,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
                 Some(acc.clone())
             })
             .collect();
-        
+
         b.iter_batched(
             || {
                 let renderer = Renderer::new();
@@ -394,7 +412,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
             },
             |(mut renderer, mut state, backend)| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                
+
                 // Simulate real typing
                 for query in &queries {
                     state.update(Message::QueryChanged(query.to_string()));
@@ -406,7 +424,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
-    
+
     group.finish();
 }
 
@@ -420,7 +438,7 @@ fn create_test_session_messages(count: usize) -> Vec<SessionMessage> {
             } else {
                 format!("Test message {i} with normal content")
             };
-            
+
             SessionMessage::User {
                 base: BaseMessage {
                     parent_uuid: None,
@@ -447,7 +465,7 @@ fn create_test_session_messages(count: usize) -> Vec<SessionMessage> {
 
 fn benchmark_session_viewer_rendering(c: &mut Criterion) {
     let mut group = c.benchmark_group("session_viewer");
-    
+
     // Session viewer rendering (small dataset)
     group.bench_function("render_session_200", |b| {
         let mut session_viewer = SessionViewer::new();
@@ -458,19 +476,21 @@ fn benchmark_session_viewer_rendering(c: &mut Criterion) {
             .collect();
         session_viewer.set_messages(message_strings);
         session_viewer.set_filtered_indices(vec![0, 10, 20, 30, 40, 50]);
-        
+
         b.iter_batched(
             || TestBackend::new(120, 40),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    session_viewer.render(f, f.area());
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        session_viewer.render(f, f.area());
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     // Production-scale session messages (50k entries)
     group.bench_function("render_session_50k", |b| {
         let mut session_viewer = SessionViewer::new();
@@ -483,29 +503,31 @@ fn benchmark_session_viewer_rendering(c: &mut Criterion) {
         // More filtered indices
         let filtered_indices: Vec<usize> = (0..50_000).step_by(100).collect();
         session_viewer.set_filtered_indices(filtered_indices);
-        
+
         b.iter_batched(
             || TestBackend::new(120, 40),
             |backend| {
                 let mut terminal = Terminal::new(backend).unwrap();
-                terminal.draw(|f| {
-                    session_viewer.render(f, f.area());
-                }).unwrap();
+                terminal
+                    .draw(|f| {
+                        session_viewer.render(f, f.area());
+                    })
+                    .unwrap();
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     group.finish();
 }
 
 fn benchmark_component_input_handling(c: &mut Criterion) {
     let mut group = c.benchmark_group("input_handling");
-    
+
     // SearchBar key handling (basic input)
     group.bench_function("search_bar_basic_input", |b| {
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        
+
         let key_events = vec![
             KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE),
             KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE),
@@ -513,7 +535,7 @@ fn benchmark_component_input_handling(c: &mut Criterion) {
             KeyEvent::new(KeyCode::Right, KeyModifiers::NONE),
             KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE),
         ];
-        
+
         b.iter_batched(
             || {
                 let mut search_bar = SearchBar::new();
@@ -528,20 +550,20 @@ fn benchmark_component_input_handling(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
-    
+
     // Simulate realistic typing patterns (long string input)
     group.bench_function("search_bar_realistic_typing", |b| {
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        
+
         // Simulate real typing (character input, backspace, cursor movement)
         let typing_sequence = "SearchEngine AND (performance OR optimization) NOT deprecated";
         let mut key_events = Vec::new();
-        
+
         // Type characters one by one
         for ch in typing_sequence.chars() {
             key_events.push(KeyEvent::new(KeyCode::Char(ch), KeyModifiers::NONE));
         }
-        
+
         // Add some editing operations
         for _ in 0..10 {
             key_events.push(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE));
@@ -551,12 +573,12 @@ fn benchmark_component_input_handling(c: &mut Criterion) {
         key_events.push(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
         key_events.push(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
         key_events.push(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE));
-        
+
         // Delete some characters with backspace
         for _ in 0..5 {
             key_events.push(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
         }
-        
+
         b.iter_batched(
             || {
                 let mut search_bar = SearchBar::new();
@@ -571,7 +593,7 @@ fn benchmark_component_input_handling(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
-    
+
     group.finish();
 }
 
