@@ -7,7 +7,8 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, Borders, List, ListItem as RatatuiListItem, Paragraph};
 use ratatui::text::{Line, Span};
 
-use crate::interactive_ratatui::domain::models::SessionOrder;
+use crate::interactive_ratatui::tuirealm_v3::models::SessionOrder;
+use crate::interactive_ratatui::tuirealm_v3::type_safe_wrapper::{SessionMessages, TypeSafeAttr};
 
 /// Helper function to extract string from AttrValue
 fn unwrap_string(attr: AttrValue) -> String {
@@ -28,11 +29,15 @@ fn unwrap_bool(attr: AttrValue) -> bool {
 /// Helper function to extract usize from AttrValue
 fn unwrap_usize(attr: AttrValue) -> usize {
     match attr {
-        AttrValue::Length(n) => n as usize,
+        AttrValue::Length(n) => n,
         _ => 0,
     }
 }
 use crate::interactive_ratatui::tuirealm_v3::messages::AppMessage;
+
+#[cfg(test)]
+#[path = "session_viewer_test.rs"]
+mod tests;
 
 /// Internal state for SessionViewer component
 #[derive(Debug, Clone)]
@@ -64,6 +69,8 @@ impl SessionViewer {
         let borders = tuirealm::props::Borders::default()
             .sides(tuirealm::props::BorderSides::all());
         component.props.set(Attribute::Borders, AttrValue::Borders(borders));
+        // Initialize value to 0 for selected index
+        component.props.set(Attribute::Value, AttrValue::Length(0));
         component
     }
     
@@ -115,7 +122,7 @@ impl SessionViewer {
                     Style::default().fg(Color::DarkGray),
                 ),
                 Span::styled(
-                    format!("{:10} ", role),
+                    format!("{role:10} "),
                     Style::default().fg(match role.as_str() {
                         "User" => Color::Green,
                         "Assistant" => Color::Blue,
@@ -136,7 +143,7 @@ impl SessionViewer {
             text
         } else {
             let truncated: String = chars.into_iter().take(max_width.saturating_sub(3)).collect();
-            format!("{}...", truncated)
+            format!("{truncated}...")
         }
     }
 }
@@ -144,42 +151,69 @@ impl SessionViewer {
 impl MockComponent for SessionViewer {
     fn view(&mut self, frame: &mut Frame, area: Rect) {
         // Get data from attributes
-        // TODO: Handle complex types properly in tuirealm v3
-        let messages: Vec<String> = vec![];
+        let messages: Vec<String> = self.props
+            .get(Attribute::Custom("session_texts"))
+            .and_then(|v| SessionMessages::from_attr_value(&v))
+            .map(|sm| sm.0)
+            .unwrap_or_default();
+            
+        // TODO: Better handling of filtered indices
+        let _message_count = self.props
+            .get(Attribute::Custom("message_count"))
+            .map(|v| match v {
+                AttrValue::String(s) => s.parse::<usize>().unwrap_or(0),
+                _ => unwrap_usize(v),
+            })
+            .unwrap_or(0);
             
         let filtered_indices: Vec<usize> = (0..messages.len()).collect();
             
         let selected_index = self.props
             .get(Attribute::Value)
-            .map(|v| unwrap_usize(v))
+            .map(|v| match v {
+                AttrValue::String(s) => s.parse::<usize>().unwrap_or(0),
+                _ => unwrap_usize(v),
+            })
             .unwrap_or(0);
             
         let scroll_offset = self.props
             .get(Attribute::Custom("scroll_offset"))
-            .map(|v| unwrap_usize(v))
+            .map(|v| match v {
+                AttrValue::String(s) => s.parse::<usize>().unwrap_or(0),
+                _ => unwrap_usize(v),
+            })
             .unwrap_or(0);
             
-        // TODO: Handle complex types properly in tuirealm v3
-        let order: Option<SessionOrder> = None;
+        let order_str = self.props
+            .get(Attribute::Custom("order"))
+            .map(unwrap_string)
+            .unwrap_or_default();
+            
+        let order: Option<SessionOrder> = match order_str.as_str() {
+            "asc" => Some(SessionOrder::Ascending),
+            "desc" => Some(SessionOrder::Descending),
+            "original" => Some(SessionOrder::Original),
+            _ => None,
+        };
             
         let truncate = self.props
             .get(Attribute::Custom("truncate"))
-            .map(|v| unwrap_bool(v))
+            .map(unwrap_bool)
             .unwrap_or(true);
             
         let is_searching = self.props
             .get(Attribute::Custom("is_searching"))
-            .map(|v| unwrap_bool(v))
+            .map(unwrap_bool)
             .unwrap_or(false);
             
         let search_query = self.props
             .get(Attribute::Custom("search_query"))
-            .map(|v| unwrap_string(v))
+            .map(unwrap_string)
             .unwrap_or_default();
             
         let session_id = self.props
             .get(Attribute::Custom("session_id"))
-            .map(|v| unwrap_string(v))
+            .map(unwrap_string)
             .unwrap_or_else(|| "Unknown".to_string());
         
         if is_searching {
@@ -238,7 +272,7 @@ impl MockComponent for SessionViewer {
     fn perform(&mut self, cmd: Cmd) -> CmdResult {
         let is_searching = self.props
             .get(Attribute::Custom("is_searching"))
-            .map(|v| unwrap_bool(v))
+            .map(unwrap_bool)
             .unwrap_or(false);
             
         if !is_searching {
@@ -257,7 +291,7 @@ impl MockComponent for SessionViewer {
             Cmd::Move(tuirealm::command::Direction::Right) => {
                 let query_len = self.props
                     .get(Attribute::Custom("search_query"))
-                    .map(|v| unwrap_string(v))
+                    .map(unwrap_string)
                     .map(|s| s.chars().count())
                     .unwrap_or(0);
                     
@@ -279,7 +313,7 @@ impl MockComponent for SessionViewer {
             Cmd::GoTo(tuirealm::command::Position::End) => {
                 let query_len = self.props
                     .get(Attribute::Custom("search_query"))
-                    .map(|v| unwrap_string(v))
+                    .map(unwrap_string)
                     .map(|s| s.chars().count())
                     .unwrap_or(0);
                     
@@ -296,6 +330,7 @@ impl MockComponent for SessionViewer {
 }
 
 impl SessionViewer {
+    #[allow(clippy::too_many_arguments)]
     fn render_message_list(
         &self,
         frame: &mut Frame,
@@ -310,7 +345,7 @@ impl SessionViewer {
     ) {
         if messages.is_empty() {
             let block = Block::default()
-                .title(format!("Session: {}", session_id))
+                .title(format!("Session: {session_id}"))
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::DarkGray));
                 
@@ -348,7 +383,7 @@ impl SessionViewer {
             session_id,
             if filtered_indices.is_empty() { 0 } else { selected_index + 1 },
             filtered_indices.len(),
-            order.map(|o| format!("{:?}", o)).unwrap_or_else(|| "None".to_string())
+            order.map(|o| format!("{o:?}")).unwrap_or_else(|| "None".to_string())
         );
         
         let list = List::new(items)
@@ -365,7 +400,7 @@ impl Component<AppMessage, NoUserEvent> for SessionViewer {
     fn on(&mut self, ev: Event<NoUserEvent>) -> Option<AppMessage> {
         let is_searching = self.props
             .get(Attribute::Custom("is_searching"))
-            .map(|v| unwrap_bool(v))
+            .map(unwrap_bool)
             .unwrap_or(false);
         
         if is_searching {
@@ -382,7 +417,7 @@ impl Component<AppMessage, NoUserEvent> for SessionViewer {
                 Event::Keyboard(KeyEvent { code: Key::Char(c), modifiers }) if modifiers.is_empty() => {
                     let mut query = self.props
                         .get(Attribute::Custom("search_query"))
-                        .map(|v| unwrap_string(v))
+                        .map(unwrap_string)
                         .unwrap_or_default();
                         
                     let chars: Vec<char> = query.chars().collect();
@@ -400,7 +435,7 @@ impl Component<AppMessage, NoUserEvent> for SessionViewer {
                     if self.state.search_cursor_position > 0 {
                         let mut query = self.props
                             .get(Attribute::Custom("search_query"))
-                            .map(|v| unwrap_string(v))
+                            .map(unwrap_string)
                             .unwrap_or_default();
                             
                         if query.is_empty() {

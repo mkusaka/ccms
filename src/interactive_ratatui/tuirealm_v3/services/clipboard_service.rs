@@ -22,9 +22,7 @@ impl ClipboardService {
             Err(anyhow::anyhow!("Clipboard not available"))
         }
     }
-    
-    /// Check if clipboard is available
-    pub fn is_available(&self) -> bool {
-        self.clipboard.is_some()
-    }
 }
+#[cfg(test)]
+#[path = "clipboard_service_test.rs"]
+mod tests;

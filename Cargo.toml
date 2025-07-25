@@ -57,6 +57,9 @@ tuirealm = "3"
 # Clipboard support
 arboard = "3"
 
+# Type-safe wrapper support  
+bincode = "1.3"
+
 
 # Profiling and tracing
 pprof = { version = "0.15", features = ["flamegraph", "prost-codec"], optional = true }

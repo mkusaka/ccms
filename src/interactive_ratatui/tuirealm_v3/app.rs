@@ -1,13 +1,19 @@
 use std::sync::mpsc;
 use tuirealm::props::{AttrValue, Attribute};
-use tuirealm::{Application, NoUserEvent, Update, StateValue};
+use tuirealm::{Application, NoUserEvent, Update};
 
 use crate::query::condition::SearchResult;
-use crate::interactive_ratatui::domain::models::SessionOrder;
+use super::models::SessionOrder;
 use super::messages::{AppMessage, AppMode, ComponentId};
 use super::state::AppState;
-use super::components::{SearchInput, ResultList, ResultDetail, SessionViewer, HelpDialog};
+use super::components::{SearchInput, ResultList, ResultDetail, SessionViewer, HelpDialog, ErrorDialog, GlobalShortcuts};
 use super::services::{SearchService, SessionService, ClipboardService};
+use super::error::{AppError, AppResult};
+use super::type_safe_wrapper::{SearchResults, SessionMessages, helpers};
+
+#[cfg(test)]
+#[path = "app_test.rs"]
+mod tests;
 
 /// Main application structure
 pub struct App {
@@ -43,40 +49,76 @@ impl App {
     }
     
     /// Initialize the application
-    pub fn init(&mut self, app: &mut Application<ComponentId, AppMessage, NoUserEvent>) -> anyhow::Result<()> {
+    pub fn init(&mut self, app: &mut Application<ComponentId, AppMessage, NoUserEvent>) -> AppResult<()> {
         // Mount components
         app.mount(
             ComponentId::SearchInput,
             Box::new(SearchInput::new()),
             vec![],
-        )?;
+        ).map_err(|e| AppError::ComponentInitError {
+            component: "SearchInput".to_string(),
+            details: e.to_string(),
+        })?;
         
         app.mount(
             ComponentId::ResultList,
             Box::new(ResultList::new()),
             vec![],
-        )?;
+        ).map_err(|e| AppError::ComponentInitError {
+            component: "ResultList".to_string(),
+            details: e.to_string(),
+        })?;
         
         app.mount(
             ComponentId::ResultDetail,
             Box::new(ResultDetail::new()),
             vec![],
-        )?;
+        ).map_err(|e| AppError::ComponentInitError {
+            component: "ResultDetail".to_string(),
+            details: e.to_string(),
+        })?;
         
         app.mount(
             ComponentId::SessionViewer,
             Box::new(SessionViewer::new()),
             vec![],
-        )?;
+        ).map_err(|e| AppError::ComponentInitError {
+            component: "SessionViewer".to_string(),
+            details: e.to_string(),
+        })?;
         
         app.mount(
             ComponentId::HelpDialog,
             Box::new(HelpDialog::new()),
             vec![],
-        )?;
+        ).map_err(|e| AppError::ComponentInitError {
+            component: "HelpDialog".to_string(),
+            details: e.to_string(),
+        })?;
+        
+        app.mount(
+            ComponentId::ErrorDialog,
+            Box::new(ErrorDialog::new()),
+            vec![],
+        ).map_err(|e| AppError::ComponentInitError {
+            component: "ErrorDialog".to_string(),
+            details: e.to_string(),
+        })?;
+        
+        app.mount(
+            ComponentId::GlobalShortcuts,
+            Box::new(GlobalShortcuts::new()),
+            vec![],
+        ).map_err(|e| AppError::ComponentInitError {
+            component: "GlobalShortcuts".to_string(),
+            details: e.to_string(),
+        })?;
         
         // Set initial active component
-        app.active(&ComponentId::SearchInput)?;
+        app.active(&ComponentId::SearchInput).map_err(|e| AppError::ComponentInitError {
+            component: "SearchInput".to_string(),
+            details: format!("Failed to set active: {}", e),
+        })?;
         
         // Update all components with initial state
         self.update_components(app)?;
@@ -84,23 +126,47 @@ impl App {
         Ok(())
     }
     
+    /// Helper to update component attribute with proper error handling
+    fn update_attr(
+        app: &mut Application<ComponentId, AppMessage, NoUserEvent>,
+        component: &ComponentId,
+        attr: Attribute,
+        value: AttrValue,
+    ) -> AppResult<()> {
+        app.attr(component, attr, value).map_err(|e| AppError::ComponentUpdateError {
+            component: format!("{:?}", component),
+            details: e.to_string(),
+        })
+    }
+    
     /// Update all components with current state
-    pub fn update_components(&mut self, app: &mut Application<ComponentId, AppMessage, NoUserEvent>) -> anyhow::Result<()> {
+    pub fn update_components(&mut self, app: &mut Application<ComponentId, AppMessage, NoUserEvent>) -> AppResult<()> {
         // Update SearchInput
-        app.attr(
+        Self::update_attr(
+            app,
             &ComponentId::SearchInput,
             Attribute::Text,
             AttrValue::String(self.state.search_query.clone()),
         )?;
         
-        app.attr(
+        Self::update_attr(
+            app,
             &ComponentId::SearchInput,
             Attribute::Custom("is_searching"),
             AttrValue::Flag(self.state.is_searching),
         )?;
         
+        // Show typing indicator when there's a pending search
+        Self::update_attr(
+            app,
+            &ComponentId::SearchInput,
+            Attribute::Custom("is_typing"),
+            AttrValue::Flag(self.state.pending_search_query.is_some()),
+        )?;
+        
         if let Some(filter) = &self.state.role_filter {
-            app.attr(
+            Self::update_attr(
+                app,
                 &ComponentId::SearchInput,
                 Attribute::Custom("role_filter"),
                 AttrValue::String(filter.clone()),
@@ -108,7 +174,8 @@ impl App {
         }
         
         if let Some(msg) = &self.state.status_message {
-            app.attr(
+            Self::update_attr(
+                app,
                 &ComponentId::SearchInput,
                 Attribute::Custom("message"),
                 AttrValue::String(msg.clone()),
@@ -116,20 +183,26 @@ impl App {
         }
         
         // Update ResultList
-        // TODO: Handle complex types properly in tuirealm v3
-        // app.attr(
-        //     &ComponentId::ResultList,
-        //     Attribute::Custom("results"),
-        //     AttrValue::Payload(Box::new(self.state.search_results.clone())),
-        // )?;
+        // Pass search results using type-safe wrapper
+        helpers::set_type_safe_attr(
+            app,
+            &ComponentId::ResultList,
+            Attribute::Custom("search_results"),
+            SearchResults(self.state.search_results.clone()),
+        ).map_err(|e| AppError::ComponentUpdateError {
+            component: "ResultList".to_string(),
+            details: e,
+        })?;
         
-        app.attr(
+        Self::update_attr(
+            app,
             &ComponentId::ResultList,
             Attribute::Value,
-            AttrValue::String(String::new()),
+            AttrValue::String(self.state.selected_index.to_string()),
         )?;
         
-        app.attr(
+        Self::update_attr(
+            app,
             &ComponentId::ResultList,
             Attribute::Custom("truncate"),
             AttrValue::Flag(self.state.truncation_enabled),
@@ -137,22 +210,61 @@ impl App {
         
         // Update ResultDetail
         if let Some(result) = &self.state.current_result {
-            // TODO: Handle complex types properly in tuirealm v3
-            // app.attr(
-            //     &ComponentId::ResultDetail,
-            //     Attribute::Custom("result"),
-            //     AttrValue::Payload(Box::new(result.clone())),
-            // )?;
+            Self::update_attr(
+                app,
+                &ComponentId::ResultDetail,
+                Attribute::Custom("session_id"),
+                AttrValue::String(result.session_id.clone()),
+            )?;
+            
+            Self::update_attr(
+                app,
+                &ComponentId::ResultDetail,
+                Attribute::Custom("file"),
+                AttrValue::String(result.file.clone()),
+            )?;
+            
+            Self::update_attr(
+                app,
+                &ComponentId::ResultDetail,
+                Attribute::Custom("timestamp"),
+                AttrValue::String(result.timestamp.clone()),
+            )?;
+            
+            Self::update_attr(
+                app,
+                &ComponentId::ResultDetail,
+                Attribute::Custom("role"),
+                AttrValue::String(result.role.clone()),
+            )?;
+            
+            Self::update_attr(
+                app,
+                &ComponentId::ResultDetail,
+                Attribute::Custom("text"),
+                AttrValue::String(result.text.clone()),
+            )?;
+            
+            if let Some(raw_json) = &result.raw_json {
+                Self::update_attr(
+                    app,
+                    &ComponentId::ResultDetail,
+                    Attribute::Custom("raw_json"),
+                    AttrValue::String(raw_json.clone()),
+                )?;
+            }
         }
         
-        app.attr(
+        Self::update_attr(
+            app,
             &ComponentId::ResultDetail,
             Attribute::Custom("scroll_offset"),
-            AttrValue::String(String::new()),
+            AttrValue::String(self.state.detail_scroll_offset.to_string()),
         )?;
         
         if let Some(msg) = &self.state.status_message {
-            app.attr(
+            Self::update_attr(
+                app,
                 &ComponentId::ResultDetail,
                 Attribute::Custom("message"),
                 AttrValue::String(msg.clone()),
@@ -160,65 +272,102 @@ impl App {
         }
         
         // Update SessionViewer
-        // TODO: Handle complex types properly in tuirealm v3
-        // app.attr(
-        //     &ComponentId::SessionViewer,
-        //     Attribute::Custom("messages"),
-        //     AttrValue::Payload(Box::new(self.state.session_messages.clone())),
-        // )?;
-        // 
-        // app.attr(
-        //     &ComponentId::SessionViewer,
-        //     Attribute::Custom("filtered_indices"),
-        //     AttrValue::Payload(Box::new(self.state.session_filtered_indices.clone())),
-        // )?;
+        Self::update_attr(
+            app,
+            &ComponentId::SessionViewer,
+            Attribute::Custom("message_count"),
+            AttrValue::String(self.state.session_messages.len().to_string()),
+        )?;
         
-        app.attr(
+        let session_texts: Vec<String> = if self.state.session_filtered_indices.is_empty() {
+            self.state.session_messages.clone()
+        } else {
+            self.state.session_filtered_indices
+                .iter()
+                .filter_map(|&idx| self.state.session_messages.get(idx).cloned())
+                .collect()
+        };
+        
+        helpers::set_type_safe_attr(
+            app,
+            &ComponentId::SessionViewer,
+            Attribute::Custom("session_texts"),
+            SessionMessages(session_texts),
+        ).map_err(|e| AppError::ComponentUpdateError {
+            component: "SessionViewer".to_string(),
+            details: e,
+        })?;
+        
+        Self::update_attr(
+            app,
             &ComponentId::SessionViewer,
             Attribute::Value,
             AttrValue::String(String::new()),
         )?;
         
-        app.attr(
+        Self::update_attr(
+            app,
             &ComponentId::SessionViewer,
             Attribute::Custom("scroll_offset"),
-            AttrValue::String(String::new()),
+            AttrValue::String(self.state.session_scroll_offset.to_string()),
         )?;
         
         if let Some(order) = &self.state.session_order {
-            // TODO: Handle complex types properly in tuirealm v3
-            // app.attr(
-            //     &ComponentId::SessionViewer,
-            //     Attribute::Custom("order"),
-            //     AttrValue::Payload(Box::new(order.clone())),
-            // )?;
+            Self::update_attr(
+                app,
+                &ComponentId::SessionViewer,
+                Attribute::Custom("order"),
+                AttrValue::String(match order {
+                    SessionOrder::Ascending => "asc",
+                    SessionOrder::Descending => "desc",
+                    SessionOrder::Original => "original",
+                }.to_string()),
+            )?;
         }
         
-        app.attr(
+        Self::update_attr(
+            app,
             &ComponentId::SessionViewer,
             Attribute::Custom("truncate"),
             AttrValue::Flag(self.state.truncation_enabled),
         )?;
         
-        app.attr(
+        Self::update_attr(
+            app,
             &ComponentId::SessionViewer,
             Attribute::Custom("is_searching"),
             AttrValue::Flag(self.state.is_session_searching),
         )?;
         
-        app.attr(
+        Self::update_attr(
+            app,
             &ComponentId::SessionViewer,
             Attribute::Custom("search_query"),
             AttrValue::String(self.state.session_query.clone()),
         )?;
         
         if let Some(id) = &self.state.session_id {
-            app.attr(
+            Self::update_attr(
+                app,
                 &ComponentId::SessionViewer,
                 Attribute::Custom("session_id"),
                 AttrValue::String(id.clone()),
             )?;
         }
+        
+        // Update GlobalShortcuts with current mode
+        Self::update_attr(
+            app,
+            &ComponentId::GlobalShortcuts,
+            Attribute::Custom("current_mode"),
+            AttrValue::Number(match self.state.mode {
+                AppMode::Search => 0,
+                AppMode::ResultDetail => 1,
+                AppMode::SessionViewer => 2,
+                AppMode::Help => 3,
+                AppMode::Error => 4,
+            }),
+        )?;
         
         Ok(())
     }
@@ -257,7 +406,7 @@ impl App {
                 self.state.change_mode(AppMode::SessionViewer);
             }
             Err(e) => {
-                self.state.set_message(format!("Failed to load session: {}", e));
+                self.state.set_message(format!("Failed to load session: {e}"));
             }
         }
     }
@@ -283,6 +432,16 @@ impl App {
         }
     }
     
+    /// Check if debounced search is ready
+    pub fn check_debounced_search(&self) -> Option<AppMessage> {
+        if let (Some(last_update), Some(query)) = (&self.state.last_search_update, &self.state.pending_search_query) {
+            if last_update.elapsed() >= std::time::Duration::from_millis(300) {
+                return Some(AppMessage::DebouncedSearchReady(query.clone()));
+            }
+        }
+        None
+    }
+    
     /// Handle copy operations
     fn handle_copy(&mut self, copy_type: &str) {
         let content = match (copy_type, &self.state.mode) {
@@ -296,8 +455,8 @@ impl App {
                 self.state.current_result.as_ref().map(|r| r.timestamp.clone())
             }
             ("json", AppMode::ResultDetail) => {
-                // TODO: Implement raw JSON extraction
-                None
+                self.state.current_result.as_ref()
+                    .and_then(|r| r.raw_json.clone())
             }
             ("message", AppMode::SessionViewer) => {
                 if let Some(idx) = self.state.session_filtered_indices.get(self.state.selected_index) {
@@ -322,10 +481,10 @@ impl App {
         if let Some(text) = content {
             match self.clipboard_service.copy(&text) {
                 Ok(_) => {
-                    self.state.set_message(format!("Copied to clipboard"));
+                    self.state.set_message("Copied to clipboard".to_string());
                 }
                 Err(e) => {
-                    self.state.set_message(format!("Copy failed: {}", e));
+                    self.state.set_message(format!("Copy failed: {e}"));
                 }
             }
         }
@@ -362,7 +521,9 @@ impl Update<AppMessage> for App {
                 }
                 
                 AppMessage::SearchQueryChanged(query) => {
-                    self.state.search_query = query;
+                    self.state.search_query = query.clone();
+                    self.state.pending_search_query = Some(query);
+                    self.state.last_search_update = Some(std::time::Instant::now());
                 }
                 
                 AppMessage::SearchRequested => {
@@ -371,6 +532,7 @@ impl Update<AppMessage> for App {
                 
                 AppMessage::SearchCompleted => {
                     // Results are already set via the channel check above
+                    self.state.is_searching = false;
                     if self.state.search_results.is_empty() {
                         self.state.set_message("No results found".to_string());
                     }
@@ -381,12 +543,22 @@ impl Update<AppMessage> for App {
                 }
                 
                 AppMessage::ResultUp => {
+                    // Ensure index is valid first
+                    if self.state.selected_index >= self.state.search_results.len() && !self.state.search_results.is_empty() {
+                        self.state.selected_index = self.state.search_results.len() - 1;
+                    }
+                    // Then try to move up
                     if self.state.selected_index > 0 {
                         self.state.selected_index -= 1;
                     }
                 }
                 
                 AppMessage::ResultDown => {
+                    // Ensure index is valid first
+                    if self.state.selected_index >= self.state.search_results.len() && !self.state.search_results.is_empty() {
+                        self.state.selected_index = self.state.search_results.len() - 1;
+                    }
+                    // Then try to move down
                     if self.state.selected_index + 1 < self.state.search_results.len() {
                         self.state.selected_index += 1;
                     }
@@ -415,11 +587,17 @@ impl Update<AppMessage> for App {
                         self.state.detail_scroll_offset = 0;
                         self.state.clear_message();
                         self.state.change_mode(AppMode::ResultDetail);
+                    } else {
+                        self.state.set_message("No result selected".to_string());
                     }
                 }
                 
                 AppMessage::ExitResultDetail => {
-                    self.state.return_to_previous_mode();
+                    if self.state.previous_mode.is_none() {
+                        self.state.change_mode(AppMode::Search);
+                    } else {
+                        self.state.return_to_previous_mode();
+                    }
                 }
                 
                 AppMessage::DetailScrollUp => {
@@ -530,7 +708,7 @@ impl Update<AppMessage> for App {
                 
                 // Missing arms
                 AppMessage::SearchFailed(err) => {
-                    self.state.set_message(format!("Search failed: {}", err));
+                    self.state.set_message(format!("Search failed: {err}"));
                 }
                 
                 AppMessage::ResultSelect(_) => {
@@ -553,8 +731,11 @@ impl Update<AppMessage> for App {
                     self.state.clear_message();
                 }
                 
-                AppMessage::DebouncedSearchReady(_) => {
-                    // Already handled elsewhere
+                AppMessage::DebouncedSearchReady(query) => {
+                    if self.state.pending_search_query.as_ref() == Some(&query) {
+                        self.state.pending_search_query = None;
+                        self.execute_search();
+                    }
                 }
                 
                 AppMessage::SessionLoaded(_, _) => {
@@ -562,7 +743,21 @@ impl Update<AppMessage> for App {
                 }
                 
                 AppMessage::SessionLoadFailed(err) => {
-                    self.state.set_message(format!("Session load failed: {}", err));
+                    self.state.set_message(format!("Session load failed: {err}"));
+                }
+                
+                AppMessage::ShowError(_error_type, _details) => {
+                    self.state.change_mode(AppMode::Error);
+                    // Will be handled by ErrorDialog component
+                }
+                
+                AppMessage::CloseError => {
+                    self.state.return_to_previous_mode();
+                }
+                
+                AppMessage::RetryLastOperation => {
+                    self.state.return_to_previous_mode();
+                    // TODO: Implement retry logic based on last operation
                 }
             }
         }

@@ -63,6 +63,11 @@ pub enum AppMessage {
     DebouncedSearchReady(String),
     SessionLoaded(String, Vec<String>),
     SessionLoadFailed(String),
+    
+    // Error handling
+    ShowError(String, String), // (error_type, details)
+    CloseError,
+    RetryLastOperation,
 }
 
 /// Application modes
@@ -72,6 +77,7 @@ pub enum AppMode {
     ResultDetail,
     SessionViewer,
     Help,
+    Error,
 }
 
 /// Component identifiers
@@ -82,5 +88,7 @@ pub enum ComponentId {
     ResultDetail,
     SessionViewer,
     HelpDialog,
+    ErrorDialog,
     StatusBar,
+    GlobalShortcuts,
 }

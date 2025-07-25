@@ -9,6 +9,10 @@ use ratatui::text::{Line, Span};
 
 use crate::interactive_ratatui::tuirealm_v3::messages::AppMessage;
 
+#[cfg(test)]
+#[path = "search_input_test.rs"]
+mod tests;
+
 /// Helper function to extract string from AttrValue
 fn unwrap_string(attr: AttrValue) -> String {
     match attr {
@@ -65,6 +69,8 @@ impl SearchInput {
         let borders = TuirealmBorders::default()
             .sides(tuirealm::props::BorderSides::all());
         props.set(Attribute::Borders, AttrValue::Borders(borders));
+        // Initialize text to empty string
+        props.set(Attribute::Text, AttrValue::String(String::new()));
         
         Self {
             props,
@@ -80,21 +86,26 @@ impl MockComponent for SearchInput {
         // Get data from attributes
         let query = self.props
             .get(Attribute::Text)
-            .map(|v| unwrap_string(v))
+            .map(unwrap_string)
             .unwrap_or_default();
             
         let is_searching = self.props
             .get(Attribute::Custom("is_searching"))
-            .map(|v| unwrap_bool(v))
+            .map(unwrap_bool)
+            .unwrap_or(false);
+            
+        let is_typing = self.props
+            .get(Attribute::Custom("is_typing"))
+            .map(unwrap_bool)
             .unwrap_or(false);
             
         let role_filter = self.props
             .get(Attribute::Custom("role_filter"))
-            .map(|v| unwrap_string(v));
+            .map(unwrap_string);
             
         let message = self.props
             .get(Attribute::Custom("message"))
-            .map(|v| unwrap_string(v));
+            .map(unwrap_string);
         
         // Build the search bar content
         let mut spans = vec![];
@@ -102,7 +113,7 @@ impl MockComponent for SearchInput {
         // Role filter indicator
         if let Some(filter) = role_filter {
             spans.push(Span::styled(
-                format!("[{}] ", filter),
+                format!("[{filter}] "),
                 ratatui::style::Style::default().fg(Color::Yellow),
             ));
         }
@@ -133,16 +144,21 @@ impl MockComponent for SearchInput {
                 " (searching...)",
                 ratatui::style::Style::default().fg(Color::Cyan),
             ));
+        } else if is_typing {
+            spans.push(Span::styled(
+                " (typing...)",
+                ratatui::style::Style::default().fg(Color::DarkGray),
+            ));
         } else if let Some(msg) = message {
             spans.push(Span::styled(
-                format!(" ({})", msg),
+                format!(" ({msg})"),
                 ratatui::style::Style::default().fg(Color::Red),
             ));
         }
         
         let title = self.props
             .get(Attribute::Title)
-            .and_then(|v| unwrap_title(v))
+            .and_then(unwrap_title)
             .map(|(s, _)| s)
             .unwrap_or_else(|| "Search".to_string());
         
@@ -164,9 +180,8 @@ impl MockComponent for SearchInput {
         if attr == Attribute::Text {
             if let AttrValue::String(text) = &value {
                 let text_len = text.chars().count();
-                if self.state.cursor_position > text_len {
-                    self.state.cursor_position = text_len;
-                }
+                // Move cursor to end of text when text is set
+                self.state.cursor_position = text_len;
             }
         }
         self.props.set(attr, value);
@@ -376,7 +391,7 @@ impl Component<AppMessage, NoUserEvent> for SearchInput {
                     let last_space = trimmed.rfind(' ').map(|i| i + 1).unwrap_or(0);
                     
                     let new_before = &before_cursor[..last_space];
-                    let new_query = format!("{}{}", new_before, after_cursor);
+                    let new_query = format!("{new_before}{after_cursor}");
                     self.state.cursor_position = new_before.chars().count();
                     
                     Some(AppMessage::SearchQueryChanged(new_query))

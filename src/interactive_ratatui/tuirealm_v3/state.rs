@@ -1,6 +1,11 @@
 use crate::query::condition::SearchResult;
-use crate::interactive_ratatui::domain::models::SessionOrder;
+use super::models::SessionOrder;
 use super::messages::AppMode;
+use std::time::Instant;
+
+#[cfg(test)]
+#[path = "state_test.rs"]
+mod tests;
 
 /// Central application state - single source of truth
 #[derive(Debug, Clone)]
@@ -14,6 +19,10 @@ pub struct AppState {
     pub search_results: Vec<SearchResult>,
     pub is_searching: bool,
     pub role_filter: Option<String>,
+    
+    // Search debouncing
+    pub last_search_update: Option<Instant>,
+    pub pending_search_query: Option<String>,
     
     // UI state
     pub selected_index: usize,
@@ -47,6 +56,9 @@ impl Default for AppState {
             search_results: Vec::new(),
             is_searching: false,
             role_filter: None,
+            
+            last_search_update: None,
+            pending_search_query: None,
             
             selected_index: 0,
             status_message: None,

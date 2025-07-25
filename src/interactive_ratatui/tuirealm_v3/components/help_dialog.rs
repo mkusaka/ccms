@@ -1,50 +1,23 @@
 use tuirealm::command::{Cmd, CmdResult};
-use tuirealm::event::{Event, Key, KeyEvent, KeyModifiers};
+use tuirealm::event::{Event, Key, KeyEvent};
 use tuirealm::props::{AttrValue, Attribute, Props};
 use tuirealm::{Component, Frame, MockComponent, NoUserEvent, State};
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::widgets::{Block, Borders, Clear, List, ListItem as RatatuiListItem, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, List, ListItem as RatatuiListItem};
 use ratatui::text::{Line, Span};
 
 use crate::interactive_ratatui::tuirealm_v3::messages::AppMessage;
 
-/// Helper function to extract string from AttrValue
-fn unwrap_string(attr: AttrValue) -> String {
-    match attr {
-        AttrValue::String(s) => s,
-        _ => String::new(),
-    }
-}
+#[cfg(test)]
+#[path = "help_dialog_test.rs"]
+mod tests;
 
-/// Helper function to extract bool from AttrValue
-fn unwrap_bool(attr: AttrValue) -> bool {
-    match attr {
-        AttrValue::Flag(b) => b,
-        _ => false,
-    }
-}
-
-/// Helper function to extract usize from AttrValue
-fn unwrap_usize(attr: AttrValue) -> usize {
-    match attr {
-        AttrValue::Length(n) => n as usize,
-        _ => 0,
-    }
-}
 
 /// HelpDialog component - shows keyboard shortcuts
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct HelpDialog {
     props: Props,
-}
-
-impl Default for HelpDialog {
-    fn default() -> Self {
-        Self {
-            props: Props::default(),
-        }
-    }
 }
 
 impl HelpDialog {
@@ -147,7 +120,7 @@ impl MockComponent for HelpDialog {
             // Section header
             lines.push(Line::from(vec![
                 Span::styled(
-                    format!("{}:", section_title),
+                    format!("{section_title}:"),
                     Style::default()
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),
@@ -159,7 +132,7 @@ impl MockComponent for HelpDialog {
                 lines.push(Line::from(vec![
                     Span::raw("  "),
                     Span::styled(
-                        format!("{:<15}", key),
+                        format!("{key:<15}"),
                         Style::default().fg(Color::Yellow),
                     ),
                     Span::raw(description.to_string()),
@@ -173,7 +146,7 @@ impl MockComponent for HelpDialog {
         // Create scrollable list
         let items: Vec<RatatuiListItem> = lines
             .into_iter()
-            .map(|line| RatatuiListItem::new(line))
+            .map(RatatuiListItem::new)
             .collect();
         
         let list = List::new(items)

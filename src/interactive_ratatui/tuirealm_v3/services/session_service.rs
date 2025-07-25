@@ -1,6 +1,7 @@
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
+use crate::interactive_ratatui::tuirealm_v3::error::{AppError, AppResult};
 
 /// Service for handling session operations
 pub struct SessionService {
@@ -15,7 +16,7 @@ impl SessionService {
     }
     
     /// Load a session by ID
-    pub fn load_session(&mut self, session_id: &str) -> anyhow::Result<Vec<String>> {
+    pub fn load_session(&mut self, session_id: &str) -> AppResult<Vec<String>> {
         // Check cache first
         if let Some(messages) = self.cache.get(session_id) {
             return Ok(messages.clone());
@@ -34,21 +35,31 @@ impl SessionService {
     }
     
     /// Find the file containing a specific session
-    fn find_session_file(&self, session_id: &str) -> anyhow::Result<PathBuf> {
+    fn find_session_file(&self, session_id: &str) -> AppResult<PathBuf> {
         // Get home directory
         let home_dir = dirs::home_dir()
-            .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
+            .ok_or_else(|| AppError::SessionServiceError {
+                details: "Could not find home directory".to_string(),
+            })?;
         
         let claude_path = home_dir.join(".claude").join("chats");
         
         // Check if directory exists
         if !claude_path.exists() {
-            return Err(anyhow::anyhow!("Claude chats directory not found"));
+            return Err(AppError::SessionServiceError {
+                details: "Claude chats directory not found".to_string(),
+            });
         }
         
         // Search for files containing this session
-        for entry in fs::read_dir(&claude_path)? {
-            let entry = entry?;
+        for entry in fs::read_dir(&claude_path).map_err(|e| AppError::FileReadError {
+            path: claude_path.display().to_string(),
+            source: std::sync::Arc::new(e),
+        })? {
+            let entry = entry.map_err(|e| AppError::FileReadError {
+                path: claude_path.display().to_string(),
+                source: std::sync::Arc::new(e),
+            })?;
             let path = entry.path();
             
             // Only check .json files
@@ -60,11 +71,13 @@ impl SessionService {
             }
         }
         
-        Err(anyhow::anyhow!("Session not found: {}", session_id))
+        Err(AppError::SessionServiceError {
+            details: format!("Session not found: {}", session_id),
+        })
     }
     
     /// Check if a file contains a specific session
-    fn file_contains_session(&self, path: &PathBuf, session_id: &str) -> anyhow::Result<bool> {
+    fn file_contains_session(&self, path: &PathBuf, session_id: &str) -> AppResult<bool> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         
@@ -79,7 +92,7 @@ impl SessionService {
     }
     
     /// Load messages from a file for a specific session
-    fn load_messages_from_file(&self, path: &PathBuf, session_id: &str) -> anyhow::Result<Vec<String>> {
+    fn load_messages_from_file(&self, path: &PathBuf, session_id: &str) -> AppResult<Vec<String>> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let mut messages = Vec::new();
@@ -106,13 +119,7 @@ impl SessionService {
         Ok(messages)
     }
     
-    /// Clear the cache
-    pub fn clear_cache(&mut self) {
-        self.cache.clear();
-    }
-    
-    /// Get cache size
-    pub fn cache_size(&self) -> usize {
-        self.cache.len()
-    }
 }
+#[cfg(test)]
+#[path = "session_service_test.rs"]
+mod tests;

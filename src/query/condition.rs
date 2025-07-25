@@ -150,22 +150,6 @@ pub struct SearchResult {
     pub raw_json: Option<String>,
 }
 
-use crate::interactive_ratatui::ui::components::list_item::ListItem;
-
-impl ListItem for SearchResult {
-    fn get_role(&self) -> &str {
-        &self.role
-    }
-
-    fn get_timestamp(&self) -> &str {
-        &self.timestamp
-    }
-
-    fn get_content(&self) -> &str {
-        &self.text
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

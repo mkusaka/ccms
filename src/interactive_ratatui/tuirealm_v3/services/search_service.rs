@@ -5,13 +5,14 @@ use std::path::PathBuf;
 use crate::query::condition::{SearchResult, SearchOptions};
 use crate::search::engine::SearchEngine;
 use crate::query::parser::parse_query;
+use crate::interactive_ratatui::tuirealm_v3::error::{AppError, AppResult};
 
 /// Service for handling search operations
 pub struct SearchService {
-    pattern: Option<String>,
-    timestamp_gte: Option<String>,
-    timestamp_lt: Option<String>,
-    session_id: Option<String>,
+    pub pattern: Option<String>,
+    pub timestamp_gte: Option<String>,
+    pub timestamp_lt: Option<String>,
+    pub session_id: Option<String>,
 }
 
 impl SearchService {
@@ -58,7 +59,10 @@ impl SearchService {
                 timestamp_gte,
                 timestamp_lt,
                 session_id,
-            );
+            ).unwrap_or_else(|e| {
+                eprintln!("Search error: {}", e);
+                vec![]
+            });
             
             // Send results back
             let _ = tx.send(results);
@@ -73,12 +77,12 @@ impl SearchService {
         timestamp_gte: Option<String>,
         timestamp_lt: Option<String>,
         session_id: Option<String>,
-    ) -> Vec<SearchResult> {
+    ) -> AppResult<Vec<SearchResult>> {
         // Parse the query
-        let condition = match parse_query(&query) {
-            Ok(condition) => condition,
-            Err(_) => return vec![],
-        };
+        let condition = parse_query(&query).map_err(|e| AppError::InvalidQueryError {
+            query: query.clone(),
+            details: e.to_string(),
+        })?;
         
         // Get home directory
         let home_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -109,11 +113,11 @@ impl SearchService {
         let engine = SearchEngine::new(search_options);
         
         // Execute search
-        let (results, _, _) = engine
-            .search(&glob_pattern, condition)
-            .unwrap_or_default();
-        
-        results
+        engine.search(&glob_pattern, condition)
+            .map(|(results, _, _)| results)
+            .map_err(|e| AppError::SearchServiceError {
+                details: e.to_string(),
+            })
     }
     
     /// Execute search synchronously (for testing)
@@ -129,6 +133,12 @@ impl SearchService {
             self.timestamp_gte.clone(),
             self.timestamp_lt.clone(),
             self.session_id.clone(),
-        )
+        ).unwrap_or_else(|e| {
+            eprintln!("Search sync error: {}", e);
+            vec![]
+        })
     }
 }
+#[cfg(test)]
+#[path = "search_service_test.rs"]
+mod tests;

@@ -7,7 +7,9 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, Borders, List, ListItem as RatatuiListItem};
 use ratatui::text::{Line, Span};
 
+use crate::interactive_ratatui::tuirealm_v3::type_safe_wrapper::{SearchResults, TypeSafeAttr};
 use crate::query::condition::SearchResult;
+
 
 /// Helper function to extract string from AttrValue
 fn unwrap_string(attr: AttrValue) -> String {
@@ -28,17 +30,22 @@ fn unwrap_bool(attr: AttrValue) -> bool {
 /// Helper function to extract usize from AttrValue
 fn unwrap_usize(attr: AttrValue) -> usize {
     match attr {
-        AttrValue::Length(n) => n as usize,
+        AttrValue::Length(n) => n,
         _ => 0,
     }
 }
 use crate::interactive_ratatui::tuirealm_v3::messages::AppMessage;
+
+#[cfg(test)]
+#[path = "result_list_test.rs"]
+mod tests;
 
 /// Internal state for ResultList component
 #[derive(Debug, Clone)]
 struct ResultListState {
     scroll_offset: usize,
 }
+
 
 /// ResultList component - displays search results
 #[derive(Debug, Clone)]
@@ -68,7 +75,7 @@ impl ResultList {
     }
     
     fn format_result(result: &SearchResult, truncate: bool, width: usize) -> Vec<Span<'static>> {
-        let timestamp = format!("[{}]", &result.timestamp[11..19]);
+        let timestamp = format!("[{}]", result.timestamp);
         let role = format!("{:10}", result.role);
         
         let available_width = width.saturating_sub(timestamp.len() + role.len() + 3);
@@ -76,7 +83,7 @@ impl ResultList {
         let message = if truncate {
             Self::truncate_message(&result.text, available_width)
         } else {
-            result.text.replace('\n', " ")
+            result.text.clone()
         };
         
         vec![
@@ -96,6 +103,14 @@ impl ResultList {
         ]
     }
     
+    fn parse_results_from_attrs(&self) -> Vec<SearchResult> {
+        self.props
+            .get(Attribute::Custom("search_results"))
+            .and_then(|v| SearchResults::from_attr_value(&v))
+            .map(|results| results.0)
+            .unwrap_or_default()
+    }
+    
     fn truncate_message(text: &str, max_width: usize) -> String {
         let text = text.replace('\n', " ");
         let chars: Vec<char> = text.chars().collect();
@@ -104,7 +119,7 @@ impl ResultList {
             text
         } else {
             let truncated: String = chars.into_iter().take(max_width.saturating_sub(3)).collect();
-            format!("{}...", truncated)
+            format!("{truncated}...")
         }
     }
 }
@@ -112,23 +127,38 @@ impl ResultList {
 impl MockComponent for ResultList {
     fn view(&mut self, frame: &mut Frame, area: Rect) {
         // Get data from attributes
-        // TODO: Handle complex types properly in tuirealm v3
-        // For now, results will be passed differently
-        let results = vec![];
-            
+        let results = self.parse_results_from_attrs();
+        
         let selected_index = self.props
             .get(Attribute::Value)
-            .map(|v| unwrap_usize(v))
+            .map(|v| match v {
+                AttrValue::String(s) => s.parse::<usize>().unwrap_or(0),
+                _ => unwrap_usize(v),
+            })
             .unwrap_or(0);
             
         let truncate = self.props
             .get(Attribute::Custom("truncate"))
-            .map(|v| unwrap_bool(v))
+            .map(unwrap_bool)
             .unwrap_or(true);
+            
+        let result_count = self.props
+            .get(Attribute::Custom("result_count"))
+            .map(|v| match v {
+                AttrValue::String(s) => s.parse::<usize>().unwrap_or(0),
+                _ => 0,
+            })
+            .unwrap_or(0);
         
         if results.is_empty() {
+            let title = if result_count == 0 {
+                "Results".to_string()
+            } else {
+                format!("Results (0/{result_count}) - Loading...")
+            };
+            
             let block = Block::default()
-                .title("Results")
+                .title(title)
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::DarkGray));
                 
@@ -241,7 +271,7 @@ impl Component<AppMessage, NoUserEvent> for ResultList {
             Event::Keyboard(KeyEvent { code: Key::Enter, .. }) => {
                 let selected_index = self.props
                     .get(Attribute::Value)
-                    .map(|v| unwrap_usize(v))
+                    .map(unwrap_usize)
                     .unwrap_or(0);
                     
                 Some(AppMessage::EnterResultDetail(selected_index))
@@ -251,17 +281,16 @@ impl Component<AppMessage, NoUserEvent> for ResultList {
             Event::Keyboard(KeyEvent { code: Key::Char('s'), modifiers }) if modifiers.is_empty() => {
                 let selected_index = self.props
                     .get(Attribute::Value)
-                    .map(|v| unwrap_usize(v))
+                    .map(|v| match v {
+                        AttrValue::String(s) => s.parse::<usize>().unwrap_or(0),
+                        _ => unwrap_usize(v),
+                    })
                     .unwrap_or(0);
                     
-                // TODO: Handle complex types properly in tuirealm v3
-                let results: Vec<SearchResult> = vec![];
+                let results = self.parse_results_from_attrs();
                     
-                if let Some(result) = results.get(selected_index) {
-                    Some(AppMessage::EnterSessionViewer(result.session_id.clone()))
-                } else {
-                    None
-                }
+                results.get(selected_index)
+                    .map(|result| AppMessage::EnterSessionViewer(result.session_id.clone()))
             }
             
             // Toggle truncation

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ccms::{
     SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
-    interactive_ratatui::InteractiveSearch, parse_query, profiling,
+    interactive_ratatui::run_interactive_search, parse_query, profiling,
 };
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
@@ -77,9 +77,6 @@ struct Cli {
     #[arg(short = 'i', long)]
     interactive: bool,
 
-    /// Use new tui-realm v3 implementation (experimental)
-    #[arg(long = "v3")]
-    use_v3: bool,
 
     /// Filter by project path (e.g., current directory: $(pwd))
     #[arg(long = "project")]
@@ -168,29 +165,12 @@ fn main() -> Result<()> {
 
     // Interactive mode
     if cli.interactive {
-        if cli.use_v3 {
-            // Use new tui-realm v3 implementation
-            return ccms::interactive_ratatui::tuirealm_v3::run_interactive_search(
-                Some(pattern.to_string()),
-                parsed_after.clone(),
-                cli.before.clone(),
-                cli.session_id.clone(),
-            );
-        } else {
-            // Use original implementation
-            let options = SearchOptions {
-                max_results: Some(cli.max_results), // Use the CLI value directly
-                role: cli.role,
-                session_id: cli.session_id,
-                before: cli.before,
-                after: parsed_after.clone(),
-                verbose: cli.verbose,
-                project_path: cli.project_path.clone(),
-            };
-
-            let mut interactive = InteractiveSearch::new(options)?;
-            return interactive.run(pattern);
-        }
+        return run_interactive_search(
+            Some(pattern.to_string()),
+            parsed_after.clone(),
+            cli.before.clone(),
+            cli.session_id.clone(),
+        );
     }
 
     // Regular search mode - query is required
