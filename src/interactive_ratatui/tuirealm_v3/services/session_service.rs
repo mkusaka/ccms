@@ -72,7 +72,7 @@ impl SessionService {
         }
         
         Err(AppError::SessionServiceError {
-            details: format!("Session not found: {}", session_id),
+            details: format!("Session not found: {session_id}"),
         })
     }
     

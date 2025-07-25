@@ -4,7 +4,7 @@ mod global_shortcuts_tests {
     use crate::interactive_ratatui::tuirealm_v3::messages::{AppMessage, AppMode};
     use tuirealm::event::{Event, Key, KeyEvent, KeyModifiers};
     use tuirealm::props::{AttrValue, Attribute};
-    use tuirealm::{Component, MockComponent, NoUserEvent};
+    use tuirealm::{Component, MockComponent};
     use std::time::Duration;
     use std::thread;
     
@@ -37,7 +37,7 @@ mod global_shortcuts_tests {
         };
         
         // First press
-        let msg = shortcuts.on(Event::Keyboard(key_event.clone()));
+        let msg = shortcuts.on(Event::Keyboard(key_event));
         assert!(matches!(msg, Some(AppMessage::ShowMessage(msg)) if msg.contains("Press Ctrl+C again")));
         
         // Second press within timeout
@@ -56,7 +56,7 @@ mod global_shortcuts_tests {
         };
         
         // First press
-        let msg = shortcuts.on(Event::Keyboard(key_event.clone()));
+        let msg = shortcuts.on(Event::Keyboard(key_event));
         assert!(matches!(msg, Some(AppMessage::ShowMessage(msg)) if msg.contains("Press Ctrl+C again")));
         
         // Wait for timeout
@@ -78,8 +78,8 @@ mod global_shortcuts_tests {
         
         // Test in different modes
         for mode in &[AppMode::Search, AppMode::ResultDetail, AppMode::SessionViewer, AppMode::Error] {
-            set_mode(&mut shortcuts, mode.clone());
-            let msg = shortcuts.on(Event::Keyboard(key_event.clone()));
+            set_mode(&mut shortcuts, *mode);
+            let msg = shortcuts.on(Event::Keyboard(key_event));
             assert!(matches!(msg, Some(AppMessage::ShowHelp)));
         }
         
@@ -100,8 +100,8 @@ mod global_shortcuts_tests {
         
         // Test in different modes
         for mode in &[AppMode::Search, AppMode::ResultDetail, AppMode::SessionViewer, AppMode::Error] {
-            set_mode(&mut shortcuts, mode.clone());
-            let msg = shortcuts.on(Event::Keyboard(key_event.clone()));
+            set_mode(&mut shortcuts, *mode);
+            let msg = shortcuts.on(Event::Keyboard(key_event));
             assert!(matches!(msg, Some(AppMessage::ShowHelp)));
         }
         
@@ -196,8 +196,8 @@ mod global_shortcuts_tests {
         
         // Test in different modes
         for mode in &[AppMode::Search, AppMode::ResultDetail, AppMode::SessionViewer] {
-            set_mode(&mut shortcuts, mode.clone());
-            let msg = shortcuts.on(Event::Keyboard(key_event.clone()));
+            set_mode(&mut shortcuts, *mode);
+            let msg = shortcuts.on(Event::Keyboard(key_event));
             assert!(matches!(msg, Some(AppMessage::CopyRawJson)));
         }
     }

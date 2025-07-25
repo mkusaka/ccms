@@ -1,5 +1,6 @@
 /// Application-wide messages
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[allow(dead_code)]
 pub enum AppMessage {
     // Navigation
     Quit,
@@ -89,6 +90,5 @@ pub enum ComponentId {
     SessionViewer,
     HelpDialog,
     ErrorDialog,
-    StatusBar,
     GlobalShortcuts,
 }

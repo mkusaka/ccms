@@ -244,7 +244,7 @@ mod feature_tests {
                 1 => "Assistant",
                 _ => "System",
             }.to_string();
-            result.text = format!("Message {}", i);
+            result.text = format!("Message {i}");
             results.push(result);
         }
         
@@ -292,7 +292,7 @@ mod feature_tests {
             let truncated: String = chars.into_iter()
                 .take(max_len.saturating_sub(3))
                 .collect();
-            format!("{}...", truncated)
+            format!("{truncated}...")
         }
     }
 }

@@ -16,7 +16,7 @@ mod e2e_tests {
         for i in 0..30 {
             results.push(SearchResult {
                 file: format!("conversation_{}.jsonl", i / 10),
-                uuid: format!("msg-{:04}", i),
+                uuid: format!("msg-{i:04}"),
                 timestamp: format!("2024-01-{:02}T{:02}:{:02}:00Z", 
                     (i / 100) + 1, 
                     (i % 24), 
@@ -163,11 +163,11 @@ mod e2e_tests {
         ];
         
         for (i, (message, expected_mode)) in more_transitions.iter().enumerate() {
-            println!("Transition {}: {:?} -> expecting {:?}", i, message, expected_mode);
+            println!("Transition {i}: {message:?} -> expecting {expected_mode:?}");
             println!("Current mode before: {:?}", app.state.mode);
             app.update(Some(message.clone()));
             println!("Current mode after: {:?}", app.state.mode);
-            assert_eq!(app.state.mode, *expected_mode, "Failed at transition {}", i);
+            assert_eq!(app.state.mode, *expected_mode, "Failed at transition {i}");
         }
         
         // Verify state consistency
@@ -268,7 +268,7 @@ mod e2e_tests {
         let search_time = start.elapsed();
         
         // Should complete quickly
-        assert!(search_time < Duration::from_millis(100), "Search completion took {:?}", search_time);
+        assert!(search_time < Duration::from_millis(100), "Search completion took {search_time:?}");
         
         // Measure navigation performance
         let start = std::time::Instant::now();
@@ -278,7 +278,7 @@ mod e2e_tests {
         let nav_time = start.elapsed();
         
         // Should navigate quickly
-        assert!(nav_time < Duration::from_millis(50), "Navigation took {:?}", nav_time);
+        assert!(nav_time < Duration::from_millis(50), "Navigation took {nav_time:?}");
         
         // Measure filtering performance
         let start = std::time::Instant::now();
@@ -286,7 +286,7 @@ mod e2e_tests {
         let filter_time = start.elapsed();
         
         // Should filter quickly
-        assert!(filter_time < Duration::from_millis(10), "Filtering took {:?}", filter_time);
+        assert!(filter_time < Duration::from_millis(10), "Filtering took {filter_time:?}");
     }
 
     #[test]
@@ -294,7 +294,7 @@ mod e2e_tests {
         let mut app = App::new(None, None, None, None);
         
         // Test path handling for different platforms
-        let platform_paths = vec![
+        let platform_paths = [
             // Unix-style paths
             "/home/user/project/file.jsonl",
             "/Users/username/Documents/project/file.jsonl",
@@ -304,7 +304,7 @@ mod e2e_tests {
         ];
         
         let mut results = vec![];
-        for (_i, path) in platform_paths.iter().enumerate() {
+        for path in platform_paths.iter() {
             let mut result = create_realistic_search_results()[0].clone();
             result.file = path.to_string();
             result.project_path = path.to_string();

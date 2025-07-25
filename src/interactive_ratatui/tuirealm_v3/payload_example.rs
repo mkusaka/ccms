@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Example implementation using native AttrValue::Payload
 use tuirealm::props::{AttrValue, PropPayload, PropValue};
 use crate::query::condition::{SearchResult, QueryCondition};
@@ -21,7 +22,7 @@ pub fn search_result_to_payload(result: &SearchResult) -> AttrValue {
     // Query condition needs special handling - serialize to string
     let query_str = match &result.query {
         QueryCondition::Literal { pattern, case_sensitive } => {
-            format!("literal:{}:{}", pattern, case_sensitive)
+            format!("literal:{pattern}:{case_sensitive}")
         }
         QueryCondition::And { conditions } => {
             format!("and:complex:{}", conditions.len()) // Simplified for example
@@ -29,11 +30,11 @@ pub fn search_result_to_payload(result: &SearchResult) -> AttrValue {
         QueryCondition::Or { conditions } => {
             format!("or:complex:{}", conditions.len()) // Simplified for example
         }
-        QueryCondition::Not { condition } => {
-            format!("not:complex") // Simplified for example
+        QueryCondition::Not { condition: _ } => {
+            "not:complex".to_string() // Simplified for example
         }
         QueryCondition::Regex { pattern, flags } => {
-            format!("regex:{}:{}", pattern, flags)
+            format!("regex:{pattern}:{flags}")
         }
     };
     map.insert("query".to_string(), PropValue::Str(query_str));
@@ -63,7 +64,7 @@ pub fn search_results_to_payload(results: &[SearchResult]) -> AttrValue {
             r.file, r.uuid, r.timestamp, r.session_id, r.role,
             r.text, r.has_tools, r.has_thinking, r.message_type, r.project_path
         );
-        outer_map.insert(format!("result_{}", i), PropValue::Str(result_str));
+        outer_map.insert(format!("result_{i}"), PropValue::Str(result_str));
     }
     
     AttrValue::Payload(PropPayload::Map(outer_map))
@@ -119,7 +120,7 @@ pub fn payload_to_search_results(attr: &AttrValue) -> Option<Vec<SearchResult>> 
         
         let mut results = Vec::new();
         for i in 0..count {
-            if let Some(PropValue::Str(result_str)) = map.get(&format!("result_{}", i)) {
+            if let Some(PropValue::Str(result_str)) = map.get(&format!("result_{i}")) {
                 // Parse the serialized string (simplified - in real code would need proper parsing)
                 let parts: Vec<&str> = result_str.split('|').collect();
                 if parts.len() >= 10 {
@@ -254,7 +255,7 @@ mod tests {
         assert_eq!(retrieved.len(), 2);
         assert_eq!(retrieved[0].file, "test1.json");
         assert_eq!(retrieved[1].file, "test2.json");
-        assert_eq!(retrieved[0].has_tools, false);
-        assert_eq!(retrieved[1].has_tools, true);
+        assert!(!retrieved[0].has_tools);
+        assert!(retrieved[1].has_tools);
     }
 }

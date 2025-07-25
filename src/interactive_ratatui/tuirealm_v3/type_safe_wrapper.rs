@@ -68,6 +68,7 @@ impl TypeSafeStore {
     }
     
     /// Clean up stored value
+    #[cfg(test)]
     pub fn remove(&self, id: &str) {
         let mut storage = match self.storage.lock() {
             Ok(guard) => guard,
@@ -84,7 +85,7 @@ impl TypeSafeStore {
 pub static TYPE_SAFE_STORE: OnceLock<TypeSafeStore> = OnceLock::new();
 
 fn get_type_safe_store() -> &'static TypeSafeStore {
-    TYPE_SAFE_STORE.get_or_init(|| TypeSafeStore::new())
+    TYPE_SAFE_STORE.get_or_init(TypeSafeStore::new)
 }
 
 /// Wrapper for SearchResult vector
@@ -94,7 +95,7 @@ pub struct SearchResults(pub Vec<SearchResult>);
 impl TypeSafeAttr for SearchResults {
     fn to_attr_value(&self) -> AttrValue {
         let id = get_type_safe_store().store(self);
-        AttrValue::String(format!("__type_safe__{}", id))
+        AttrValue::String(format!("__type_safe__{id}"))
     }
     
     fn from_attr_value(value: &AttrValue) -> Option<Self> {
@@ -115,7 +116,7 @@ pub struct SessionMessages(pub Vec<String>);
 impl TypeSafeAttr for SessionMessages {
     fn to_attr_value(&self) -> AttrValue {
         let id = get_type_safe_store().store(self);
-        AttrValue::String(format!("__type_safe__{}", id))
+        AttrValue::String(format!("__type_safe__{id}"))
     }
     
     fn from_attr_value(value: &AttrValue) -> Option<Self> {
@@ -146,18 +147,6 @@ pub mod helpers {
     ) -> Result<(), String> {
         app.attr(component, attr, value.to_attr_value())
             .map_err(|e| e.to_string())
-    }
-    
-    /// Get a type-safe attribute from a component
-    pub fn get_type_safe_attr<T: TypeSafeAttr>(
-        app: &Application<ComponentId, AppMessage, NoUserEvent>,
-        component: &ComponentId,
-        attr: Attribute,
-    ) -> Option<T> {
-        app.query(component, attr)
-            .ok()
-            .flatten()
-            .and_then(|v| T::from_attr_value(&v))
     }
 }
 
@@ -243,8 +232,8 @@ mod tests {
         );
         
         match test_payload {
-            AttrValue::Payload(_) => assert!(true),
-            _ => assert!(false, "Should be Payload variant"),
+            AttrValue::Payload(_) => {}, // Test passes if this variant matches
+            _ => panic!("Should be Payload variant"),
         }
         
         // Also test Vec payload

@@ -60,7 +60,7 @@ impl SearchService {
                 timestamp_lt,
                 session_id,
             ).unwrap_or_else(|e| {
-                eprintln!("Search error: {}", e);
+                eprintln!("Search error: {e}");
                 vec![]
             });
             
@@ -121,6 +121,7 @@ impl SearchService {
     }
     
     /// Execute search synchronously (for testing)
+    #[cfg(test)]
     pub fn search_sync(
         &self,
         query: String,
@@ -134,7 +135,7 @@ impl SearchService {
             self.timestamp_lt.clone(),
             self.session_id.clone(),
         ).unwrap_or_else(|e| {
-            eprintln!("Search sync error: {}", e);
+            eprintln!("Search sync error: {e}");
             vec![]
         })
     }

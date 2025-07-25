@@ -33,17 +33,17 @@ pub type AppResult<T> = Result<T, AppError>;
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AppError::FileReadError { path, .. } => write!(f, "Failed to read file: {}", path),
-            AppError::InvalidQueryError { query, details } => write!(f, "Invalid query syntax: {} - {}", query, details),
-            AppError::JsonParseError { details } => write!(f, "JSON parsing error: {}", details),
-            AppError::ComponentInitError { component, details } => write!(f, "Component initialization failed: {} - {}", component, details),
-            AppError::ComponentUpdateError { component, details } => write!(f, "Component update failed: {} - {}", component, details),
-            AppError::SearchServiceError { details } => write!(f, "Search service error: {}", details),
-            AppError::SessionServiceError { details } => write!(f, "Session service error: {}", details),
-            AppError::ClipboardServiceError { details } => write!(f, "Clipboard service error: {}", details),
-            AppError::MutexPoisonError { resource } => write!(f, "Mutex poisoned for resource: {}", resource),
-            AppError::ChannelError { details } => write!(f, "Channel communication error: {}", details),
-            AppError::Unknown { details } => write!(f, "Unknown error: {}", details),
+            AppError::FileReadError { path, .. } => write!(f, "Failed to read file: {path}"),
+            AppError::InvalidQueryError { query, details } => write!(f, "Invalid query syntax: {query} - {details}"),
+            AppError::JsonParseError { details } => write!(f, "JSON parsing error: {details}"),
+            AppError::ComponentInitError { component, details } => write!(f, "Component initialization failed: {component} - {details}"),
+            AppError::ComponentUpdateError { component, details } => write!(f, "Component update failed: {component} - {details}"),
+            AppError::SearchServiceError { details } => write!(f, "Search service error: {details}"),
+            AppError::SessionServiceError { details } => write!(f, "Session service error: {details}"),
+            AppError::ClipboardServiceError { details } => write!(f, "Clipboard service error: {details}"),
+            AppError::MutexPoisonError { resource } => write!(f, "Mutex poisoned for resource: {resource}"),
+            AppError::ChannelError { details } => write!(f, "Channel communication error: {details}"),
+            AppError::Unknown { details } => write!(f, "Unknown error: {details}"),
         }
     }
 }
@@ -153,7 +153,7 @@ impl RecoverableError {
         if !self.recovery_suggestions.is_empty() {
             message.push_str("\n\nSuggestions:");
             for suggestion in &self.recovery_suggestions {
-                message.push_str(&format!("\n• {}", suggestion));
+                message.push_str(&format!("\n• {suggestion}"));
             }
         }
         
@@ -211,6 +211,7 @@ macro_rules! context {
 }
 
 /// Wrap operations in error boundary
+#[cfg(test)]
 pub fn error_boundary<F, T>(operation: F, fallback: T) -> T
 where
     F: FnOnce() -> AppResult<T>,
@@ -219,7 +220,7 @@ where
     match operation() {
         Ok(value) => value,
         Err(e) => {
-            eprintln!("Error boundary caught: {}", e);
+            eprintln!("Error boundary caught: {e}");
             fallback
         }
     }

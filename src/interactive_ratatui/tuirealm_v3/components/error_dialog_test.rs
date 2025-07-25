@@ -4,7 +4,7 @@ mod error_dialog_tests {
     use crate::interactive_ratatui::tuirealm_v3::messages::AppMessage;
     use tuirealm::event::{Event, Key, KeyEvent, KeyModifiers};
     use tuirealm::props::{AttrValue, Attribute};
-    use tuirealm::{Component, MockComponent, NoUserEvent};
+    use tuirealm::{Component, MockComponent};
     
     fn create_error_dialog() -> ErrorDialog {
         ErrorDialog::new()

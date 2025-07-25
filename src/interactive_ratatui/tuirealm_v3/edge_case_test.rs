@@ -76,7 +76,7 @@ mod edge_case_tests {
         let elapsed = start.elapsed();
         
         // Should complete in reasonable time (< 100ms for 100 page downs)
-        assert!(elapsed < Duration::from_millis(100), "Scrolling took too long: {:?}", elapsed);
+        assert!(elapsed < Duration::from_millis(100), "Scrolling took too long: {elapsed:?}");
         
         // Test search in large session
         app.update(Some(AppMessage::SessionSearchStart));
@@ -92,7 +92,7 @@ mod edge_case_tests {
         let mut app = App::new(None, None, None, None);
         
         // Create results with various invalid date formats
-        let invalid_timestamps = vec![
+        let invalid_timestamps = [
             "not-a-date",
             "2024/01/01 10:00:00",
             "01-01-2024",
@@ -179,7 +179,7 @@ mod edge_case_tests {
         // Create a result with 10MB of JSON data
         let huge_json_content = "x".repeat(10 * 1024 * 1024);
         let mut result = create_large_search_result(0, 100);
-        result.raw_json = Some(format!(r#"{{"content": "{}"}}"#, huge_json_content));
+        result.raw_json = Some(format!(r#"{{"content": "{huge_json_content}"}}"#));
         
         app.state.current_result = Some(result);
         app.state.mode = AppMode::ResultDetail;
@@ -193,14 +193,12 @@ mod edge_case_tests {
 
     #[test]
     fn test_special_characters_in_paths() {
-        let paths = vec![
-            "/path with spaces/file.jsonl",
+        let paths = ["/path with spaces/file.jsonl",
             "/日本語/ファイル.jsonl",
             "/path\\with\\backslashes\\file.jsonl",
             "/path'with'quotes/file.jsonl",
             "/path\"with\"double\"quotes/file.jsonl",
-            "/🦀rust🦀/emoji.jsonl",
-        ];
+            "/🦀rust🦀/emoji.jsonl"];
         
         let mut results = vec![];
         for (i, path) in paths.iter().enumerate() {
@@ -227,11 +225,9 @@ mod edge_case_tests {
         let mut app = App::new(None, None, None, None);
         
         // Create results with multibyte text that needs truncation
-        let multibyte_texts = vec![
-            "これは日本語のテキストです。長い文章を書いてトランケーションのテストをします。",
+        let multibyte_texts = ["これは日本語のテキストです。長い文章を書いてトランケーションのテストをします。",
             "🦀🦀🦀 Rust with emojis 🎉🎊🎈 should truncate properly",
-            "Mixed 混合 text テキスト with 複数 languages 言語",
-        ];
+            "Mixed 混合 text テキスト with 複数 languages 言語"];
         
         let mut results = vec![];
         for (i, text) in multibyte_texts.iter().enumerate() {

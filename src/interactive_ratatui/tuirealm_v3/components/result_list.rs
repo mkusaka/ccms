@@ -11,14 +11,6 @@ use crate::interactive_ratatui::tuirealm_v3::type_safe_wrapper::{SearchResults, 
 use crate::query::condition::SearchResult;
 
 
-/// Helper function to extract string from AttrValue
-fn unwrap_string(attr: AttrValue) -> String {
-    match attr {
-        AttrValue::String(s) => s,
-        _ => String::new(),
-    }
-}
-
 /// Helper function to extract bool from AttrValue
 fn unwrap_bool(attr: AttrValue) -> bool {
     match attr {

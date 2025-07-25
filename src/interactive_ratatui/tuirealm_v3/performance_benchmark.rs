@@ -11,7 +11,7 @@ mod performance_benchmarks {
         (0..size)
             .map(|i| SearchResult {
                 file: format!("file_{}.jsonl", i / 100),
-                uuid: format!("uuid-{}", i),
+                uuid: format!("uuid-{i}"),
                 timestamp: format!("2024-01-01T10:{:02}:{:02}Z", (i / 60) % 60, i % 60),
                 session_id: format!("session-{}", i % 10),
                 role: match i % 3 {
@@ -61,7 +61,7 @@ mod performance_benchmarks {
             app.update(Some(AppMessage::SearchCompleted));
             let duration = start.elapsed();
             
-            println!("Loading {} results: {:?}", size, duration);
+            println!("Loading {size} results: {duration:?}");
         }
     }
     
@@ -100,13 +100,13 @@ mod performance_benchmarks {
         let start = Instant::now();
         app.update(Some(AppMessage::ResultEnd));
         let end_duration = start.elapsed();
-        println!("Jump to end: {:?}", end_duration);
+        println!("Jump to end: {end_duration:?}");
         
         // Benchmark jumping to home
         let start = Instant::now();
         app.update(Some(AppMessage::ResultHome));
         let home_duration = start.elapsed();
-        println!("Jump to home: {:?}", home_duration);
+        println!("Jump to home: {home_duration:?}");
     }
     
     #[test]
@@ -131,7 +131,7 @@ mod performance_benchmarks {
                 .count();
             let duration = start.elapsed();
             
-            println!("Filter by '{}': {} results in {:?}", filter, filtered_count, duration);
+            println!("Filter by '{filter}': {filtered_count} results in {duration:?}");
         }
     }
     
@@ -211,7 +211,7 @@ mod performance_benchmarks {
         let start = Instant::now();
         app.update(Some(AppMessage::SessionQueryChanged("Message 250".to_string())));
         let search_duration = start.elapsed();
-        println!("Session search filter: {:?}", search_duration);
+        println!("Session search filter: {search_duration:?}");
         println!("Filtered results: {}", app.state.session_filtered_indices.len());
     }
     
@@ -260,7 +260,7 @@ mod performance_benchmarks {
         app.state.search_results = long_message_results;
         app.update(Some(AppMessage::SearchCompleted));
         let duration = start.elapsed();
-        println!("Loading 100 large messages (60KB each): {:?}", duration);
+        println!("Loading 100 large messages (60KB each): {duration:?}");
         
         // Test rapid mode switching
         let start = Instant::now();

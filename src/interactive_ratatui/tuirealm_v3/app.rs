@@ -117,7 +117,7 @@ impl App {
         // Set initial active component
         app.active(&ComponentId::SearchInput).map_err(|e| AppError::ComponentInitError {
             component: "SearchInput".to_string(),
-            details: format!("Failed to set active: {}", e),
+            details: format!("Failed to set active: {e}"),
         })?;
         
         // Update all components with initial state
@@ -134,7 +134,7 @@ impl App {
         value: AttrValue,
     ) -> AppResult<()> {
         app.attr(component, attr, value).map_err(|e| AppError::ComponentUpdateError {
-            component: format!("{:?}", component),
+            component: format!("{component:?}"),
             details: e.to_string(),
         })
     }
