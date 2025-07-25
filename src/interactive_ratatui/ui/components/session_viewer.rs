@@ -181,7 +181,7 @@ impl SessionViewer {
 impl Component for SessionViewer {
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let subtitle = match (&self.session_id, &self.file_path) {
-            (Some(session), Some(file)) => format!("Session: {session} | File: {file}"),
+            (Some(session), Some(file)) => format!("Session: {session}\nFile: {file}"),
             (Some(session), None) => format!("Session: {session}"),
             (None, Some(file)) => format!("File: {file}"),
             (None, None) => String::new(),

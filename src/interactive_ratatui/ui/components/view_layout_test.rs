@@ -81,7 +81,8 @@ mod tests {
                 let full_area = f.area();
                 layout.render(f, full_area, |_f, area| {
                     // Without status bar, content area should be larger
-                    assert_eq!(area.height, full_area.height - 3); // Only title bar
+                    // Title bar height is now 2 (title + bottom border)
+                    assert_eq!(area.height, full_area.height - 2); // Only title bar
                 });
             })
             .unwrap();
