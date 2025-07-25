@@ -184,7 +184,8 @@ impl Component for SessionViewer {
         let layout = ViewLayout::new("Session Viewer".to_string())
             .with_subtitle(subtitle)
             .with_status_text(
-                "↑/↓ or j/k or Ctrl+P/N: Navigate | o: Sort | c: Copy JSON | /: Search | Esc: Back".to_string(),
+                "↑/↓ or j/k or Ctrl+P/N: Navigate | o: Sort | c: Copy JSON | /: Search | Esc: Back"
+                    .to_string(),
             );
 
         layout.render(f, area, |f, content_area| {

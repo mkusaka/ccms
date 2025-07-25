@@ -772,7 +772,7 @@ mod tests {
 
         // Navigate while in search mode
         assert_eq!(viewer.list_viewer.selected_index, 0);
-        
+
         viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
         assert_eq!(viewer.list_viewer.selected_index, 1);
 
@@ -780,10 +780,16 @@ mod tests {
         assert_eq!(viewer.list_viewer.selected_index, 2);
 
         // Test Ctrl+P/N
-        viewer.handle_key(create_key_event_with_modifiers(KeyCode::Char('p'), KeyModifiers::CONTROL));
+        viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('p'),
+            KeyModifiers::CONTROL,
+        ));
         assert_eq!(viewer.list_viewer.selected_index, 1);
 
-        viewer.handle_key(create_key_event_with_modifiers(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('n'),
+            KeyModifiers::CONTROL,
+        ));
         assert_eq!(viewer.list_viewer.selected_index, 2);
     }
 
@@ -848,17 +854,26 @@ mod tests {
         assert_eq!(viewer.list_viewer.selected_index, 0);
 
         // Ctrl+N to move down
-        let msg = viewer.handle_key(create_key_event_with_modifiers(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('n'),
+            KeyModifiers::CONTROL,
+        ));
         assert!(matches!(msg, Some(Message::SessionNavigated)));
         assert_eq!(viewer.list_viewer.selected_index, 1);
 
         // Ctrl+N again
-        let msg = viewer.handle_key(create_key_event_with_modifiers(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('n'),
+            KeyModifiers::CONTROL,
+        ));
         assert!(matches!(msg, Some(Message::SessionNavigated)));
         assert_eq!(viewer.list_viewer.selected_index, 2);
 
         // Ctrl+P to move up
-        let msg = viewer.handle_key(create_key_event_with_modifiers(KeyCode::Char('p'), KeyModifiers::CONTROL));
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('p'),
+            KeyModifiers::CONTROL,
+        ));
         assert!(matches!(msg, Some(Message::SessionNavigated)));
         assert_eq!(viewer.list_viewer.selected_index, 1);
     }

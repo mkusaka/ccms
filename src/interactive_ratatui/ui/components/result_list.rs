@@ -55,7 +55,8 @@ impl Component for ResultList {
                 self.list_viewer.filtered_count()
             ))
             .with_status_text(
-                "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Esc: Exit | ?: Help".to_string(),
+                "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Esc: Exit | ?: Help"
+                    .to_string(),
             );
 
         layout.render(f, area, |f, content_area| {

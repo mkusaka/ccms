@@ -233,7 +233,6 @@ impl AppState {
         self.search.results.get(self.search.selected_index)
     }
 
-
     fn update_session_filter(&mut self) {
         use crate::interactive_ratatui::domain::filter::SessionFilter;
         use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
