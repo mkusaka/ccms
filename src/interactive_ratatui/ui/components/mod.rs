@@ -17,6 +17,10 @@ mod double_border_test;
 #[cfg(test)]
 mod exact_border_pattern_test;
 #[cfg(test)]
+mod exact_issue_test;
+#[cfg(test)]
+mod final_fix_test;
+#[cfg(test)]
 mod full_layout_test;
 #[cfg(test)]
 mod list_viewer_test;
@@ -33,7 +37,11 @@ mod search_results_border_test;
 #[cfg(test)]
 mod session_viewer_test;
 #[cfg(test)]
+mod specific_pattern_test;
+#[cfg(test)]
 mod table_column_test;
+#[cfg(test)]
+mod table_debug_detailed_test;
 #[cfg(test)]
 mod table_debug_test;
 #[cfg(test)]
@@ -41,7 +49,11 @@ mod table_extra_column_test;
 #[cfg(test)]
 mod table_rendering_test;
 #[cfg(test)]
+mod table_row_debug_test;
+#[cfg(test)]
 mod text_input_test;
+#[cfg(test)]
+mod user_issue_reproduction_test;
 #[cfg(test)]
 mod view_layout_test;
 

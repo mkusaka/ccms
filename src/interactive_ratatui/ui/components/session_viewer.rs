@@ -29,11 +29,14 @@ pub struct SessionViewer {
 
 impl SessionViewer {
     pub fn new() -> Self {
+        let mut list_viewer = ListViewer::new(
+            "Session Messages".to_string(),
+            "No messages in session".to_string(),
+        );
+        list_viewer.set_with_border(true); // SessionViewerにも枠線が必要
+
         Self {
-            list_viewer: ListViewer::new(
-                "Session Messages".to_string(),
-                "No messages in session".to_string(),
-            ),
+            list_viewer,
             raw_messages: Vec::new(),
             text_input: TextInput::new(),
             order: None,

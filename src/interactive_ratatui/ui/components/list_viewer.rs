@@ -213,10 +213,11 @@ impl<T: ListItem> ListViewer<T> {
             .collect();
 
         // Define column constraints with better distribution
+        // Use Percentage instead of Min(0) to ensure proper width calculation
         let widths = [
-            Constraint::Length(11), // Timestamp (MM/DD HH:MM)
-            Constraint::Length(10), // Role
-            Constraint::Min(0),     // Content takes remaining space without forcing minimum
+            Constraint::Length(11),      // Timestamp (MM/DD HH:MM)
+            Constraint::Length(10),      // Role
+            Constraint::Percentage(100), // Content takes all remaining space
         ];
 
         // Update title with selection info

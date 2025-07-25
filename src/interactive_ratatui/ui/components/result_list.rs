@@ -13,9 +13,10 @@ pub struct ResultList {
 
 impl ResultList {
     pub fn new() -> Self {
-        Self {
-            list_viewer: ListViewer::new("Results".to_string(), "No results found".to_string()),
-        }
+        let mut list_viewer =
+            ListViewer::new("Results".to_string(), "No results found".to_string());
+        list_viewer.set_with_border(true); // ResultListには枠線が必要
+        Self { list_viewer }
     }
 
     pub fn set_results(&mut self, results: Vec<SearchResult>) {
