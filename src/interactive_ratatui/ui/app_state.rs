@@ -229,19 +229,19 @@ impl AppState {
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown")
                         .to_string();
-                    
+
                     let timestamp = json_value
                         .get("timestamp")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
-                    
+
                     let uuid = json_value
                         .get("uuid")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
-                    
+
                     // Extract content based on message type
                     let content = match role.as_str() {
                         "summary" => json_value
@@ -281,7 +281,7 @@ impl AppState {
                             }
                         }
                     };
-                    
+
                     // Create a SearchResult
                     let result = SearchResult {
                         file: file_path,
@@ -298,9 +298,9 @@ impl AppState {
                             case_sensitive: false,
                         },
                         project_path: String::new(), // Not available from session viewer
-                        raw_json: Some(raw_json), // Store full JSON
+                        raw_json: Some(raw_json),    // Store full JSON
                     };
-                    
+
                     self.ui.selected_result = Some(result);
                     self.ui.detail_scroll_offset = 0;
                     self.mode_stack.push(self.mode);

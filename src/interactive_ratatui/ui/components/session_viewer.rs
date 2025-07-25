@@ -274,18 +274,15 @@ impl Component for SessionViewer {
                     .list_viewer
                     .get_selected_item()
                     .map(|item| Message::CopyToClipboard(item.content.clone())),
-                KeyCode::Enter => self
-                    .list_viewer
-                    .get_selected_item()
-                    .and_then(|item| {
-                        self.file_path.as_ref().map(|path| {
-                            Message::EnterResultDetailFromSession(
-                                item.raw_json.clone(),
-                                path.clone(),
-                                self.session_id.clone(),
-                            )
-                        })
-                    }),
+                KeyCode::Enter => self.list_viewer.get_selected_item().and_then(|item| {
+                    self.file_path.as_ref().map(|path| {
+                        Message::EnterResultDetailFromSession(
+                            item.raw_json.clone(),
+                            path.clone(),
+                            self.session_id.clone(),
+                        )
+                    })
+                }),
                 KeyCode::Esc => Some(Message::ExitToSearch),
                 _ => None,
             }
