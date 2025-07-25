@@ -189,20 +189,13 @@ impl Component for SessionViewer {
                     None
                 }
                 _ => {
-                    // Handle special case for Backspace when query becomes empty
-                    if key.code == KeyCode::Backspace && self.text_input.text().len() == 1 {
-                        self.is_searching = false;
-                        self.text_input.handle_key(key);
-                        Some(Message::SessionQueryChanged(String::new()))
+                    let changed = self.text_input.handle_key(key);
+                    if changed {
+                        Some(Message::SessionQueryChanged(
+                            self.text_input.text().to_string(),
+                        ))
                     } else {
-                        let changed = self.text_input.handle_key(key);
-                        if changed {
-                            Some(Message::SessionQueryChanged(
-                                self.text_input.text().to_string(),
-                            ))
-                        } else {
-                            None
-                        }
+                        None
                     }
                 }
             }

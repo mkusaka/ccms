@@ -684,4 +684,40 @@ mod tests {
         assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "ell"));
         assert_eq!(viewer.cursor_position(), 0);
     }
+
+    #[test]
+    fn test_search_mode_stays_active_on_empty_backspace() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        
+        // Type a single character
+        viewer.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty()));
+        assert_eq!(viewer.query(), "a");
+        
+        // Backspace to empty - should stay in search mode
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q.is_empty()));
+        
+        // Should still be in search mode - try typing again
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('b'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "b"));
+        
+        // Verify we're still in search mode - ESC should exit
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q.is_empty()));
+    }
+
+    #[test]
+    fn test_search_mode_backspace_on_empty_query() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        
+        // Backspace on empty query should do nothing but stay in search mode
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty()));
+        assert!(msg.is_none());
+        
+        // Should still be in search mode - can type
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('x'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionQueryChanged(q)) if q == "x"));
+    }
 }
