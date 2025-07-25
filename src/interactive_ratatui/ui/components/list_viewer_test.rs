@@ -299,4 +299,5 @@ mod tests {
             "Full text mode should have scrolled"
         );
     }
+
 }

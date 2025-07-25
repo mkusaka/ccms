@@ -3,8 +3,16 @@ use ratatui::{
     Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
+    text::Line,
     widgets::{Block, Borders, List, ListItem as TuiListItem, Paragraph},
 };
+
+// Layout constants for consistent column widths
+pub const TIMESTAMP_WIDTH: u16 = 16;
+pub const TIMESTAMP_SPACE_WIDTH: u16 = 1;
+pub const ROLE_WIDTH: u16 = 10;
+pub const ROLE_SPACE_WIDTH: u16 = 1;
+pub const FIXED_WIDTH_TOTAL: u16 = TIMESTAMP_WIDTH + TIMESTAMP_SPACE_WIDTH + ROLE_WIDTH + ROLE_SPACE_WIDTH;
 
 pub struct ListViewer<T: ListItem> {
     pub items: Vec<T>,
@@ -174,8 +182,8 @@ impl<T: ListItem> ListViewer<T> {
             let mut current_height = 0;
             let mut end = start;
 
-            // Calculate available width for text (accounting for timestamp and role)
-            let available_text_width = available_width.saturating_sub(35) as usize;
+            // Calculate available width for text (accounting for borders and fixed width parts)
+            let available_text_width = available_width.saturating_sub(2).saturating_sub(FIXED_WIDTH_TOTAL) as usize;
 
             while end < self.filtered_indices.len() && current_height < available_height as usize {
                 if let Some(&item_idx) = self.filtered_indices.get(end) {
@@ -258,7 +266,8 @@ impl<T: ListItem> ListViewer<T> {
         self.adjust_scroll_offset(available_height, area.width);
         let (start, end) = self.calculate_visible_range(available_height, area.width);
 
-        let available_text_width = area.width.saturating_sub(35) as usize;
+        // Account for borders (2) and the fixed width parts
+        let available_text_width = area.width.saturating_sub(2).saturating_sub(FIXED_WIDTH_TOTAL) as usize;
 
         let items: Vec<TuiListItem> = (start..end)
             .filter_map(|i| {
@@ -275,10 +284,19 @@ impl<T: ListItem> ListViewer<T> {
                         };
 
                         if self.truncation_enabled {
-                            TuiListItem::new(item.create_truncated_line(available_text_width))
+                            let line = item.create_truncated_line(available_text_width);
+                            // Create a line that fills the entire width
+                            let padded_line = self.create_full_width_line(line, area.width.saturating_sub(2));
+                            TuiListItem::new(padded_line)
                                 .style(style)
                         } else {
-                            TuiListItem::new(item.create_full_lines(available_text_width))
+                            let lines = item.create_full_lines(available_text_width);
+                            // Pad each line to full width
+                            let padded_lines: Vec<Line> = lines
+                                .into_iter()
+                                .map(|line| self.create_full_width_line(line, area.width.saturating_sub(2)))
+                                .collect();
+                            TuiListItem::new(padded_lines)
                                 .style(style)
                         }
                     })
@@ -300,5 +318,24 @@ impl<T: ListItem> ListViewer<T> {
             .style(Style::default());
 
         f.render_widget(list, area);
+    }
+
+    /// Create a line that fills the entire width by adding padding
+    fn create_full_width_line<'a>(&self, line: Line<'a>, width: u16) -> Line<'a> {
+        let current_width: usize = line.spans.iter()
+            .map(|span| span.content.chars().count())
+            .sum();
+        
+        let target_width = width as usize;
+        if current_width >= target_width {
+            return line;
+        }
+        
+        // Add padding to fill the entire width
+        let padding = target_width - current_width;
+        let mut new_spans = line.spans;
+        new_spans.push(ratatui::text::Span::raw(" ".repeat(padding)));
+        
+        Line::from(new_spans)
     }
 }

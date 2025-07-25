@@ -112,6 +112,10 @@ impl InteractiveSearch {
     ) -> Result<()> {
         loop {
             terminal.draw(|f| {
+                // Clear the entire frame to ensure proper redrawing
+                use ratatui::widgets::Clear;
+                f.render_widget(Clear, f.area());
+                
                 self.renderer.render(f, &self.state);
             })?;
 

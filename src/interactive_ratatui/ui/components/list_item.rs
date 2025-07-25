@@ -1,3 +1,4 @@
+use super::list_viewer::{TIMESTAMP_WIDTH, ROLE_WIDTH};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 
@@ -42,11 +43,11 @@ pub trait ListItem: Clone {
 
         vec![
             Span::styled(
-                format!("{timestamp:16} "),
+                format!("{timestamp:<width$} ", width = TIMESTAMP_WIDTH as usize),
                 Style::default().fg(Color::DarkGray),
             ),
             Span::styled(
-                format!("{:10} ", self.get_role()),
+                format!("{:<width$} ", self.get_role(), width = ROLE_WIDTH as usize),
                 Style::default().fg(self.get_role_color()),
             ),
             Span::raw(content),
@@ -63,11 +64,11 @@ pub trait ListItem: Clone {
         // First line with metadata
         let first_line_spans = vec![
             Span::styled(
-                format!("{timestamp:16} "),
+                format!("{timestamp:<width$} ", width = TIMESTAMP_WIDTH as usize),
                 Style::default().fg(Color::DarkGray),
             ),
             Span::styled(
-                format!("{:10} ", self.get_role()),
+                format!("{:<width$} ", self.get_role(), width = ROLE_WIDTH as usize),
                 Style::default().fg(self.get_role_color()),
             ),
             Span::raw(wrapped_lines.first().cloned().unwrap_or_default()),
@@ -75,8 +76,9 @@ pub trait ListItem: Clone {
         lines.push(Line::from(first_line_spans));
 
         // Additional lines (indented)
+        let indent_width = (TIMESTAMP_WIDTH + 1 + ROLE_WIDTH + 1 + 1) as usize;
         for line in wrapped_lines.iter().skip(1) {
-            let indent = " ".repeat(29); // 16 + 1 + 10 + 1 + 1 spaces
+            let indent = " ".repeat(indent_width);
             lines.push(Line::from(format!("{indent}{line}")));
         }
 
