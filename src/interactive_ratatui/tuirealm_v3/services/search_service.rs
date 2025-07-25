@@ -119,7 +119,7 @@ impl SearchService {
         
         // Create search engine with options
         let search_options = SearchOptions {
-            max_results: None, // No limit
+            max_results: Some(1000), // Limit results to prevent memory issues
             role: role_filter,
             session_id: session_id.clone(),
             before: timestamp_lt,

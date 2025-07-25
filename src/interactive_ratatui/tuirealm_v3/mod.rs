@@ -17,6 +17,7 @@ use std::time::Duration;
 use tuirealm::application::{Application, PollStrategy};
 use tuirealm::terminal::TerminalBridge;
 use tuirealm::{EventListenerCfg, NoUserEvent, Update};
+use tuirealm::event::{Event, Key, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
 use self::messages::{AppMessage, AppMode, ComponentId};
@@ -56,8 +57,27 @@ pub fn run_interactive_search(
     
     // Main event loop
     let mut should_quit = false;
+    let mut last_ctrl_c = None::<std::time::Instant>;
     
     while !should_quit {
+        // Check for Ctrl+C directly in the main loop for reliability
+        if crossterm::event::poll(Duration::from_millis(50))? {
+            if let crossterm::event::Event::Key(key_event) = crossterm::event::read()? {
+                if key_event.code == crossterm::event::KeyCode::Char('c') 
+                    && key_event.modifiers == crossterm::event::KeyModifiers::CONTROL {
+                    // Double Ctrl+C to quit
+                    if let Some(last) = last_ctrl_c {
+                        if last.elapsed().as_millis() < 500 {
+                            should_quit = true;
+                            continue;
+                        }
+                    }
+                    last_ctrl_c = Some(std::time::Instant::now());
+                    app_logic.state.set_message("Press Ctrl+C again to quit".to_string());
+                }
+            }
+        }
+        
         // Process events through tui-realm
         match app.tick(PollStrategy::Once) {
             Ok(messages) => {
@@ -90,11 +110,15 @@ pub fn run_interactive_search(
             }
         }
         
-        // Update state without new messages (for async operations)
-        app_logic.update(None);
-        
-        // Update components with current state
-        app_logic.update_components(&mut app).ok();
+        // Check for async operations (search results)
+        if app_logic.state.is_searching {
+            // Only update when actively searching
+            if let Some(msg) = app_logic.update(None) {
+                if msg == AppMessage::Quit {
+                    should_quit = true;
+                }
+            }
+        }
         
         // Update active component based on mode
         let active_component = ComponentId::get_active(&app_logic.state.mode);
