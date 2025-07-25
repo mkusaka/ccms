@@ -1,6 +1,8 @@
 use std::sync::mpsc;
 use tuirealm::props::{AttrValue, Attribute};
 use tuirealm::{Application, NoUserEvent, Update};
+use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::Frame;
 
 use crate::query::condition::SearchResult;
 use super::models::SessionOrder;
@@ -113,6 +115,9 @@ impl App {
             component: "GlobalShortcuts".to_string(),
             details: e.to_string(),
         })?;
+        
+        // GlobalShortcuts doesn't need explicit subscription
+        // It will process events through the view() method
         
         // Set initial active component
         app.active(&ComponentId::SearchInput).map_err(|e| AppError::ComponentInitError {
@@ -488,6 +493,107 @@ impl App {
                 }
             }
         }
+    }
+    
+    /// Render the layout based on current mode
+    pub fn render_layout(&self, app: &mut Application<ComponentId, AppMessage, NoUserEvent>, f: &mut Frame) {
+        match self.state.mode {
+            AppMode::Search => {
+                // Split into search input and results
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .margin(0)
+                    .constraints([
+                        Constraint::Length(3),   // Search input
+                        Constraint::Min(0),      // Results list
+                        Constraint::Length(1),   // Status bar
+                    ])
+                    .split(f.area());
+                
+                // Render search input
+                app.view(&ComponentId::SearchInput, f, chunks[0]);
+                
+                // Render results list
+                app.view(&ComponentId::ResultList, f, chunks[1]);
+                
+                // Render status bar (optional)
+                // TODO: Add status bar component if needed
+            }
+            
+            AppMode::ResultDetail => {
+                // Full screen for result detail
+                app.view(&ComponentId::ResultDetail, f, f.area());
+            }
+            
+            AppMode::SessionViewer => {
+                // Full screen for session viewer
+                app.view(&ComponentId::SessionViewer, f, f.area());
+            }
+            
+            AppMode::Help => {
+                // Render help dialog over the current view
+                match self.state.previous_mode {
+                    Some(AppMode::Search) => {
+                        // Render search mode underneath
+                        let chunks = Layout::default()
+                            .direction(Direction::Vertical)
+                            .margin(0)
+                            .constraints([
+                                Constraint::Length(3),
+                                Constraint::Min(0),
+                                Constraint::Length(1),
+                            ])
+                            .split(f.area());
+                        
+                        app.view(&ComponentId::SearchInput, f, chunks[0]);
+                        app.view(&ComponentId::ResultList, f, chunks[1]);
+                    }
+                    Some(AppMode::ResultDetail) => {
+                        app.view(&ComponentId::ResultDetail, f, f.area());
+                    }
+                    Some(AppMode::SessionViewer) => {
+                        app.view(&ComponentId::SessionViewer, f, f.area());
+                    }
+                    _ => {}
+                }
+                
+                // Render help dialog on top
+                app.view(&ComponentId::HelpDialog, f, f.area());
+            }
+            
+            AppMode::Error => {
+                // Render error dialog over the current view
+                match self.state.previous_mode {
+                    Some(AppMode::Search) => {
+                        let chunks = Layout::default()
+                            .direction(Direction::Vertical)
+                            .margin(0)
+                            .constraints([
+                                Constraint::Length(3),
+                                Constraint::Min(0),
+                                Constraint::Length(1),
+                            ])
+                            .split(f.area());
+                        
+                        app.view(&ComponentId::SearchInput, f, chunks[0]);
+                        app.view(&ComponentId::ResultList, f, chunks[1]);
+                    }
+                    Some(AppMode::ResultDetail) => {
+                        app.view(&ComponentId::ResultDetail, f, f.area());
+                    }
+                    Some(AppMode::SessionViewer) => {
+                        app.view(&ComponentId::SessionViewer, f, f.area());
+                    }
+                    _ => {}
+                }
+                
+                // Render error dialog on top
+                app.view(&ComponentId::ErrorDialog, f, f.area());
+            }
+        }
+        
+        // Always process global shortcuts
+        app.view(&ComponentId::GlobalShortcuts, f, f.area());
     }
 }
 

@@ -100,8 +100,8 @@ pub fn run_interactive_search(
         
         // Render
         terminal.raw_mut().draw(|f| {
-            // Render the active component
-            app.view(&active_component, f, f.area());
+            // Use layout to render multiple components based on mode
+            app_logic.render_layout(&mut app, f);
         })?;
     }
     
