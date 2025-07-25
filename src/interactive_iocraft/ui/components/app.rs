@@ -1,13 +1,12 @@
 //! Root application component
 
-use crate::interactive_iocraft::application::{SearchService, SessionService, CacheService};
+use crate::interactive_iocraft::application::{SearchService, SessionService, CacheService, SettingsService};
 use crate::interactive_iocraft::domain::models::Mode;
 use crate::interactive_iocraft::ui::components::{SearchView, DetailView, SessionView, HelpModal};
 use crate::interactive_iocraft::ui::contexts::{Theme, Settings};
-use crate::interactive_iocraft::ui::hooks::{use_terminal_events, is_quit_key};
+use crate::interactive_iocraft::ui::hooks::is_quit_key;
 use crate::interactive_iocraft::SearchResult;
 use iocraft::prelude::*;
-use futures::StreamExt;
 use std::sync::{Arc, Mutex};
 
 #[derive(Props)]
@@ -15,8 +14,10 @@ pub struct AppProps {
     pub search_service: Option<Arc<SearchService>>,
     pub session_service: Option<Arc<SessionService>>,
     pub cache_service: Option<Arc<Mutex<CacheService>>>,
+    pub settings_service: Option<Arc<SettingsService>>,
     pub initial_query: Option<String>,
     pub file_patterns: Vec<String>,
+    pub settings: Settings,
 }
 
 impl Default for AppProps {
@@ -25,21 +26,23 @@ impl Default for AppProps {
             search_service: None,
             session_service: None,
             cache_service: None,
+            settings_service: None,
             initial_query: None,
             file_patterns: vec![],
+            settings: Settings::default(),
         }
     }
 }
 
 #[component]
 pub fn App(mut hooks: Hooks, props: &AppProps) -> impl Into<AnyElement<'static>> {
-    // Validate required services
+    // Validate required services with helpful error messages
     let search_service = props.search_service.as_ref()
-        .expect("search_service is required");
+        .expect("App component requires search_service. Please ensure SearchService is initialized and passed to App props.");
     let session_service = props.session_service.as_ref()
-        .expect("session_service is required");
+        .expect("App component requires session_service. Please ensure SessionService is initialized and passed to App props.");
     let cache_service = props.cache_service.as_ref()
-        .expect("cache_service is required");
+        .expect("App component requires cache_service. Please ensure CacheService is initialized and passed to App props.");
     
     // State
     let mut mode = hooks.use_state(|| Mode::Search);
@@ -51,10 +54,7 @@ pub fn App(mut hooks: Hooks, props: &AppProps) -> impl Into<AnyElement<'static>>
     let mut last_quit_time = hooks.use_state(|| std::time::Instant::now());
     let mut quit_message = hooks.use_state(|| None::<String>);
     
-    // Terminal events
-    let mut events = use_terminal_events(&mut hooks);
-    
-    // Check quit timeout in the future
+    // Check quit timeout
     if *quit_requested.read() {
         let elapsed = std::time::Instant::now().duration_since(*last_quit_time.read());
         if elapsed.as_millis() > 1000 {
@@ -65,7 +65,7 @@ pub fn App(mut hooks: Hooks, props: &AppProps) -> impl Into<AnyElement<'static>>
     }
     
     // Handle global keyboard events
-    hooks.use_future({
+    hooks.use_terminal_events({
         let mut mode = mode.clone();
         let mut mode_stack = mode_stack.clone();
         let mut show_help = show_help.clone();
@@ -73,26 +73,25 @@ pub fn App(mut hooks: Hooks, props: &AppProps) -> impl Into<AnyElement<'static>>
         let mut last_quit_time = last_quit_time.clone();
         let mut quit_message = quit_message.clone();
         
-        async move {
-            while let Some(event) = events.next().await {
-                if let TerminalEvent::Key(key) = event {
-                    // Check for quit
-                    if is_quit_key(&key) {
-                        let now = std::time::Instant::now();
-                        if *quit_requested.read() && now.duration_since(*last_quit_time.read()).as_millis() < 1000 {
-                            // Double Ctrl+C within 1 second, exit
-                            std::process::exit(0);
-                        } else {
-                            // First Ctrl+C, request confirmation
-                            quit_requested.set(true);
-                            last_quit_time.set(now);
-                            quit_message.set(Some("Press Ctrl+C again to exit".to_string()));
-                        }
+        move |event| {
+            if let TerminalEvent::Key(key) = event {
+                // Check for quit
+                if is_quit_key(&key) {
+                    let now = std::time::Instant::now();
+                    if *quit_requested.read() && now.duration_since(*last_quit_time.read()).as_millis() < 1000 {
+                        // Double Ctrl+C within 1 second, exit
+                        std::process::exit(0);
                     } else {
-                        // Any other key cancels quit request
-                        quit_requested.set(false);
-                        quit_message.set(None);
+                        // First Ctrl+C, request confirmation
+                        quit_requested.set(true);
+                        last_quit_time.set(now);
+                        quit_message.set(Some("Press Ctrl+C again to exit".to_string()));
                     }
+                } else {
+                    // Any other key cancels quit request
+                    quit_requested.set(false);
+                    quit_message.set(None);
+                }
                     
                     // Check for escape (go back)
                     if key.code == iocraft::KeyCode::Esc {
@@ -108,7 +107,6 @@ pub fn App(mut hooks: Hooks, props: &AppProps) -> impl Into<AnyElement<'static>>
                             }
                         }
                     }
-                }
             }
         }
     });
@@ -127,7 +125,7 @@ pub fn App(mut hooks: Hooks, props: &AppProps) -> impl Into<AnyElement<'static>>
     
     element! {
         ContextProvider(value: Context::owned(Theme::default())) {
-            ContextProvider(value: Context::owned(Settings::default())) {
+            ContextProvider(value: Context::owned(props.settings.clone())) {
                 ContextProvider(value: Context::owned(search_service.clone())) {
                     ContextProvider(value: Context::owned(session_service.clone())) {
                         ContextProvider(value: Context::owned(cache_service.clone())) {

@@ -1,5 +1,5 @@
 pub mod interactive_ratatui;
-// pub mod interactive_iocraft; // Temporarily disabled to fix compilation
+pub mod interactive_iocraft;
 pub mod profiling;
 pub mod query;
 pub mod schemas;

@@ -26,18 +26,19 @@ pub fn ResultList<'a>(mut hooks: Hooks, props: &'a ResultListProps<'a>) -> impl 
     // Calculate visible area
     let height = terminal_size.1.saturating_sub(10) as usize; // Leave room for other UI elements
     
-    // Use virtual scrolling if enabled and we have many results
+    // Always use virtual list hook (but we can choose whether to use its results)
+    let (_, virtual_visible_results) = use_virtual_list(
+        &mut hooks,
+        &props.results,
+        1, // item_height = 1 row
+        height,
+    );
+    
+    // Decide whether to use virtual scrolling
     let use_virtual = settings.performance.enable_virtual_scroll && props.results.len() > height * 2;
     
     let visible_results: Vec<(usize, SearchResult)> = if use_virtual {
-        // Use virtual list hook for efficient rendering
-        let (_, visible_with_indices) = use_virtual_list(
-            &mut hooks,
-            &props.results,
-            1, // item_height = 1 row
-            height,
-        );
-        visible_with_indices
+        virtual_visible_results
     } else {
         // Traditional slicing for smaller lists
         props.results[props.scroll_offset..props.results.len().min(props.scroll_offset + height)]

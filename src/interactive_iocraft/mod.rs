@@ -5,6 +5,7 @@
 pub mod domain;
 pub mod application;
 pub mod ui;
+pub mod error;
 
 #[cfg(test)]
 mod integration_tests;
@@ -15,18 +16,26 @@ mod feature_tests;
 #[cfg(test)]
 mod workflow_tests;
 
+#[cfg(test)]
+mod performance_tests;
+
 use anyhow::Result;
 // Re-export types from the parent module for use in submodules
-pub(crate) use ccms::{Args, SessionMessage, SearchResult, QueryCondition, SearchEngine, SearchOptions, parse_query, default_claude_pattern};
+pub(crate) use crate::{Args, SessionMessage, SearchResult, QueryCondition, SearchEngine, SearchOptions, parse_query, default_claude_pattern};
 use iocraft::prelude::*;
 use std::sync::{Arc, Mutex};
 
-use self::application::{SearchService, SessionService, CacheService};
+use self::application::{SearchService, SessionService, CacheService, SettingsService};
 use self::ui::components::App;
 
 /// Entry point for the interactive iocraft interface
 pub fn run(args: Args) -> Result<()> {
+    eprintln!("Starting iocraft interactive mode...");
+    
     // Initialize services
+    let settings_service = Arc::new(SettingsService::new()?);
+    let ui_settings = settings_service.get_ui_settings()?;
+    
     let cache_service = Arc::new(Mutex::new(CacheService::new()));
     let search_service = Arc::new(SearchService::new(
         args.file_patterns.clone(),
@@ -42,6 +51,8 @@ pub fn run(args: Args) -> Result<()> {
                 session_service: Some(session_service),
                 cache_service: Some(cache_service),
                 initial_query: args.query.clone(),
+                settings: ui_settings,
+                settings_service: Some(settings_service),
             )
         }
         .fullscreen()

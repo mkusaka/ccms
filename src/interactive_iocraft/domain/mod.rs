@@ -3,6 +3,7 @@
 pub mod models;
 pub mod filter;
 pub mod session_list_item;
+pub mod settings;
 
 pub use models::*;
 pub use filter::*;

@@ -1,11 +1,10 @@
 //! Main search view component
 
 use crate::interactive_iocraft::ui::components::shared::{SearchBar, ResultList};
-use crate::interactive_iocraft::ui::hooks::{use_search, use_terminal_events, use_debounced_search};
+use crate::interactive_iocraft::ui::hooks::{use_search, use_debounced_search};
 use crate::interactive_iocraft::ui::contexts::Theme;
 use crate::interactive_iocraft::SearchResult;
 use iocraft::prelude::*;
-use futures::StreamExt;
 
 #[derive(Default, Props)]
 pub struct SearchViewProps<'a> {
@@ -45,10 +44,8 @@ pub fn SearchView<'a>(mut hooks: Hooks, props: &mut SearchViewProps<'a>) -> impl
     let mut pending_select = hooks.use_state(|| None::<SearchResult>);
     let mut pending_help = hooks.use_state(|| false);
     
-    // Handle keyboard events
-    let mut events = use_terminal_events(&mut hooks);
-    
-    hooks.use_future({
+    // Handle keyboard events only when search bar is not focused
+    hooks.use_terminal_events({
         let mut role_filter = role_filter.clone();
         let mut truncate = truncate.clone();
         let results = search_results.results.clone();
@@ -58,10 +55,9 @@ pub fn SearchView<'a>(mut hooks: Hooks, props: &mut SearchViewProps<'a>) -> impl
         let mut pending_help = pending_help.clone();
         let mut focused = focused.clone();
         
-        async move {
-            while let Some(event) = events.next().await {
-                if let TerminalEvent::Key(key) = event {
-                    let is_focused = *focused.read();
+        move |event| {
+            if let TerminalEvent::Key(key) = event {
+                let is_focused = *focused.read();
                     
                     match key.code {
                     // Special keys that work regardless of focus
@@ -168,7 +164,6 @@ pub fn SearchView<'a>(mut hooks: Hooks, props: &mut SearchViewProps<'a>) -> impl
                     
                     _ => {}
                     }
-                }
             }
         }
     });

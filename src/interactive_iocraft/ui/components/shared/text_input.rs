@@ -2,9 +2,7 @@
 //! Supports cursor movement, word boundaries, and various editing shortcuts
 
 use crate::interactive_iocraft::ui::contexts::Theme;
-use crate::interactive_iocraft::ui::hooks::use_terminal_events;
 use iocraft::prelude::*;
-use futures::StreamExt;
 
 /// Advanced text input component state
 #[derive(Debug, Clone)]
@@ -107,6 +105,11 @@ impl TextInputState {
 
     /// Handle a key event and return true if the text changed
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
+        // Skip Ctrl+C to allow proper quit handling
+        if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+            return false;
+        }
+        
         // Handle Control key combinations
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
@@ -334,22 +337,23 @@ pub fn AdvancedTextInput(mut hooks: Hooks, props: &mut AdvancedTextInputProps) -
         }
     }
     
-    // Handle keyboard events when focused
+    // Handle keyboard events if focused
     if props.has_focus {
-        let mut events = use_terminal_events(&mut hooks);
-        
-        hooks.use_future({
+        hooks.use_terminal_events({
             let mut state = state.clone();
             let mut on_change = props.on_change.take();
             
-            async move {
-                while let Some(event) = events.next().await {
-                    if let TerminalEvent::Key(key) = event {
-                        let changed = state.write().handle_key(key);
-                        if changed {
-                            let new_text = state.read().text().to_string();
-                            on_change(new_text);
-                        }
+            move |event| {
+                if let TerminalEvent::Key(key) = event {
+                    // Skip Ctrl+C to allow proper quit handling at app level
+                    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+                        return;
+                    }
+                    
+                    let changed = state.write().handle_key(key);
+                    if changed {
+                        let new_text = state.read().text().to_string();
+                        on_change(new_text);
                     }
                 }
             }

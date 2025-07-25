@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ccms::{
     SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
-    interactive_ratatui::InteractiveSearch, parse_query, profiling,
+    parse_query, profiling,
     Args, SessionMessage, SearchResult, QueryCondition,
 };
 mod interactive_iocraft;
@@ -78,10 +78,6 @@ struct Cli {
     /// Interactive search mode (fzf-like)
     #[arg(short = 'i', long)]
     interactive: bool,
-
-    /// Use iocraft UI instead of ratatui
-    #[arg(long)]
-    iocraft: bool,
 
     /// Filter by project path (e.g., current directory: $(pwd))
     #[arg(long = "project")]
@@ -170,29 +166,13 @@ fn main() -> Result<()> {
 
     // Interactive mode
     if cli.interactive {
-        if cli.iocraft {
-            // Use iocraft UI
-            let args = ccms::Args {
-                query: cli.query.clone(),
-                file_patterns: vec![pattern.to_string()],
-                verbose: cli.verbose,
-            };
-            return interactive_iocraft::run(args);
-        } else {
-            // Use ratatui UI
-            let options = SearchOptions {
-                max_results: Some(cli.max_results), // Use the CLI value directly
-                role: cli.role,
-                session_id: cli.session_id,
-                before: cli.before,
-                after: parsed_after.clone(),
-                verbose: cli.verbose,
-                project_path: cli.project_path.clone(),
-            };
-
-            let mut interactive = InteractiveSearch::new(options);
-            return interactive.run(pattern);
-        }
+        // Use iocraft UI as the default (complete replacement)
+        let args = ccms::Args {
+            query: cli.query.clone(),
+            file_patterns: vec![pattern.to_string()],
+            verbose: cli.verbose,
+        };
+        return interactive_iocraft::run(args);
     }
 
     // Regular search mode - query is required

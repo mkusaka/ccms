@@ -33,11 +33,11 @@ where
         memo_state.set(Some((current_hashes, new_value.clone())));
         new_value
     } else {
-        // Return cached value
+        // Return cached value - safe to unwrap as we checked should_recompute
         memo_state.read()
             .as_ref()
             .map(|(_, value)| value.clone())
-            .unwrap()
+            .expect("Memoized value should exist when should_recompute is false")
     }
 }
 
@@ -83,7 +83,7 @@ where
         memo_state.read()
             .as_ref()
             .map(|(_, transformed)| transformed.clone())
-            .unwrap()
+            .expect("Memoized list should exist when should_recompute is false")
     }
 }
 

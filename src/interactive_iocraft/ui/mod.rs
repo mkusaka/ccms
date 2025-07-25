@@ -7,3 +7,6 @@ pub mod styles;
 
 #[cfg(test)]
 mod e2e_tests;
+
+#[cfg(test)]
+mod e2e_comprehensive_tests;
