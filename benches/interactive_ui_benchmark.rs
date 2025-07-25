@@ -20,7 +20,7 @@ fn create_test_search_results(count: usize) -> Vec<SearchResult> {
     (0..count)
         .map(|i| {
             let content = if i % 10 == 0 {
-                format!("日本語メッセージ {} 🦀 絵文字入り テスト内容", i)
+                format!("Japanese message {} 🦀 with emoji test content", i)
             } else if i % 5 == 0 {
                 format!("Very long message content that should be truncated properly when displayed in the UI. This is message number {}. Lorem ipsum dolor sit amet, consectetur adipiscing elit.", i)
             } else {
@@ -52,7 +52,7 @@ fn benchmark_search_bar_rendering(c: &mut Criterion) {
     let mut group = c.benchmark_group("search_bar");
     let test_area = Rect::new(0, 0, 80, 3);
     
-    // 基本レンダリング
+    // Basic rendering
     group.bench_function("render_basic", |b| {
         let mut search_bar = SearchBar::new();
         search_bar.set_query("test query".to_string());
@@ -69,7 +69,7 @@ fn benchmark_search_bar_rendering(c: &mut Criterion) {
         );
     });
     
-    // 検索中状態のレンダリング
+    // Rendering with searching state
     group.bench_function("render_searching", |b| {
         let mut search_bar = SearchBar::new();
         search_bar.set_query("complex AND query OR test".to_string());
@@ -88,10 +88,10 @@ fn benchmark_search_bar_rendering(c: &mut Criterion) {
         );
     });
     
-    // 日本語クエリのレンダリング
+    // Rendering with Japanese query
     group.bench_function("render_japanese", |b| {
         let mut search_bar = SearchBar::new();
-        search_bar.set_query("日本語のクエリ 🦀 絵文字入り".to_string());
+        search_bar.set_query("Japanese query 🦀 with emoji".to_string());
         
         b.iter_batched(
             || TestBackend::new(80, 24),
@@ -112,7 +112,7 @@ fn benchmark_result_list_rendering(c: &mut Criterion) {
     let mut group = c.benchmark_group("result_list");
     let test_area = Rect::new(0, 0, 80, 20);
     
-    // 少量の結果
+    // Small result set
     group.bench_function("render_10_results", |b| {
         let mut result_list = ResultList::new();
         result_list.set_results(create_test_search_results(10));
@@ -130,7 +130,7 @@ fn benchmark_result_list_rendering(c: &mut Criterion) {
         );
     });
     
-    // 大量の結果
+    // Large result set
     group.bench_function("render_1000_results", |b| {
         let mut result_list = ResultList::new();
         result_list.set_results(create_test_search_results(1000));
@@ -148,7 +148,25 @@ fn benchmark_result_list_rendering(c: &mut Criterion) {
         );
     });
     
-    // トランケーション有効時
+    // Production-scale result set (100k entries)
+    group.bench_function("render_100k_results", |b| {
+        let mut result_list = ResultList::new();
+        result_list.set_results(create_test_search_results(100_000));
+        result_list.set_selected_index(50_000);
+        
+        b.iter_batched(
+            || TestBackend::new(80, 24),
+            |backend| {
+                let mut terminal = Terminal::new(backend).unwrap();
+                terminal.draw(|f| {
+                    result_list.render(f, test_area);
+                }).unwrap();
+            },
+            BatchSize::SmallInput,
+        );
+    });
+    
+    // With truncation enabled
     group.bench_function("render_truncated", |b| {
         let mut result_list = ResultList::new();
         result_list.set_results(create_test_search_results(100));
@@ -173,7 +191,7 @@ fn benchmark_result_list_rendering(c: &mut Criterion) {
 fn benchmark_app_state_updates(c: &mut Criterion) {
     let mut group = c.benchmark_group("app_state");
     
-    // クエリ変更の処理
+    // Query change processing
     group.bench_function("update_query_changed", |b| {
         b.iter_batched(
             || {
@@ -189,8 +207,8 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
         );
     });
     
-    // 検索結果の処理
-    group.bench_function("update_search_completed", |b| {
+    // Search completion processing
+    group.bench_function("update_search_completed_1k", |b| {
         let results = create_test_search_results(1000);
         
         b.iter_batched(
@@ -203,7 +221,21 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
         );
     });
     
-    // 選択変更の処理
+    // Production-scale search results (100k entries)
+    group.bench_function("update_search_completed_100k", |b| {
+        let results = create_test_search_results(100_000);
+        
+        b.iter_batched(
+            || AppState::new(SearchOptions::default(), 100_000),
+            |mut state| {
+                let msg = Message::SearchCompleted(results.clone());
+                black_box(state.update(msg));
+            },
+            BatchSize::SmallInput,
+        );
+    });
+    
+    // Selection movement processing
     group.bench_function("update_move_down", |b| {
         b.iter_batched(
             || {
@@ -220,7 +252,7 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
         );
     });
     
-    // モード切り替えの処理
+    // Mode transition processing
     group.bench_function("update_enter_detail", |b| {
         b.iter_batched(
             || {
@@ -243,8 +275,8 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
 fn benchmark_full_frame_rendering(c: &mut Criterion) {
     let mut group = c.benchmark_group("full_frame");
     
-    // 検索モードでのフルレンダリング
-    group.bench_function("render_search_mode", |b| {
+    // Full frame rendering in search mode (small dataset)
+    group.bench_function("render_search_mode_100", |b| {
         let mut renderer = Renderer::new();
         let mut state = AppState::new(SearchOptions::default(), 1000);
         state.search.results = create_test_search_results(100);
@@ -264,7 +296,28 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
         );
     });
     
-    // 詳細モードでのフルレンダリング
+    // Production-scale full frame rendering (100k entries)
+    group.bench_function("render_search_mode_100k", |b| {
+        let mut renderer = Renderer::new();
+        let mut state = AppState::new(SearchOptions::default(), 100_000);
+        state.search.results = create_test_search_results(100_000);
+        state.search.selected_index = 50_000;
+        state.search.is_searching = false;
+        state.search.query = "complex query with multiple terms AND conditions OR regex /pattern/i".to_string();
+        
+        b.iter_batched(
+            || TestBackend::new(120, 40),
+            |backend| {
+                let mut terminal = Terminal::new(backend).unwrap();
+                terminal.draw(|f| {
+                    renderer.render(f, &state);
+                }).unwrap();
+            },
+            BatchSize::SmallInput,
+        );
+    });
+    
+    // Full frame rendering in detail mode
     group.bench_function("render_detail_mode", |b| {
         let mut renderer = Renderer::new();
         let mut state = AppState::new(SearchOptions::default(), 1000);
@@ -284,8 +337,8 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
         );
     });
     
-    // リアルタイムタイピングシミュレーション
-    group.bench_function("render_typing_simulation", |b| {
+    // Real-time typing simulation (short query)
+    group.bench_function("render_typing_short", |b| {
         let queries = vec![
             "t",
             "te",
@@ -308,7 +361,41 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
             |(mut renderer, mut state, backend)| {
                 let mut terminal = Terminal::new(backend).unwrap();
                 
-                // タイピングをシミュレート
+                // Simulate typing
+                for query in &queries {
+                    state.update(Message::QueryChanged(query.to_string()));
+                    terminal.draw(|f| {
+                        renderer.render(f, &state);
+                    }).unwrap();
+                }
+            },
+            BatchSize::SmallInput,
+        );
+    });
+    
+    // Realistic long query typing simulation
+    group.bench_function("render_typing_realistic", |b| {
+        // Build complex query progressively as real users would type
+        let query_building = "SearchEngine AND (performance OR optimization) NOT deprecated /error.*handler/i session:12345";
+        let queries: Vec<String> = query_building.chars()
+            .scan(String::new(), |acc, ch| {
+                acc.push(ch);
+                Some(acc.clone())
+            })
+            .collect();
+        
+        b.iter_batched(
+            || {
+                let renderer = Renderer::new();
+                let mut state = AppState::new(SearchOptions::default(), 100_000);
+                // Typing with large existing dataset
+                state.search.results = create_test_search_results(50_000);
+                (renderer, state, TestBackend::new(120, 40))
+            },
+            |(mut renderer, mut state, backend)| {
+                let mut terminal = Terminal::new(backend).unwrap();
+                
+                // Simulate real typing
                 for query in &queries {
                     state.update(Message::QueryChanged(query.to_string()));
                     terminal.draw(|f| {
@@ -327,7 +414,7 @@ fn create_test_session_messages(count: usize) -> Vec<SessionMessage> {
     (0..count)
         .map(|i| {
             let content = if i % 10 == 0 {
-                format!("日本語メッセージ {} 🦀 絵文字入り テスト内容", i)
+                format!("Japanese message {} 🦀 with emoji test content", i)
             } else if i % 5 == 0 {
                 format!("Very long message content that should be truncated properly when displayed in the UI. This is message number {}. Lorem ipsum dolor sit amet, consectetur adipiscing elit.", i)
             } else {
@@ -361,8 +448,8 @@ fn create_test_session_messages(count: usize) -> Vec<SessionMessage> {
 fn benchmark_session_viewer_rendering(c: &mut Criterion) {
     let mut group = c.benchmark_group("session_viewer");
     
-    // セッションビューアのレンダリング
-    group.bench_function("render_session", |b| {
+    // Session viewer rendering (small dataset)
+    group.bench_function("render_session_200", |b| {
         let mut session_viewer = SessionViewer::new();
         let messages = create_test_session_messages(200);
         let message_strings: Vec<String> = messages
@@ -384,14 +471,39 @@ fn benchmark_session_viewer_rendering(c: &mut Criterion) {
         );
     });
     
+    // Production-scale session messages (50k entries)
+    group.bench_function("render_session_50k", |b| {
+        let mut session_viewer = SessionViewer::new();
+        let messages = create_test_session_messages(50_000);
+        let message_strings: Vec<String> = messages
+            .iter()
+            .map(|msg| serde_json::to_string(msg).unwrap_or_default())
+            .collect();
+        session_viewer.set_messages(message_strings);
+        // More filtered indices
+        let filtered_indices: Vec<usize> = (0..50_000).step_by(100).collect();
+        session_viewer.set_filtered_indices(filtered_indices);
+        
+        b.iter_batched(
+            || TestBackend::new(120, 40),
+            |backend| {
+                let mut terminal = Terminal::new(backend).unwrap();
+                terminal.draw(|f| {
+                    session_viewer.render(f, f.area());
+                }).unwrap();
+            },
+            BatchSize::SmallInput,
+        );
+    });
+    
     group.finish();
 }
 
 fn benchmark_component_input_handling(c: &mut Criterion) {
     let mut group = c.benchmark_group("input_handling");
     
-    // SearchBarのキー入力処理
-    group.bench_function("search_bar_key_handling", |b| {
+    // SearchBar key handling (basic input)
+    group.bench_function("search_bar_basic_input", |b| {
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
         
         let key_events = vec![
@@ -406,6 +518,49 @@ fn benchmark_component_input_handling(c: &mut Criterion) {
             || {
                 let mut search_bar = SearchBar::new();
                 search_bar.set_query("test query".to_string());
+                search_bar
+            },
+            |mut search_bar| {
+                for key in &key_events {
+                    black_box(search_bar.handle_key(*key));
+                }
+            },
+            BatchSize::SmallInput,
+        );
+    });
+    
+    // Simulate realistic typing patterns (long string input)
+    group.bench_function("search_bar_realistic_typing", |b| {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        
+        // Simulate real typing (character input, backspace, cursor movement)
+        let typing_sequence = "SearchEngine AND (performance OR optimization) NOT deprecated";
+        let mut key_events = Vec::new();
+        
+        // Type characters one by one
+        for ch in typing_sequence.chars() {
+            key_events.push(KeyEvent::new(KeyCode::Char(ch), KeyModifiers::NONE));
+        }
+        
+        // Add some editing operations
+        for _ in 0..10 {
+            key_events.push(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE));
+        }
+        key_events.push(KeyEvent::new(KeyCode::Char(' '), KeyModifiers::NONE));
+        key_events.push(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE));
+        key_events.push(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
+        key_events.push(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
+        key_events.push(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE));
+        
+        // Delete some characters with backspace
+        for _ in 0..5 {
+            key_events.push(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
+        }
+        
+        b.iter_batched(
+            || {
+                let mut search_bar = SearchBar::new();
+                search_bar.set_query(String::new());
                 search_bar
             },
             |mut search_bar| {
