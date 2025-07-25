@@ -145,6 +145,7 @@ mod tests {
             r#"{"type":"user","message":{"content":"test"}}"#.to_string(),
         ]);
         viewer.set_session_id(Some("session-123".to_string()));
+        viewer.set_file_path(Some("/path/to/session.jsonl".to_string()));
 
         // Test copy single message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::empty()));
@@ -161,6 +162,18 @@ mod tests {
         // Test copy session ID with uppercase
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('I'), KeyModifiers::empty()));
         assert!(matches!(msg, Some(Message::CopyToClipboard(id)) if id == "session-123"));
+
+        // Test copy file path
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(path)) if path == "/path/to/session.jsonl")
+        );
+
+        // Test copy file path with uppercase
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('F'), KeyModifiers::empty()));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(path)) if path == "/path/to/session.jsonl")
+        );
     }
 
     #[test]
@@ -169,6 +182,15 @@ mod tests {
         // No session ID set
 
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty()));
+        assert!(msg.is_none());
+    }
+
+    #[test]
+    fn test_copy_file_path_without_path() {
+        let mut viewer = SessionViewer::new();
+        // No file path set
+
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()));
         assert!(msg.is_none());
     }
 
@@ -230,6 +252,42 @@ mod tests {
         viewer.set_order(None);
         let buffer = render_component(&mut viewer, 80, 24);
         assert!(buffer_contains(&buffer, "Order: Default"));
+    }
+
+    #[test]
+    fn test_message_display() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_message(Some("✓ Copied session ID".to_string()));
+
+        let buffer = render_component(&mut viewer, 80, 24);
+        assert!(buffer_contains(&buffer, "✓ Copied session ID"));
+    }
+
+    #[test]
+    fn test_copy_with_message_feedback() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_session_id(Some("session-123".to_string()));
+        viewer.set_file_path(Some("/path/to/file.jsonl".to_string()));
+
+        // Test session ID copy
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::CopyToClipboard(id)) if id == "session-123"));
+
+        // Simulate the message being set after copy
+        viewer.set_message(Some("✓ Copied session ID".to_string()));
+        let buffer = render_component(&mut viewer, 80, 24);
+        assert!(buffer_contains(&buffer, "✓ Copied session ID"));
+
+        // Test file path copy
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(path)) if path == "/path/to/file.jsonl")
+        );
+
+        // Simulate the message being set after copy
+        viewer.set_message(Some("✓ Copied file path".to_string()));
+        let buffer = render_component(&mut viewer, 80, 24);
+        assert!(buffer_contains(&buffer, "✓ Copied file path"));
     }
 
     #[test]

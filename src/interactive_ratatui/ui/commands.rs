@@ -8,4 +8,5 @@ pub enum Command {
     CopyToClipboard(String),
     ShowMessage(String),
     ClearMessage,
+    ScheduleClearMessage(u64), // delay in milliseconds
 }

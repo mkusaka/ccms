@@ -525,6 +525,36 @@ mod tests {
         assert!(buffer_contains(buffer, "Hi"));
     }
 
+    /// Test message auto clear functionality
+    #[test]
+    fn test_message_auto_clear() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Execute copy command to show message
+        app.execute_command(Command::CopyToClipboard("test-id-1234".to_string()));
+
+        // Message should be displayed
+        assert!(app.state.ui.message.is_some());
+        assert!(app.message_timer.is_some());
+
+        // Simulate time passing (modify the timer directly for testing)
+        if let Some(ref mut timer) = app.message_timer {
+            *timer = std::time::Instant::now() - std::time::Duration::from_millis(3001);
+        }
+
+        // Call the check that happens in the main loop
+        if let Some(timer) = app.message_timer {
+            if timer.elapsed() >= std::time::Duration::from_millis(app.message_clear_delay) {
+                app.message_timer = None;
+                app.execute_command(Command::ClearMessage);
+            }
+        }
+
+        // Message should be cleared
+        assert!(app.state.ui.message.is_none());
+        assert!(app.message_timer.is_none());
+    }
+
     /// Test double Ctrl+C to exit
     #[test]
     fn test_double_ctrl_c_exit() {
