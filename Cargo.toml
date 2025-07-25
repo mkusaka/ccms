@@ -53,6 +53,14 @@ colored = "3.0"
 ratatui = "0.29"
 crossterm = "0.29"
 
+# iocraft TUI framework (alternative)
+iocraft = "0.5"
+smol = "2.0"
+futures = "0.3"
+
+# Clipboard support
+arboard = "3.4"
+
 
 # Profiling and tracing
 pprof = { version = "0.15", features = ["flamegraph", "prost-codec"], optional = true }
@@ -61,11 +69,12 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Async runtime (optional)
 tokio = { version = "1.40", features = ["full"], optional = true }
-futures = { version = "0.3", optional = true }
 
 [dev-dependencies]
 codspeed-criterion-compat = "=3.0.4"
 tempfile = "=3.20.0"
+smol-macros = "0.1"
+macro_rules_attribute = "0.2"
 
 [[bench]]
 name = "search_benchmark"
@@ -95,4 +104,4 @@ opt-level = 3
 [features]
 default = []
 profiling = ["pprof"]
-async = ["tokio", "futures"]
+async = ["tokio"]
