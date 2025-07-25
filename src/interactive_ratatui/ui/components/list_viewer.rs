@@ -1,68 +1,78 @@
 use super::list_item::ListItem;
 use ratatui::{
     Frame,
-    layout::Rect,
+    layout::{Constraint, Rect},
     style::{Color, Modifier, Style},
-    text::Line,
-    widgets::{Block, Borders, List, ListItem as TuiListItem, Paragraph},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
 };
-
-// Layout constants for consistent column widths
-pub const TIMESTAMP_WIDTH: u16 = 16;
-pub const TIMESTAMP_SPACE_WIDTH: u16 = 1;
-pub const ROLE_WIDTH: u16 = 10;
-pub const ROLE_SPACE_WIDTH: u16 = 1;
-pub const FIXED_WIDTH_TOTAL: u16 = TIMESTAMP_WIDTH + TIMESTAMP_SPACE_WIDTH + ROLE_WIDTH + ROLE_SPACE_WIDTH;
 
 pub struct ListViewer<T: ListItem> {
     pub items: Vec<T>,
     pub filtered_indices: Vec<usize>,
-    pub selected_index: usize,
-    pub scroll_offset: usize,
+    pub state: TableState,
     pub truncation_enabled: bool,
     pub title: String,
     pub empty_message: String,
+    pub with_border: bool,
 }
 
 impl<T: ListItem> Default for ListViewer<T> {
     fn default() -> Self {
+        let mut state = TableState::default();
+        state.select(Some(0));
+
         Self {
             items: Vec::new(),
             filtered_indices: Vec::new(),
-            selected_index: 0,
-            scroll_offset: 0,
+            state,
             truncation_enabled: true,
             title: String::new(),
             empty_message: String::new(),
+            with_border: false, // Default to no border (usually used inside ViewLayout)
         }
     }
 }
 
 impl<T: ListItem> ListViewer<T> {
     pub fn new(title: String, empty_message: String) -> Self {
+        let mut state = TableState::default();
+        state.select(Some(0));
+
         Self {
             items: Vec::new(),
             filtered_indices: Vec::new(),
-            selected_index: 0,
-            scroll_offset: 0,
+            state,
             truncation_enabled: true,
             title,
             empty_message,
+            with_border: false, // Default to no border (usually used inside ViewLayout)
         }
     }
 
     pub fn set_items(&mut self, items: Vec<T>) {
         self.items = items;
         self.filtered_indices = (0..self.items.len()).collect();
-        self.selected_index = 0;
-        self.scroll_offset = 0;
+        self.state.select(Some(0));
     }
 
     pub fn set_filtered_indices(&mut self, indices: Vec<usize>) {
+        // Only update if indices have actually changed
+        if self.filtered_indices == indices {
+            return;
+        }
+
         self.filtered_indices = indices;
-        if self.selected_index >= self.filtered_indices.len() && !self.filtered_indices.is_empty() {
-            self.selected_index = 0;
-            self.scroll_offset = 0;
+        if !self.filtered_indices.is_empty() {
+            // Reset to first item if current selection is out of bounds
+            if let Some(selected) = self.state.selected() {
+                if selected >= self.filtered_indices.len() {
+                    self.state.select(Some(0));
+                }
+            } else {
+                self.state.select(Some(0));
+            }
+        } else {
+            self.state.select(None);
         }
     }
 
@@ -71,23 +81,28 @@ impl<T: ListItem> ListViewer<T> {
         if index < self.items.len() {
             // Find the position of this index in filtered_indices
             if let Some(pos) = self.filtered_indices.iter().position(|&i| i == index) {
-                self.selected_index = pos;
+                self.state.select(Some(pos));
             }
         }
     }
 
-    pub fn set_scroll_offset(&mut self, offset: usize) {
-        self.scroll_offset = offset;
+    pub fn set_scroll_offset(&mut self, _offset: usize) {
+        // Table widget handles scrolling automatically
     }
 
     pub fn set_truncation_enabled(&mut self, enabled: bool) {
         self.truncation_enabled = enabled;
     }
 
+    pub fn set_with_border(&mut self, with_border: bool) {
+        self.with_border = with_border;
+    }
+
     pub fn get_selected_item(&self) -> Option<&T> {
-        self.filtered_indices
-            .get(self.selected_index)
-            .and_then(|&idx| self.items.get(idx))
+        self.state
+            .selected()
+            .and_then(|idx| self.filtered_indices.get(idx))
+            .and_then(|&item_idx| self.items.get(item_idx))
     }
 
     pub fn items_count(&self) -> usize {
@@ -100,55 +115,57 @@ impl<T: ListItem> ListViewer<T> {
 
     pub fn selected_index(&self) -> usize {
         // Return the actual item index, not the filtered index
-        self.filtered_indices
-            .get(self.selected_index)
-            .copied()
+        self.state
+            .selected()
+            .and_then(|idx| self.filtered_indices.get(idx).copied())
             .unwrap_or(0)
     }
 
     pub fn move_up(&mut self) -> bool {
-        if self.selected_index > 0 {
-            self.selected_index -= 1;
-            true
-        } else {
-            false
+        if let Some(selected) = self.state.selected() {
+            if selected > 0 {
+                self.state.select(Some(selected - 1));
+                return true;
+            }
         }
+        false
     }
 
     pub fn move_down(&mut self) -> bool {
-        if self.selected_index + 1 < self.filtered_indices.len() {
-            self.selected_index += 1;
-            true
-        } else {
-            false
+        if let Some(selected) = self.state.selected() {
+            if selected + 1 < self.filtered_indices.len() {
+                self.state.select(Some(selected + 1));
+                return true;
+            }
         }
+        false
     }
 
     pub fn page_up(&mut self) -> bool {
-        let new_index = self.selected_index.saturating_sub(10);
-        if new_index != self.selected_index {
-            self.selected_index = new_index;
-            true
-        } else {
-            false
+        if let Some(selected) = self.state.selected() {
+            let new_index = selected.saturating_sub(10);
+            if new_index != selected {
+                self.state.select(Some(new_index));
+                return true;
+            }
         }
+        false
     }
 
     pub fn page_down(&mut self) -> bool {
-        let new_index =
-            (self.selected_index + 10).min(self.filtered_indices.len().saturating_sub(1));
-        if new_index != self.selected_index {
-            self.selected_index = new_index;
-            true
-        } else {
-            false
+        if let Some(selected) = self.state.selected() {
+            let new_index = (selected + 10).min(self.filtered_indices.len().saturating_sub(1));
+            if new_index != selected {
+                self.state.select(Some(new_index));
+                return true;
+            }
         }
+        false
     }
 
     pub fn move_to_start(&mut self) -> bool {
-        if self.selected_index > 0 {
-            self.selected_index = 0;
-            self.scroll_offset = 0;
+        if self.state.selected() != Some(0) && !self.filtered_indices.is_empty() {
+            self.state.select(Some(0));
             true
         } else {
             false
@@ -157,95 +174,11 @@ impl<T: ListItem> ListViewer<T> {
 
     pub fn move_to_end(&mut self) -> bool {
         let last_index = self.filtered_indices.len().saturating_sub(1);
-        if self.selected_index < last_index {
-            self.selected_index = last_index;
+        if self.state.selected() != Some(last_index) && !self.filtered_indices.is_empty() {
+            self.state.select(Some(last_index));
             true
         } else {
             false
-        }
-    }
-
-    fn calculate_visible_range(
-        &self,
-        available_height: u16,
-        available_width: u16,
-    ) -> (usize, usize) {
-        if self.truncation_enabled {
-            // In truncated mode, each item takes 1 line
-            let visible_count = available_height as usize;
-            let start = self.scroll_offset;
-            let end = (start + visible_count).min(self.filtered_indices.len());
-            (start, end)
-        } else {
-            // In full text mode, calculate how many items fit
-            let start = self.scroll_offset;
-            let mut current_height = 0;
-            let mut end = start;
-
-            // Calculate available width for text (accounting for borders and fixed width parts)
-            let available_text_width = available_width.saturating_sub(2).saturating_sub(FIXED_WIDTH_TOTAL) as usize;
-
-            while end < self.filtered_indices.len() && current_height < available_height as usize {
-                if let Some(&item_idx) = self.filtered_indices.get(end) {
-                    if let Some(item) = self.items.get(item_idx) {
-                        let lines = item.create_full_lines(available_text_width);
-                        let item_height = lines.len();
-
-                        if current_height + item_height <= available_height as usize {
-                            current_height += item_height;
-                            end += 1;
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-
-            (start, end)
-        }
-    }
-
-    pub fn adjust_scroll_offset(&mut self, available_height: u16, available_width: u16) {
-        if self.truncation_enabled {
-            // In truncated mode, each item takes 1 line
-            let visible_count = available_height as usize;
-            if self.selected_index < self.scroll_offset {
-                self.scroll_offset = self.selected_index;
-            } else if self.selected_index >= self.scroll_offset + visible_count {
-                self.scroll_offset = self.selected_index - visible_count + 1;
-            }
-        } else {
-            // In full text mode, ensure selected item is visible
-
-            // Calculate which items are visible with current scroll_offset
-            let (start, end) = self.calculate_visible_range(available_height, available_width);
-
-            // If selected item is not visible, adjust scroll offset
-            if self.selected_index < start {
-                self.scroll_offset = self.selected_index;
-            } else if self.selected_index >= end {
-                // Need to scroll down - find appropriate scroll offset
-                let mut test_offset = self.scroll_offset;
-                while test_offset < self.filtered_indices.len() {
-                    // Temporarily update scroll_offset to test if selected item would be visible
-                    let original_offset = self.scroll_offset;
-                    self.scroll_offset = test_offset;
-                    let (_, test_end) =
-                        self.calculate_visible_range(available_height, available_width);
-
-                    if self.selected_index < test_end {
-                        // Found the right offset, keep it
-                        break;
-                    }
-
-                    // Restore original offset and try next
-                    self.scroll_offset = original_offset;
-                    test_offset += 1;
-                }
-
-                // Update to the final test offset
-                self.scroll_offset = test_offset;
-            }
         }
     }
 
@@ -262,80 +195,57 @@ impl<T: ListItem> ListViewer<T> {
             return;
         }
 
-        let available_height = area.height.saturating_sub(2); // Account for borders
-        self.adjust_scroll_offset(available_height, area.width);
-        let (start, end) = self.calculate_visible_range(available_height, area.width);
-
-        // Account for borders (2) and the fixed width parts
-        let available_text_width = area.width.saturating_sub(2).saturating_sub(FIXED_WIDTH_TOTAL) as usize;
-
-        let items: Vec<TuiListItem> = (start..end)
-            .filter_map(|i| {
-                self.filtered_indices.get(i).and_then(|&item_idx| {
-                    self.items.get(item_idx).map(|item| {
-                        let is_selected = i == self.selected_index;
-
-                        let style = if is_selected {
-                            Style::default()
-                                .bg(Color::DarkGray)
-                                .add_modifier(Modifier::BOLD)
-                        } else {
-                            Style::default()
-                        };
-
-                        if self.truncation_enabled {
-                            let line = item.create_truncated_line(available_text_width);
-                            // Create a line that fills the entire width
-                            let padded_line = self.create_full_width_line(line, area.width.saturating_sub(2));
-                            TuiListItem::new(padded_line)
-                                .style(style)
-                        } else {
-                            let lines = item.create_full_lines(available_text_width);
-                            // Pad each line to full width
-                            let padded_lines: Vec<Line> = lines
-                                .into_iter()
-                                .map(|line| self.create_full_width_line(line, area.width.saturating_sub(2)))
-                                .collect();
-                            TuiListItem::new(padded_lines)
-                                .style(style)
-                        }
-                    })
+        // Create rows from filtered items
+        let rows: Vec<Row> = self
+            .filtered_indices
+            .iter()
+            .filter_map(|&idx| {
+                self.items.get(idx).map(|item| {
+                    Row::new(vec![
+                        Cell::from(item.format_timestamp())
+                            .style(Style::default().fg(Color::DarkGray)),
+                        Cell::from(item.get_role())
+                            .style(Style::default().fg(item.get_role_color())),
+                        Cell::from(item.get_content()),
+                    ])
                 })
             })
             .collect();
 
+        // Define column constraints with better distribution
+        let widths = [
+            Constraint::Length(11), // Timestamp (MM/DD HH:MM)
+            Constraint::Length(10), // Role
+            Constraint::Min(0),     // Content takes remaining space without forcing minimum
+        ];
+
+        // Update title with selection info
+        let selected_display = self.state.selected().map(|s| s + 1).unwrap_or(0);
+
         let title = format!(
-            "{} ({}/{}) - Showing {}-{}",
+            "{} ({}/{})",
             self.title,
-            self.selected_index + 1,
-            self.filtered_indices.len(),
-            start + 1,
-            end
+            selected_display,
+            self.filtered_indices.len()
         );
 
-        let list = List::new(items)
-            .block(Block::default().title(title).borders(Borders::ALL))
-            .style(Style::default());
+        // Create table widget, optionally with borders
+        let mut table = Table::new(rows, widths)
+            .column_spacing(1) // Minimal spacing between columns
+            .row_highlight_style(
+                Style::default()
+                    .bg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD),
+            );
 
-        f.render_widget(list, area);
-    }
-
-    /// Create a line that fills the entire width by adding padding
-    fn create_full_width_line<'a>(&self, line: Line<'a>, width: u16) -> Line<'a> {
-        let current_width: usize = line.spans.iter()
-            .map(|span| span.content.chars().count())
-            .sum();
-        
-        let target_width = width as usize;
-        if current_width >= target_width {
-            return line;
+        if self.with_border {
+            table = table.block(Block::default().title(title).borders(Borders::ALL));
         }
-        
-        // Add padding to fill the entire width
-        let padding = target_width - current_width;
-        let mut new_spans = line.spans;
-        new_spans.push(ratatui::text::Span::raw(" ".repeat(padding)));
-        
-        Line::from(new_spans)
+
+        // Clear area to prevent artifacts
+        f.render_widget(ratatui::widgets::Clear, area);
+
+        // Render the table
+        f.render_stateful_widget(table, area, &mut self.state);
     }
 }

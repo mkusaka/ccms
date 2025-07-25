@@ -8,8 +8,16 @@ pub mod session_viewer;
 pub mod text_input;
 pub mod view_layout;
 
+// #[cfg(test)]
+// mod list_item_test;  // Temporarily disabled - functions were removed
 #[cfg(test)]
-mod list_item_test;
+mod border_fix_verification_test;
+#[cfg(test)]
+mod double_border_test;
+#[cfg(test)]
+mod exact_border_pattern_test;
+#[cfg(test)]
+mod full_layout_test;
 #[cfg(test)]
 mod list_viewer_test;
 #[cfg(test)]
@@ -19,7 +27,19 @@ mod result_list_test;
 #[cfg(test)]
 mod search_bar_test;
 #[cfg(test)]
+mod search_result_content_test;
+#[cfg(test)]
+mod search_results_border_test;
+#[cfg(test)]
 mod session_viewer_test;
+#[cfg(test)]
+mod table_column_test;
+#[cfg(test)]
+mod table_debug_test;
+#[cfg(test)]
+mod table_extra_column_test;
+#[cfg(test)]
+mod table_rendering_test;
 #[cfg(test)]
 mod text_input_test;
 #[cfg(test)]

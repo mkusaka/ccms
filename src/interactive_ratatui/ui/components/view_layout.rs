@@ -63,6 +63,9 @@ impl ViewLayout {
         // Render title bar
         self.render_title_bar(f, chunks[0]);
 
+        // Clear content area before rendering to prevent artifacts
+        f.render_widget(ratatui::widgets::Clear, chunks[1]);
+
         // Render content (delegate to caller)
         render_content(f, chunks[1]);
 

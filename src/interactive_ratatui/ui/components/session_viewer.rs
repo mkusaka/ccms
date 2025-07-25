@@ -44,6 +44,11 @@ impl SessionViewer {
     }
 
     pub fn set_messages(&mut self, messages: Vec<String>) {
+        // Only update if messages have actually changed
+        if self.raw_messages == messages {
+            return;
+        }
+
         self.raw_messages = messages;
 
         // Convert raw messages to SessionListItems
@@ -62,19 +67,27 @@ impl SessionViewer {
     }
 
     pub fn set_query(&mut self, query: String) {
-        self.text_input.set_text(query);
+        if self.text_input.text() != query.as_str() {
+            self.text_input.set_text(query);
+        }
     }
 
     pub fn set_order(&mut self, order: Option<SessionOrder>) {
-        self.order = order;
+        if self.order != order {
+            self.order = order;
+        }
     }
 
     pub fn set_file_path(&mut self, file_path: Option<String>) {
-        self.file_path = file_path;
+        if self.file_path != file_path {
+            self.file_path = file_path;
+        }
     }
 
     pub fn set_session_id(&mut self, session_id: Option<String>) {
-        self.session_id = session_id;
+        if self.session_id != session_id {
+            self.session_id = session_id;
+        }
     }
 
     pub fn set_selected_index(&mut self, index: usize) {
