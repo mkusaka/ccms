@@ -160,7 +160,6 @@ mod tests {
             &buffer,
             "File: /Users/masatomokusaka/.claude/projects"
         ));
-
     }
 
     #[test]
