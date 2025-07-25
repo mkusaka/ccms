@@ -87,6 +87,10 @@ harness = false
 name = "realistic_benchmark"
 harness = false
 
+[[bench]]
+name = "interactive_ui_benchmark"
+harness = false
+
 [profile.release]
 lto = true
 codegen-units = 1
