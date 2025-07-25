@@ -237,7 +237,7 @@ impl Component for SessionViewer {
         // Render status bar
         let status_idx = if self.message.is_some() { 2 } else { 1 };
         if chunks.len() > status_idx {
-            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | o: Sort | c: Copy JSON | i: Copy Session ID | f: Copy File Path | /: Search | Esc: Back";
+            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | f: Copy File Path | /: Search | Esc: Back";
             let status_bar = Paragraph::new(status_text)
                 .style(Style::default().fg(Color::DarkGray))
                 .alignment(ratatui::layout::Alignment::Center);
@@ -326,6 +326,15 @@ impl Component for SessionViewer {
                     .list_viewer
                     .get_selected_item()
                     .map(|item| Message::CopyToClipboard(item.content.clone())),
+                KeyCode::Enter => self.list_viewer.get_selected_item().and_then(|item| {
+                    self.file_path.as_ref().map(|path| {
+                        Message::EnterResultDetailFromSession(
+                            item.raw_json.clone(),
+                            path.clone(),
+                            self.session_id.clone(),
+                        )
+                    })
+                }),
                 KeyCode::Esc => Some(Message::ExitToSearch),
                 _ => None,
             }

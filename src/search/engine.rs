@@ -231,8 +231,8 @@ impl SearchEngine {
                         latest_timestamp = Some(ts.to_string());
                     }
 
-                    // Extract text content
-                    let text = message.get_content_text();
+                    // Extract searchable text (content + metadata)
+                    let text = message.get_searchable_text();
 
                     // Apply query condition
                     if let Ok(matches) = query.evaluate(&text) {
@@ -303,7 +303,7 @@ impl SearchEngine {
                                 timestamp: final_timestamp,
                                 session_id: message.get_session_id().unwrap_or("").to_string(),
                                 role: message.get_type().to_string(),
-                                text: text.clone(),
+                                text: message.get_content_text(),
                                 has_tools: message.has_tool_use(),
                                 has_thinking: message.has_thinking(),
                                 message_type: message.get_type().to_string(),
@@ -991,6 +991,100 @@ mod tests {
                 || text.contains('\r')
                 || text.contains('\\')
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_by_session_id() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("test.jsonl");
+
+        // Create test data with different session IDs
+        let mut file = File::create(&test_file)?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Message in session 1"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"session-abc-123","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Message in session 2"}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"session-def-456","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Another message in session 1"}},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"session-abc-123","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+
+        // Search by session ID
+        let options = SearchOptions::default();
+        let engine = SearchEngine::new(options);
+        let query = parse_query("session-abc-123")?;
+        let (results, _, _) = engine.search(test_file.to_str().unwrap(), query)?;
+
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().all(|r| r.session_id == "session-abc-123"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_by_message_uuid() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("test.jsonl");
+
+        // Create test data with unique UUIDs
+        let mut file = File::create(&test_file)?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"First message"}},"uuid":"unique-uuid-123","timestamp":"2024-01-01T00:00:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Second message"}},"uuid":"unique-uuid-456","timestamp":"2024-01-01T00:00:01Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+
+        // Search by UUID
+        let options = SearchOptions::default();
+        let engine = SearchEngine::new(options);
+        let query = parse_query("unique-uuid-123")?;
+        let (results, _, _) = engine.search(test_file.to_str().unwrap(), query)?;
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].uuid, "unique-uuid-123");
+        assert!(results[0].text.contains("First message"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_combined_content_and_session_search() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("test.jsonl");
+
+        // Create test data
+        let mut file = File::create(&test_file)?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Error in production"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"prod-session-123","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Error in development"}},"uuid":"2","timestamp":"2024-01-01T00:00:01Z","sessionId":"dev-session-456","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+        writeln!(
+            file,
+            r#"{{"type":"user","message":{{"role":"user","content":"Success in production"}},"uuid":"3","timestamp":"2024-01-01T00:00:02Z","sessionId":"prod-session-123","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+        )?;
+
+        // Search for "error" AND session ID
+        let options = SearchOptions::default();
+        let engine = SearchEngine::new(options);
+        let query = parse_query("error AND prod-session-123")?;
+        let (results, _, _) = engine.search(test_file.to_str().unwrap(), query)?;
+
+        assert_eq!(results.len(), 1);
+        assert!(results[0].text.contains("Error in production"));
+        assert_eq!(results[0].session_id, "prod-session-123");
 
         Ok(())
     }

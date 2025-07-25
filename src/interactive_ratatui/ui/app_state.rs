@@ -2,7 +2,7 @@ use crate::SearchOptions;
 use crate::interactive_ratatui::domain::models::SessionOrder;
 use crate::interactive_ratatui::ui::commands::Command;
 use crate::interactive_ratatui::ui::events::Message;
-use crate::query::condition::SearchResult;
+use crate::query::condition::{QueryCondition, SearchResult};
 
 // Re-export Mode
 pub use crate::interactive_ratatui::domain::models::Mode;
@@ -219,6 +219,93 @@ impl AppState {
             }
             Message::ClearStatus => {
                 self.ui.message = None;
+                Command::None
+            }
+            Message::EnterResultDetailFromSession(raw_json, file_path, session_id) => {
+                // Parse the raw JSON to create a SearchResult
+                if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&raw_json) {
+                    let role = json_value
+                        .get("type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown")
+                        .to_string();
+
+                    let timestamp = json_value
+                        .get("timestamp")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let uuid = json_value
+                        .get("uuid")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    // Extract content based on message type
+                    let content = match role.as_str() {
+                        "summary" => json_value
+                            .get("summary")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        "system" => json_value
+                            .get("content")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        _ => {
+                            // For user and assistant messages
+                            if let Some(content) = json_value
+                                .get("message")
+                                .and_then(|m| m.get("content"))
+                                .and_then(|c| c.as_str())
+                            {
+                                content.to_string()
+                            } else if let Some(arr) = json_value
+                                .get("message")
+                                .and_then(|m| m.get("content"))
+                                .and_then(|c| c.as_array())
+                            {
+                                let texts: Vec<String> = arr
+                                    .iter()
+                                    .filter_map(|item| {
+                                        item.get("text")
+                                            .and_then(|t| t.as_str())
+                                            .map(|s| s.to_string())
+                                    })
+                                    .collect();
+                                texts.join(" ")
+                            } else {
+                                String::new()
+                            }
+                        }
+                    };
+
+                    // Create a SearchResult
+                    let result = SearchResult {
+                        file: file_path,
+                        uuid,
+                        timestamp,
+                        session_id: session_id.unwrap_or_default(),
+                        role,
+                        text: content, // Store extracted content
+                        has_tools: json_value.get("toolResults").is_some(),
+                        has_thinking: false, // Not available from session viewer
+                        message_type: "message".to_string(),
+                        query: QueryCondition::Literal {
+                            pattern: String::new(),
+                            case_sensitive: false,
+                        },
+                        project_path: String::new(), // Not available from session viewer
+                        raw_json: Some(raw_json),    // Store full JSON
+                    };
+
+                    self.ui.selected_result = Some(result);
+                    self.ui.detail_scroll_offset = 0;
+                    self.mode_stack.push(self.mode);
+                    self.mode = Mode::ResultDetail;
+                }
                 Command::None
             }
             Message::CopyToClipboard(text) => Command::CopyToClipboard(text),

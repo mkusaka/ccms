@@ -280,6 +280,22 @@ impl SessionMessage {
             _ => false,
         }
     }
+
+    pub fn get_searchable_text(&self) -> String {
+        let mut parts = vec![self.get_content_text()];
+
+        // Add Session ID
+        if let Some(session_id) = self.get_session_id() {
+            parts.push(session_id.to_string());
+        }
+
+        // Add UUID
+        if let Some(uuid) = self.get_uuid() {
+            parts.push(uuid.to_string());
+        }
+
+        parts.join(" ")
+    }
 }
 
 #[cfg(test)]
@@ -624,5 +640,49 @@ mod tests {
         } else {
             panic!("Expected User message");
         }
+    }
+
+    #[test]
+    fn test_get_searchable_text() {
+        // Test user message with session ID and UUID
+        let json = r#"{
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": "Hello world"
+            },
+            "uuid": "user-uuid-123",
+            "timestamp": "2024-01-01T00:00:00Z",
+            "sessionId": "session-abc-456",
+            "parentUuid": null,
+            "isSidechain": false,
+            "userType": "external",
+            "cwd": "/test",
+            "version": "1.0"
+        }"#;
+
+        let msg: SessionMessage = serde_json::from_str(json).unwrap();
+        let searchable_text = msg.get_searchable_text();
+
+        assert!(searchable_text.contains("Hello world"));
+        assert!(searchable_text.contains("session-abc-456"));
+        assert!(searchable_text.contains("user-uuid-123"));
+    }
+
+    #[test]
+    fn test_get_searchable_text_summary() {
+        // Test summary message (no session ID, but has UUID)
+        let json = r#"{
+            "type": "summary",
+            "summary": "User asked about Rust",
+            "leafUuid": "leaf-uuid-789"
+        }"#;
+
+        let msg: SessionMessage = serde_json::from_str(json).unwrap();
+        let searchable_text = msg.get_searchable_text();
+
+        assert!(searchable_text.contains("User asked about Rust"));
+        assert!(searchable_text.contains("leaf-uuid-789"));
+        assert!(!searchable_text.contains("session")); // No session ID for summary
     }
 }
