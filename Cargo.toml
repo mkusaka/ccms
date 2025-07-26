@@ -50,7 +50,7 @@ indicatif = "0.18"
 colored = "3.0"
 
 # TUI framework
-ratatui = "0.30.0-alpha.5"
+ratatui = { version = "0.30.0-alpha.5", features = ["unstable-rendered-line-info"] }
 crossterm = "0.29"
 
 

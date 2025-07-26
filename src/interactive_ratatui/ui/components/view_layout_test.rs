@@ -52,6 +52,37 @@ mod tests {
     }
 
     #[test]
+    fn test_view_layout_with_long_subtitle_wrapping() {
+        // Use a narrow terminal to test wrapping
+        let backend = TestBackend::new(30, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        // Create a very long file path
+        let long_path = "/Users/masatomokusaka/.claude/projects/very-long-project-name/session-files/0ff88f7e-99a2-4c72-b7c1-fb95713d1832.jsonl";
+        let subtitle = format!("Session: test-session\nFile: {long_path}");
+
+        terminal
+            .draw(|f| {
+                let layout = ViewLayout::new("Session Viewer".to_string()).with_subtitle(subtitle);
+                let full_area = f.area();
+                layout.render(f, full_area, |_f, content_area| {
+                    // The title bar should be taller than the minimum due to wrapping
+                    // Base height (2) + Session line (1) + File line (should be wrapped to multiple lines)
+                    assert!(full_area.height - content_area.height > 3);
+                });
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        // Check that the title and session are rendered
+        assert!(buffer_contains_text(buffer, "Session Viewer"));
+        assert!(buffer_contains_text(buffer, "Session: test-session"));
+        // Check that the file path is present (it will be wrapped)
+        assert!(buffer_contains_text(buffer, "File:"));
+        assert!(buffer_contains_text(buffer, "/Users/masatomokusaka"));
+    }
+
+    #[test]
     fn test_view_layout_with_custom_status() {
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
