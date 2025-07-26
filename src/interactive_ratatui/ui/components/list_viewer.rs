@@ -1,15 +1,61 @@
 use super::list_item::ListItem;
 use ratatui::{
     Frame,
-    layout::{Constraint, Rect},
+    layout::Rect,
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListState, Paragraph},
 };
+
+// Calculate the display width of a string considering Unicode characters
+fn unicode_display_width(s: &str) -> usize {
+    s.chars().map(|c| {
+        // Simple heuristic for CJK characters
+        if (c as u32 >= 0x3000 && c as u32 <= 0x9FFF) ||  // CJK Unified Ideographs
+           (c as u32 >= 0x3040 && c as u32 <= 0x309F) ||  // Hiragana
+           (c as u32 >= 0x30A0 && c as u32 <= 0x30FF)     // Katakana
+        {
+            2
+        } else {
+            1
+        }
+    }).sum()
+}
+
+// Truncate a string to fit within a given display width
+fn truncate_to_width(s: &str, max_width: usize) -> String {
+    if max_width < 3 {
+        return "...".to_string();
+    }
+    
+    let mut width = 0;
+    let mut result = String::new();
+    
+    for c in s.chars() {
+        let char_width = if (c as u32 >= 0x3000 && c as u32 <= 0x9FFF) ||
+                           (c as u32 >= 0x3040 && c as u32 <= 0x309F) ||
+                           (c as u32 >= 0x30A0 && c as u32 <= 0x30FF) {
+            2
+        } else {
+            1
+        };
+        
+        if width + char_width > max_width - 3 {
+            result.push_str("...");
+            break;
+        }
+        
+        width += char_width;
+        result.push(c);
+    }
+    
+    result
+}
 
 pub struct ListViewer<T: ListItem> {
     pub items: Vec<T>,
     pub filtered_indices: Vec<usize>,
-    pub state: TableState,
+    pub state: ListState,
     pub truncation_enabled: bool,
     pub title: String,
     pub empty_message: String,
@@ -18,7 +64,7 @@ pub struct ListViewer<T: ListItem> {
 
 impl<T: ListItem> Default for ListViewer<T> {
     fn default() -> Self {
-        let mut state = TableState::default();
+        let mut state = ListState::default();
         state.select(Some(0));
 
         Self {
@@ -35,7 +81,7 @@ impl<T: ListItem> Default for ListViewer<T> {
 
 impl<T: ListItem> ListViewer<T> {
     pub fn new(title: String, empty_message: String) -> Self {
-        let mut state = TableState::default();
+        let mut state = ListState::default();
         state.select(Some(0));
 
         Self {
@@ -195,30 +241,41 @@ impl<T: ListItem> ListViewer<T> {
             return;
         }
 
-        // Create rows from filtered items
-        let rows: Vec<Row> = self
+        // Create list items from filtered items
+        let items: Vec<ratatui::widgets::ListItem> = self
             .filtered_indices
             .iter()
             .filter_map(|&idx| {
                 self.items.get(idx).map(|item| {
-                    Row::new(vec![
-                        Cell::from(item.format_timestamp())
-                            .style(Style::default().fg(Color::DarkGray)),
-                        Cell::from(item.get_role())
-                            .style(Style::default().fg(item.get_role_color())),
-                        Cell::from(item.get_content()),
-                    ])
+                    let content = if self.truncation_enabled {
+                        // When truncation is enabled, truncate to available width
+                        let available_width = area.width.saturating_sub(if self.with_border { 2 } else { 0 });
+                        let content_width = available_width.saturating_sub(11 + 1 + 10 + 1); // timestamp + space + role + space
+                        truncate_to_width(&item.get_content(), content_width as usize)
+                    } else {
+                        // When truncation is disabled, use the full content
+                        item.get_content().to_string()
+                    };
+                    
+                    // Format the line with proper spacing
+                    let line = Line::from(vec![
+                        Span::styled(
+                            item.format_timestamp(),
+                            Style::default().fg(Color::DarkGray)
+                        ),
+                        Span::raw(" "),
+                        Span::styled(
+                            format!("{:<10}", item.get_role()), // Fixed width for role
+                            Style::default().fg(item.get_role_color())
+                        ),
+                        Span::raw(" "),
+                        Span::raw(content),
+                    ]);
+                    
+                    ratatui::widgets::ListItem::new(line)
                 })
             })
             .collect();
-
-        // Define column constraints with better distribution
-        // Use Percentage instead of Min(0) to ensure proper width calculation
-        let widths = [
-            Constraint::Length(11),      // Timestamp (MM/DD HH:MM)
-            Constraint::Length(10),      // Role
-            Constraint::Percentage(100), // Content takes all remaining space
-        ];
 
         // Update title with selection info
         let selected_display = self.state.selected().map(|s| s + 1).unwrap_or(0);
@@ -230,23 +287,23 @@ impl<T: ListItem> ListViewer<T> {
             self.filtered_indices.len()
         );
 
-        // Create table widget, optionally with borders
-        let mut table = Table::new(rows, widths)
-            .column_spacing(1) // Minimal spacing between columns
-            .row_highlight_style(
+        // Create list widget
+        let mut list = List::new(items)
+            .highlight_style(
                 Style::default()
                     .bg(Color::DarkGray)
                     .add_modifier(Modifier::BOLD),
-            );
+            )
+            .highlight_symbol("");  // No prefix symbol
 
         if self.with_border {
-            table = table.block(Block::default().title(title).borders(Borders::ALL));
+            list = list.block(Block::default().title(title).borders(Borders::ALL));
         }
 
         // Clear area to prevent artifacts
         f.render_widget(ratatui::widgets::Clear, area);
 
-        // Render the table
-        f.render_stateful_widget(table, area, &mut self.state);
+        // Render the list
+        f.render_stateful_widget(list, area, &mut self.state);
     }
 }
