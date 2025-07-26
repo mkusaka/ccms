@@ -63,8 +63,7 @@ mod tests {
 
         terminal
             .draw(|f| {
-                let layout = ViewLayout::new("Session Viewer".to_string())
-                    .with_subtitle(subtitle);
+                let layout = ViewLayout::new("Session Viewer".to_string()).with_subtitle(subtitle);
                 let full_area = f.area();
                 layout.render(f, full_area, |_f, content_area| {
                     // The title bar should be taller than the minimum due to wrapping

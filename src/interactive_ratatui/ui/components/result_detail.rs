@@ -143,13 +143,11 @@ impl ResultDetail {
 
         let total_lines = all_lines.len();
         let detail = Paragraph::new(display_lines)
-            .block(
-                Block::default().borders(Borders::ALL).title(format!(
-                    "Result Detail (↑/↓ or j/k to scroll, line {}/{})",
-                    self.scroll_offset + 1,
-                    total_lines
-                )),
-            )
+            .block(Block::default().borders(Borders::ALL).title(format!(
+                "Result Detail (↑/↓ or j/k to scroll, line {}/{})",
+                self.scroll_offset + 1,
+                total_lines
+            )))
             .wrap(Wrap { trim: true });
         f.render_widget(detail, chunks[0]);
 
@@ -217,8 +215,7 @@ impl Component for ResultDetail {
             return;
         };
 
-        let layout = ViewLayout::new("Result Detail".to_string())
-            .with_status_bar(false); // We'll handle status manually for now
+        let layout = ViewLayout::new("Result Detail".to_string()).with_status_bar(false); // We'll handle status manually for now
 
         layout.render(f, area, |f, content_area| {
             self.render_content(f, content_area);

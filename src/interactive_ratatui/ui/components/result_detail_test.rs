@@ -52,7 +52,9 @@ mod tests {
         result.file = "/Users/masatomokusaka/.claude/projects/very-long-project-name/session-files/0ff88f7e-99a2-4c72-b7c1-fb95713d1832.jsonl".to_string();
         result.project_path = "/Users/masatomokusaka/src/github/com/organization/very-long-project-name-with-multiple-segments/sub-project/workspace".to_string();
         result.session_id = "extremely-long-session-id-0ff88f7e-99a2-4c72-b7c1-fb95713d1832-with-additional-segments".to_string();
-        result.uuid = "12345678-1234-5678-1234-567812345678-extra-long-uuid-with-additional-information".to_string();
+        result.uuid =
+            "12345678-1234-5678-1234-567812345678-extra-long-uuid-with-additional-information"
+                .to_string();
         result
     }
 
@@ -158,7 +160,7 @@ mod tests {
         assert!(content.contains("File:"));
         assert!(content.contains("/Users/masatomokusaka"));
         assert!(content.contains(".jsonl"));
-        
+
         // The title should also be present
         assert!(content.contains("Result Detail"));
     }
@@ -183,7 +185,7 @@ mod tests {
         assert!(content.contains("Project:"));
         assert!(content.contains("/Users/masatomokusaka"));
         assert!(content.contains("workspace"));
-        
+
         // The title should also be present
         assert!(content.contains("Result Detail"));
     }
@@ -317,7 +319,7 @@ mod tests {
         assert!(content.contains("Project:"));
         assert!(content.contains("Session:"));
         assert!(content.contains("UUID:"));
-        
+
         // Check that long values are present and wrapped
         assert!(content.contains("/Users/masatomokusaka"));
         // The wrapping has occurred, so check for wrapped parts

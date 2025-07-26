@@ -56,12 +56,11 @@ impl ViewLayout {
             }
         }
 
-        let paragraph = Paragraph::new(lines)
-            .wrap(Wrap { trim: true });
-        
+        let paragraph = Paragraph::new(lines).wrap(Wrap { trim: true });
+
         // Use ratatui's line_count method to get the actual height needed
         let content_height = paragraph.line_count(width.saturating_sub(2)) as u16;
-        
+
         // Add 1 for the bottom border
         content_height + 1
     }
