@@ -1,5 +1,7 @@
-use ratatui::style::{Color, Style};
-use ratatui::text::{Line, Span};
+use ratatui::{
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+};
 
 /// Trait for items that can be displayed in a generic list viewer
 pub trait ListItem: Clone {
@@ -36,52 +38,10 @@ pub trait ListItem: Clone {
     }
 
     /// Creates the display lines for truncated mode
-    fn create_truncated_line(&self, max_width: usize) -> Line {
-        let timestamp = self.format_timestamp();
-        let content = truncate_message(self.get_content(), max_width);
-
-        vec![
-            Span::styled(
-                format!("{timestamp:16} "),
-                Style::default().fg(Color::DarkGray),
-            ),
-            Span::styled(
-                format!("{:10} ", self.get_role()),
-                Style::default().fg(self.get_role_color()),
-            ),
-            Span::raw(content),
-        ]
-        .into()
-    }
+    fn create_truncated_line(&self, max_width: usize, query: &str) -> Line<'static>;
 
     /// Creates the display lines for full text mode
-    fn create_full_lines(&self, max_width: usize) -> Vec<Line> {
-        let timestamp = self.format_timestamp();
-        let wrapped_lines = wrap_text(self.get_content(), max_width);
-        let mut lines = Vec::new();
-
-        // First line with metadata
-        let first_line_spans = vec![
-            Span::styled(
-                format!("{timestamp:16} "),
-                Style::default().fg(Color::DarkGray),
-            ),
-            Span::styled(
-                format!("{:10} ", self.get_role()),
-                Style::default().fg(self.get_role_color()),
-            ),
-            Span::raw(wrapped_lines.first().cloned().unwrap_or_default()),
-        ];
-        lines.push(Line::from(first_line_spans));
-
-        // Additional lines (indented)
-        for line in wrapped_lines.iter().skip(1) {
-            let indent = " ".repeat(29); // 16 + 1 + 10 + 1 + 1 spaces
-            lines.push(Line::from(format!("{indent}{line}")));
-        }
-
-        lines
-    }
+    fn create_full_lines(&self, max_width: usize, query: &str) -> Vec<Line<'static>>;
 }
 
 pub fn truncate_message(text: &str, max_width: usize) -> String {
@@ -134,4 +94,31 @@ pub fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
     } else {
         lines
     }
+}
+
+// New helper function for highlighting
+pub fn highlight_text(text: &str, query: &str) -> Vec<Span<'static>> {
+    if query.is_empty() {
+        return vec![Span::raw(text.to_string())];
+    }
+
+    let mut spans = Vec::new();
+    let mut last_end = 0;
+
+    for (start, matched_text) in text.match_indices(query) {
+        if start > last_end {
+            spans.push(Span::raw(text[last_end..start].to_string()));
+        }
+        spans.push(Span::styled(
+            matched_text.to_string(),
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ));
+        last_end = start + matched_text.len();
+    }
+
+    if last_end < text.len() {
+        spans.push(Span::raw(text[last_end..].to_string()));
+    }
+
+    spans
 }

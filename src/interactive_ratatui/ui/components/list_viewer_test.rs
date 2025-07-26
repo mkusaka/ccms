@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use super::super::list_item::ListItem;
+    use super::super::list_item::{ListItem, truncate_message, wrap_text};
     use super::super::list_viewer::ListViewer;
+    use ratatui::text::Line;
 
     // Mock implementation of ListItem for testing
     #[derive(Clone)]
@@ -22,6 +23,19 @@ mod tests {
 
         fn get_content(&self) -> &str {
             &self.content
+        }
+
+        fn create_truncated_line(&self, max_width: usize, _query: &str) -> Line<'static> {
+            let content = truncate_message(self.get_content(), max_width);
+            Line::from(content)
+        }
+
+        fn create_full_lines(&self, max_width: usize, _query: &str) -> Vec<Line<'static>> {
+            let wrapped_lines = wrap_text(self.get_content(), max_width);
+            wrapped_lines
+                .into_iter()
+                .map(|s| Line::from(s.to_string()))
+                .collect()
         }
     }
 

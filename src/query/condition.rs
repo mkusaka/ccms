@@ -150,7 +150,11 @@ pub struct SearchResult {
     pub raw_json: Option<String>,
 }
 
-use crate::interactive_ratatui::ui::components::list_item::ListItem;
+use crate::interactive_ratatui::ui::components::list_item::{
+    ListItem, truncate_message, wrap_text,
+};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
 
 impl ListItem for SearchResult {
     fn get_role(&self) -> &str {
@@ -163,6 +167,101 @@ impl ListItem for SearchResult {
 
     fn get_content(&self) -> &str {
         &self.text
+    }
+
+    fn create_truncated_line(&self, max_width: usize, _query: &str) -> Line<'static> {
+        let timestamp = self.format_timestamp();
+        let content = truncate_message(self.get_content(), max_width);
+
+        let mut spans = vec![
+            Span::styled(
+                format!("{timestamp:16} "),
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                format!("{:10} ", self.get_role()),
+                Style::default().fg(self.get_role_color()),
+            ),
+        ];
+
+        if let Some((start, len)) = self.query.find_match(&content) {
+            let end = start + len;
+            if start > 0 {
+                spans.push(Span::raw(content[0..start].to_string()));
+            }
+            spans.push(Span::styled(
+                content[start..end].to_string(),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            ));
+            if end < content.len() {
+                spans.push(Span::raw(content[end..].to_string()));
+            }
+        } else {
+            spans.push(Span::raw(content));
+        }
+
+        Line::from(spans)
+    }
+
+    fn create_full_lines(&self, max_width: usize, _query: &str) -> Vec<Line<'static>> {
+        let timestamp = self.format_timestamp();
+        let wrapped_lines = wrap_text(self.get_content(), max_width);
+        let mut lines = Vec::new();
+
+        // First line with metadata
+        let first_line_content = wrapped_lines.first().cloned().unwrap_or_default();
+        let mut first_line_spans = vec![
+            Span::styled(
+                format!("{timestamp:16} "),
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                format!("{:10} ", self.get_role()),
+                Style::default().fg(self.get_role_color()),
+            ),
+        ];
+
+        if let Some((start, len)) = self.query.find_match(&first_line_content) {
+            let end = start + len;
+            if start > 0 {
+                first_line_spans.push(Span::raw(first_line_content[0..start].to_string()));
+            }
+            first_line_spans.push(Span::styled(
+                first_line_content[start..end].to_string(),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            ));
+            if end < first_line_content.len() {
+                first_line_spans.push(Span::raw(first_line_content[end..].to_string()));
+            }
+        } else {
+            first_line_spans.push(Span::raw(first_line_content));
+        }
+        lines.push(Line::from(first_line_spans));
+
+        // Additional lines (indented)
+        for line in wrapped_lines.iter().skip(1) {
+            let indent = " ".repeat(29); // 16 + 1 + 10 + 1 + 1 spaces
+            let mut line_spans = vec![Span::raw(indent)];
+
+            if let Some((start, len)) = self.query.find_match(line) {
+                let end = start + len;
+                if start > 0 {
+                    line_spans.push(Span::raw(line[0..start].to_string()));
+                }
+                line_spans.push(Span::styled(
+                    line[start..end].to_string(),
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ));
+                if end < line.len() {
+                    line_spans.push(Span::raw(line[end..].to_string()));
+                }
+            } else {
+                line_spans.push(Span::raw(line.clone()));
+            }
+            lines.push(Line::from(line_spans));
+        }
+
+        lines
     }
 }
 

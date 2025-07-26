@@ -1,4 +1,8 @@
-use crate::interactive_ratatui::ui::components::list_item::ListItem;
+use crate::interactive_ratatui::ui::components::list_item::{
+    ListItem, highlight_text, truncate_message, wrap_text,
+};
+use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
 
 #[derive(Debug, Clone)]
 pub struct SessionListItem {
@@ -98,5 +102,59 @@ impl ListItem for SessionListItem {
 
     fn get_content(&self) -> &str {
         &self.content
+    }
+
+    fn create_truncated_line(&self, max_width: usize, query: &str) -> Line<'static> {
+        let timestamp = self.format_timestamp();
+        let content = truncate_message(self.get_content(), max_width);
+        let highlighted_content = highlight_text(&content, query);
+
+        let mut spans = vec![
+            Span::styled(
+                format!("{timestamp:16} "),
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                format!("{:10} ", self.get_role()),
+                Style::default().fg(self.get_role_color()),
+            ),
+        ];
+        spans.extend(highlighted_content);
+
+        Line::from(spans)
+    }
+
+    fn create_full_lines(&self, max_width: usize, query: &str) -> Vec<Line<'static>> {
+        let timestamp = self.format_timestamp();
+        let wrapped_lines = wrap_text(self.get_content(), max_width);
+        let mut lines = Vec::new();
+
+        // First line with metadata
+        let first_line_content = wrapped_lines.first().cloned().unwrap_or_default();
+        let highlighted_first_line = highlight_text(&first_line_content, query);
+
+        let mut first_line_spans = vec![
+            Span::styled(
+                format!("{timestamp:16} "),
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                format!("{:10} ", self.get_role()),
+                Style::default().fg(self.get_role_color()),
+            ),
+        ];
+        first_line_spans.extend(highlighted_first_line);
+        lines.push(Line::from(first_line_spans));
+
+        // Additional lines (indented)
+        for line in wrapped_lines.iter().skip(1) {
+            let indent = " ".repeat(29); // 16 + 1 + 10 + 1 + 1 spaces
+            let highlighted_line = highlight_text(line, query);
+            let mut line_spans = vec![Span::raw(indent)];
+            line_spans.extend(highlighted_line);
+            lines.push(Line::from(line_spans));
+        }
+
+        lines
     }
 }

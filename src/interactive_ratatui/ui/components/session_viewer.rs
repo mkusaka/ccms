@@ -80,7 +80,8 @@ impl SessionViewer {
     }
 
     pub fn set_query(&mut self, query: String) {
-        self.text_input.set_text(query);
+        self.text_input.set_text(query.clone());
+        self.list_viewer.set_query(query);
     }
 
     pub fn set_order(&mut self, order: Option<SessionOrder>) {
