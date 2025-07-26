@@ -30,6 +30,10 @@ pub async fn run_interactive_search(pattern: &str, options: SearchOptions) -> Re
     // Enable raw mode
     crossterm::terminal::enable_raw_mode()?;
     
+    // Show cursor
+    print!("\x1b[?25h");
+    io::stdout().flush()?;
+    
     // Create state and app
     let state = Arc::new(Mutex::new(AppState::new()));
     let mut app = SearchApp::new(pattern.to_string(), options, state.clone());
@@ -123,6 +127,7 @@ pub async fn run_interactive_search(pattern: &str, options: SearchOptions) -> Re
     // Cleanup
     crossterm::terminal::disable_raw_mode()?;
     print!("\x1b[2J\x1b[H"); // Clear screen
+    print!("\x1b[?25h"); // Show cursor (ensure it's visible after exit)
     io::stdout().flush()?;
     
     Ok(())

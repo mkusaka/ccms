@@ -139,6 +139,10 @@ impl SearchApp {
         }
         output.push_str("\x1b[0m");
         
+        // Position cursor at the end of search query
+        let cursor_col = 9 + state.query.chars().count(); // "Search: " is 8 chars + 1
+        output.push_str(&format!("\x1b[3;{cursor_col}H")); // Line 3, after query
+        
         Ok(())
     }
     
