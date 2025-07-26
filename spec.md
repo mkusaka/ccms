@@ -62,7 +62,7 @@ Search [role]: [query]
 | Tab | Cycle through role filters: None → user → assistant → system → summary → None |
 | Ctrl+R | Clear cache and reload all files |
 | Ctrl+T | Toggle message truncation (Truncated/Full Text) |
-| Esc or Ctrl+C | Exit interactive mode |
+| Ctrl+C (2x) | Exit interactive mode (press twice within 1 second) |
 
 ### Full Result View
 
@@ -72,8 +72,8 @@ When Enter is pressed on a result, a detailed view is shown:
 ────────────────────────────────────────────────────────────────────────────────
 Role: [role]
 Time: YYYY-MM-DD HH:MM:SS
-File: [filename]
-Project: [project path]
+File: [filename - automatically wraps if too long for terminal width]
+Project: [project path - automatically wraps if too long for terminal width]
 UUID: [uuid]
 Session: [session_id]
 ────────────────────────────────────────────────────────────────────────────────
@@ -143,6 +143,7 @@ Enter: View | ↑/↓: Navigate | /: Search | I: Copy Session ID | O: Sort | C: 
    - Case-insensitive search across message content
    - Shows filtered count: "Messages (123 total, 45 filtered)"
    - Backspace to delete characters, Esc to clear search
+   - **Search result highlighting**: Matched text is highlighted in message previews
 
 3. **Navigation and Actions**:
    - ↑/↓: Move selection through messages
@@ -357,14 +358,15 @@ Note: The Result Detail view always displays messages with word wrapping and is 
 
 ## Exit Behavior
 
-On exit (Esc or Ctrl+C from Search screen, or 'q' key):
+On exit (Ctrl+C pressed twice within 1 second from Search screen, or 'q' key):
 1. Clears search area from screen
 2. Displays "Goodbye!" message
 3. Returns control to terminal
 
-**Note**: Esc key behavior depends on the current screen:
-- From Search screen: Exits the application
-- From other screens: Returns to the previous screen in the navigation stack
+**Note**: Exit behavior:
+- From Search screen: Press Ctrl+C twice within 1 second to exit
+- From other screens: Esc returns to the previous screen in the navigation stack
+- The Esc key no longer exits the application from the Search screen
 
 ## Error Handling
 
@@ -543,3 +545,6 @@ Recent enhancements include:
 - Session viewer metadata display and session ID copying
 - Non-blocking UI with visual feedback during operations
 - Unicode-safe text handling throughout
+- Search result highlighting in Session Viewer
+- Automatic text wrapping for long file paths in Result Detail and Session Viewer
+- Unified exit mechanism (Ctrl+C twice) - ESC no longer exits from search screen

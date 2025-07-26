@@ -139,7 +139,8 @@ ccms -i -n 100                               # Adjust result limit
 - `Tab` - Cycle role filters (all → user → assistant → system → summary)
 - `Ctrl+R` - Clear cache and reload files
 - `Ctrl+T` - Toggle message truncation (Truncated/Full Text)
-- `Esc/Ctrl+C` - Exit
+- `Ctrl+C (2x)` - Exit (press twice within 1 second)
+- `Esc` - Go back to previous screen (does not exit from search screen)
 
 **Note on Filters in Interactive Mode:**
 - All command-line filters (`--project`, `--since`, `--after`, `--before`, `-s`, etc.) are applied as base filters
@@ -367,23 +368,29 @@ cargo run --release --features profiling -- --profile baseline "query"
 ```
 ccms/
 ├── src/
-│   ├── main.rs           # CLI entry point
-│   ├── lib.rs            # Library exports
-│   ├── interactive.rs    # Interactive TUI mode
-│   ├── query/            # Query parsing and evaluation
-│   │   ├── parser.rs     # Nom-based query parser
-│   │   └── condition.rs  # Query condition types
-│   ├── schemas/          # Claude message schemas
+│   ├── main.rs                    # CLI entry point
+│   ├── lib.rs                     # Library exports
+│   ├── interactive_ratatui/       # Interactive TUI mode (Clean Architecture)
+│   │   ├── mod.rs                 # Main event loop
+│   │   ├── domain/                # Domain layer (models, business rules)
+│   │   ├── application/           # Application layer (services)
+│   │   └── ui/                    # UI layer (MVU pattern, components)
+│   ├── query/                     # Query parsing and evaluation
+│   │   ├── parser.rs              # Nom-based query parser
+│   │   └── condition.rs           # Query condition types
+│   ├── schemas/                   # Claude message schemas
 │   │   ├── session_message.rs
 │   │   └── tool_result.rs
-│   ├── search/           # Search engine implementation
-│   │   ├── engine.rs     # Core search logic
+│   ├── search/                    # Search engine implementation
+│   │   ├── engine.rs              # Core search logic
 │   │   ├── file_discovery.rs
 │   │   └── async_engine.rs
-│   └── profiling.rs      # Performance profiling
-├── benches/              # Benchmarks
-├── tests/                # Integration tests
-└── TUI_TESTING_APPROACHES.md # TUI testing documentation
+│   └── profiling.rs               # Performance profiling
+├── benches/                       # Benchmarks
+├── tests/                         # Integration tests
+├── CLAUDE.md                      # Guidance for Claude Code
+├── spec.md                        # Detailed interactive mode specification
+└── PERFORMANCE.md                 # Performance characteristics and benchmarks
 ```
 
 ## Performance
@@ -459,4 +466,4 @@ MIT License - see [LICENSE](LICENSE) file for details
 - Built with [nom](https://github.com/rust-bakery/nom) for parsing
 - Uses [simd-json](https://github.com/simd-lite/simd-json) for fast JSON parsing
 - Parallel processing powered by [rayon](https://github.com/rayon-rs/rayon)
-- Interactive UI built with [console](https://github.com/console-rs/console) and [dialoguer](https://github.com/console-rs/dialoguer)
+- Interactive UI built with [ratatui](https://github.com/ratatui-org/ratatui) and [crossterm](https://github.com/crossterm-rs/crossterm)
