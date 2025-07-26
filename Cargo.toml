@@ -50,7 +50,7 @@ indicatif = "0.18"
 colored = "3.0"
 
 # TUI framework
-ratatui = "0.29"
+ratatui = "0.30.0-alpha.5"
 crossterm = "0.29"
 
 
