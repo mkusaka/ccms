@@ -14,6 +14,7 @@ pub struct ListViewer<T: ListItem> {
     pub truncation_enabled: bool,
     pub title: String,
     pub empty_message: String,
+    query: String,
 }
 
 impl<T: ListItem> Default for ListViewer<T> {
@@ -26,6 +27,7 @@ impl<T: ListItem> Default for ListViewer<T> {
             truncation_enabled: true,
             title: String::new(),
             empty_message: String::new(),
+            query: String::new(),
         }
     }
 }
@@ -40,6 +42,7 @@ impl<T: ListItem> ListViewer<T> {
             truncation_enabled: true,
             title,
             empty_message,
+            query: String::new(),
         }
     }
 
@@ -74,6 +77,10 @@ impl<T: ListItem> ListViewer<T> {
 
     pub fn set_truncation_enabled(&mut self, enabled: bool) {
         self.truncation_enabled = enabled;
+    }
+
+    pub fn set_query(&mut self, query: String) {
+        self.query = query;
     }
 
     pub fn get_selected_item(&self) -> Option<&T> {
@@ -180,7 +187,7 @@ impl<T: ListItem> ListViewer<T> {
             while end < self.filtered_indices.len() && current_height < available_height as usize {
                 if let Some(&item_idx) = self.filtered_indices.get(end) {
                     if let Some(item) = self.items.get(item_idx) {
-                        let lines = item.create_full_lines(available_text_width);
+                        let lines = item.create_full_lines(available_text_width, &self.query);
                         let item_height = lines.len();
 
                         if current_height + item_height <= available_height as usize {
@@ -275,11 +282,15 @@ impl<T: ListItem> ListViewer<T> {
                         };
 
                         if self.truncation_enabled {
-                            TuiListItem::new(item.create_truncated_line(available_text_width))
-                                .style(style)
+                            TuiListItem::new(
+                                item.create_truncated_line(available_text_width, &self.query),
+                            )
+                            .style(style)
                         } else {
-                            TuiListItem::new(item.create_full_lines(available_text_width))
-                                .style(style)
+                            TuiListItem::new(
+                                item.create_full_lines(available_text_width, &self.query),
+                            )
+                            .style(style)
                         }
                     })
                 })
