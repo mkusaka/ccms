@@ -59,7 +59,7 @@ mod tests {
 
         // Create a very long file path
         let long_path = "/Users/masatomokusaka/.claude/projects/very-long-project-name/session-files/0ff88f7e-99a2-4c72-b7c1-fb95713d1832.jsonl";
-        let subtitle = format!("Session: test-session\nFile: {}", long_path);
+        let subtitle = format!("Session: test-session\nFile: {long_path}");
 
         terminal
             .draw(|f| {
