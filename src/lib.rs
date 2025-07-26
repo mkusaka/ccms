@@ -1,4 +1,10 @@
 pub mod interactive_ratatui;
+// #[cfg(feature = "async")]
+// pub mod interactive_r3bl;
+// #[cfg(feature = "async")]
+// pub mod interactive_r3bl_poc;
+#[cfg(feature = "async")]
+pub mod interactive_r3bl_simple;
 pub mod profiling;
 pub mod query;
 pub mod schemas;

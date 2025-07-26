@@ -18,7 +18,7 @@ use std::io::{self, Write};
 )]
 struct Cli {
     /// Search query (supports literal, regex, AND/OR/NOT operators)
-    #[arg(required_unless_present_any = ["interactive", "generator"])]
+    #[arg(required_unless_present_any = ["interactive", "generator", "r3bl_mode"])]
     query: Option<String>,
 
     /// File pattern to search (default: ~/.claude/projects/**/*.jsonl)
@@ -76,6 +76,10 @@ struct Cli {
     /// Interactive search mode (fzf-like)
     #[arg(short = 'i', long)]
     interactive: bool,
+
+    /// Use R3BL TUI for interactive mode (experimental)
+    #[arg(long = "r3bl")]
+    r3bl_mode: bool,
 
     /// Filter by project path (e.g., current directory: $(pwd))
     #[arg(long = "project")]
@@ -163,7 +167,7 @@ fn main() -> Result<()> {
     let pattern = cli.pattern.as_deref().unwrap_or(&default_pattern);
 
     // Interactive mode
-    if cli.interactive {
+    if cli.interactive || cli.r3bl_mode {
         let options = SearchOptions {
             max_results: Some(cli.max_results), // Use the CLI value directly
             role: cli.role,
@@ -174,8 +178,24 @@ fn main() -> Result<()> {
             project_path: cli.project_path.clone(),
         };
 
-        let mut interactive = InteractiveSearch::new(options);
-        return interactive.run(pattern);
+        if cli.r3bl_mode {
+            // Use R3BL TUI (experimental)
+            #[cfg(feature = "async")]
+            {
+                let runtime = tokio::runtime::Runtime::new()?;
+                return runtime.block_on(ccms::interactive_r3bl_simple::run_interactive_search(pattern, options));
+            }
+            #[cfg(not(feature = "async"))]
+            {
+                eprintln!("Error: R3BL TUI mode requires the 'async' feature to be enabled.");
+                eprintln!("Build with: cargo build --features async");
+                return Err(anyhow::anyhow!("R3BL TUI mode requires async feature"));
+            }
+        } else {
+            // Use ratatui (default)
+            let mut interactive = InteractiveSearch::new(options);
+            return interactive.run(pattern);
+        }
     }
 
     // Regular search mode - query is required

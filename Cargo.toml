@@ -53,6 +53,11 @@ colored = "3.0"
 ratatui = "0.30.0-alpha.5"
 crossterm = "0.29"
 
+# R3BL TUI framework
+r3bl_rs_utils_core = "0.9"
+r3bl_tui = "0.5"
+r3bl_ansi_color = "0.6"
+
 
 # Profiling and tracing
 pprof = { version = "0.15", features = ["flamegraph", "prost-codec"], optional = true }
