@@ -180,12 +180,6 @@ impl InteractiveSearch {
 
         // Global keys
         match key.code {
-            KeyCode::Esc => {
-                // Only exit from search mode
-                if self.state.mode == Mode::Search {
-                    return Ok(true);
-                }
-            }
             KeyCode::Char('?') if self.state.mode != Mode::Help => {
                 self.handle_message(Message::ShowHelp);
                 return Ok(false);

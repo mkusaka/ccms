@@ -248,12 +248,12 @@ mod tests {
     fn test_esc_key_behavior() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
-        // ESC in search mode should exit
+        // ESC in search mode should NOT exit (only Ctrl+C twice exits)
         app.state.mode = Mode::Search;
         let should_exit = app
             .handle_input(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()))
             .unwrap();
-        assert!(should_exit);
+        assert!(!should_exit);
 
         // ESC in result detail should return to search
         app.state.mode = Mode::ResultDetail;
