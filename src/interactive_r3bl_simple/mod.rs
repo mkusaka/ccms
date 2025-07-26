@@ -69,6 +69,14 @@ pub async fn run_interactive_search(pattern: &str, options: SearchOptions) -> Re
                     let mut state_lock = state.lock().await;
                     
                     let should_exit = match key_event.code {
+                        crossterm::event::KeyCode::Char('c') 
+                            if key_event.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+                            app.handle_input('\x03', &mut state_lock).await?
+                        }
+                        crossterm::event::KeyCode::Char('u') 
+                            if key_event.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+                            app.handle_input('\x15', &mut state_lock).await?
+                        }
                         crossterm::event::KeyCode::Char(c) => {
                             app.handle_input(c, &mut state_lock).await?
                         }
