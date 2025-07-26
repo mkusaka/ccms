@@ -41,6 +41,21 @@ mod tests {
         result
     }
 
+    fn create_test_result_with_long_project_path() -> SearchResult {
+        let mut result = create_test_result();
+        result.project_path = "/Users/masatomokusaka/src/github/com/organization/very-long-project-name-with-multiple-segments/sub-project/workspace".to_string();
+        result
+    }
+
+    fn create_test_result_with_all_long_fields() -> SearchResult {
+        let mut result = create_test_result();
+        result.file = "/Users/masatomokusaka/.claude/projects/very-long-project-name/session-files/0ff88f7e-99a2-4c72-b7c1-fb95713d1832.jsonl".to_string();
+        result.project_path = "/Users/masatomokusaka/src/github/com/organization/very-long-project-name-with-multiple-segments/sub-project/workspace".to_string();
+        result.session_id = "extremely-long-session-id-0ff88f7e-99a2-4c72-b7c1-fb95713d1832-with-additional-segments".to_string();
+        result.uuid = "12345678-1234-5678-1234-567812345678-extra-long-uuid-with-additional-information".to_string();
+        result
+    }
+
     fn render_component(component: &mut ResultDetail, width: u16, height: u16) -> Buffer {
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).unwrap();
@@ -143,6 +158,31 @@ mod tests {
         assert!(content.contains("File:"));
         assert!(content.contains("/Users/masatomokusaka"));
         assert!(content.contains(".jsonl"));
+        
+        // The title should also be present
+        assert!(content.contains("Result Detail"));
+    }
+
+    #[test]
+    fn test_long_project_path_wrapping() {
+        let mut detail = ResultDetail::new();
+        let result = create_test_result_with_long_project_path();
+        detail.set_result(result);
+
+        // Render with narrow width to force wrapping
+        let buffer = render_component(&mut detail, 50, 30);
+
+        // Convert buffer to string for easier inspection
+        let content = buffer
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+
+        // Check that project path components are present
+        assert!(content.contains("Project:"));
+        assert!(content.contains("/Users/masatomokusaka"));
+        assert!(content.contains("workspace"));
         
         // The title should also be present
         assert!(content.contains("Result Detail"));
@@ -253,6 +293,42 @@ mod tests {
         // Test exit to search (Esc)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()));
         assert!(matches!(msg, Some(Message::ExitToSearch)));
+    }
+
+    #[test]
+    fn test_all_fields_wrapping() {
+        let mut detail = ResultDetail::new();
+        let result = create_test_result_with_all_long_fields();
+        detail.set_result(result);
+
+        // Render with very narrow width to force wrapping of all fields
+        // Use larger height to see all wrapped content
+        let buffer = render_component(&mut detail, 40, 50);
+
+        // Convert buffer to string for easier inspection
+        let content = buffer
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+
+        // Check that all fields are present
+        assert!(content.contains("File:"));
+        assert!(content.contains("Project:"));
+        assert!(content.contains("Session:"));
+        assert!(content.contains("UUID:"));
+        
+        // Check that long values are present and wrapped
+        assert!(content.contains("/Users/masatomokusaka"));
+        // The wrapping has occurred, so check for wrapped parts
+        assert!(content.contains("0ff88f7e")); // Part of the file name
+        assert!(content.contains("sonl")); // "jsonl" is wrapped as "j" + "sonl"
+        assert!(content.contains("rganization")); // "organization" is wrapped
+        assert!(content.contains("ace")); // "workspace" is wrapped as "worksp" + "ace"
+        assert!(content.contains("extremely-long-session-id")); // Session ID starts correctly
+        assert!(content.contains("al-segments")); // Session ID ends correctly
+        assert!(content.contains("xtra-long-uuid")); // UUID is wrapped as "e" + "xtra-long-uuid"
+        assert!(content.contains("tion")); // UUID ends with "tion"
     }
 
     #[test]
