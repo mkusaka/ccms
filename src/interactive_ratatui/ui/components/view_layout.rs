@@ -38,25 +38,40 @@ impl ViewLayout {
         self
     }
 
-    fn calculate_title_bar_height(&self) -> u16 {
-        // Base height: 1 for title + 1 for bottom border
-        let mut height = 2;
+    fn calculate_title_bar_height(&self, width: u16) -> u16 {
+        // Create a temporary paragraph to measure its height
+        let mut lines = vec![Line::from(vec![Span::styled(
+            &self.title,
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )])];
 
-        // Add lines for subtitle if present
         if let Some(ref subtitle) = self.subtitle {
-            let subtitle_lines = subtitle.lines().count() as u16;
-            height += subtitle_lines;
+            for line in subtitle.lines() {
+                lines.push(Line::from(vec![
+                    Span::styled("", Style::default().fg(Color::DarkGray)),
+                    Span::raw(line),
+                ]));
+            }
         }
 
-        height
+        let paragraph = Paragraph::new(lines)
+            .wrap(Wrap { trim: true });
+        
+        // Use ratatui's line_count method to get the actual height needed
+        let content_height = paragraph.line_count(width.saturating_sub(2)) as u16;
+        
+        // Add 1 for the bottom border
+        content_height + 1
     }
 
     pub fn render<F>(&self, f: &mut Frame, area: Rect, render_content: F)
     where
         F: FnOnce(&mut Frame, Rect),
     {
-        // Calculate title bar height based on content
-        let title_bar_height = self.calculate_title_bar_height();
+        // Calculate title bar height based on content and available width
+        let title_bar_height = self.calculate_title_bar_height(area.width);
 
         let constraints = if self.show_status_bar {
             vec![

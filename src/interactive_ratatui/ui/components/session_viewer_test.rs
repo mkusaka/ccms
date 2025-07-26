@@ -37,6 +37,28 @@ mod tests {
     }
 
     #[test]
+    fn test_session_viewer_with_long_file_path() {
+        let mut viewer = SessionViewer::new();
+        
+        // Set a very long file path that should wrap
+        let long_path = "/Users/masatomokusaka/.claude/projects/very-long-project-name/session-files/0ff88f7e-99a2-4c72-b7c1-fb95713d1832.jsonl";
+        viewer.set_file_path(Some(long_path.to_string()));
+        viewer.set_session_id(Some("test-session-123".to_string()));
+        
+        // Use a narrow terminal to force wrapping
+        let buffer = render_component(&mut viewer, 40, 20);
+        
+        // Check that the title and session info are rendered
+        assert!(buffer_contains(&buffer, "Session Viewer"));
+        assert!(buffer_contains(&buffer, "Session: test-session-123"));
+        assert!(buffer_contains(&buffer, "File:"));
+        
+        // The long path should be present (wrapped across multiple lines)
+        assert!(buffer_contains(&buffer, "/Users/masatomokusaka"));
+        assert!(buffer_contains(&buffer, ".jsonl"));
+    }
+
+    #[test]
     fn test_set_messages() {
         let mut viewer = SessionViewer::new();
         let messages = vec![

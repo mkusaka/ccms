@@ -10,7 +10,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Modifier,
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
 
 #[derive(Default)]
@@ -142,13 +142,15 @@ impl ResultDetail {
             .collect();
 
         let total_lines = all_lines.len();
-        let detail = Paragraph::new(display_lines).block(
-            Block::default().borders(Borders::ALL).title(format!(
-                "Result Detail (↑/↓ or j/k to scroll, line {}/{})",
-                self.scroll_offset + 1,
-                total_lines
-            )),
-        );
+        let detail = Paragraph::new(display_lines)
+            .block(
+                Block::default().borders(Borders::ALL).title(format!(
+                    "Result Detail (↑/↓ or j/k to scroll, line {}/{})",
+                    self.scroll_offset + 1,
+                    total_lines
+                )),
+            )
+            .wrap(Wrap { trim: true });
         f.render_widget(detail, chunks[0]);
 
         // Actions
@@ -211,12 +213,11 @@ impl ResultDetail {
 
 impl Component for ResultDetail {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        let Some(result) = &self.result else {
+        let Some(_result) = &self.result else {
             return;
         };
 
         let layout = ViewLayout::new("Result Detail".to_string())
-            .with_subtitle(format!("Viewing result from {}", result.file))
             .with_status_bar(false); // We'll handle status manually for now
 
         layout.render(f, area, |f, content_area| {

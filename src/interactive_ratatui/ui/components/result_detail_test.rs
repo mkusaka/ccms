@@ -35,6 +35,12 @@ mod tests {
         result
     }
 
+    fn create_test_result_with_long_file_path() -> SearchResult {
+        let mut result = create_test_result();
+        result.file = "/Users/masatomokusaka/.claude/projects/very-long-project-name/session-files/0ff88f7e-99a2-4c72-b7c1-fb95713d1832.jsonl".to_string();
+        result
+    }
+
     fn render_component(component: &mut ResultDetail, width: u16, height: u16) -> Buffer {
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).unwrap();
@@ -115,6 +121,31 @@ mod tests {
         assert!(content.contains("This is a very long message"));
         // The text might be wrapped, so just check for parts of it
         assert!(content.contains("wrap") || content.contains("displayed"));
+    }
+
+    #[test]
+    fn test_long_file_path_wrapping() {
+        let mut detail = ResultDetail::new();
+        let result = create_test_result_with_long_file_path();
+        detail.set_result(result);
+
+        // Render with narrow width to force wrapping
+        let buffer = render_component(&mut detail, 50, 30);
+
+        // Convert buffer to string for easier inspection
+        let content = buffer
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+
+        // Check that file path components are present
+        assert!(content.contains("File:"));
+        assert!(content.contains("/Users/masatomokusaka"));
+        assert!(content.contains(".jsonl"));
+        
+        // The title should also be present
+        assert!(content.contains("Result Detail"));
     }
 
     #[test]
