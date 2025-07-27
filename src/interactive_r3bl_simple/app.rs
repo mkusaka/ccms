@@ -6,7 +6,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::{SearchOptions, SearchEngine, parse_query};
 use super::state::{AppState, ViewMode, SearchSignal};
-use super::utils::truncate_str;
+use super::utils::{truncate_str, truncate_str_with_highlight};
 
 pub struct SearchApp {
     file_pattern: String,
@@ -115,11 +115,11 @@ impl SearchApp {
             
             let is_selected = state.scroll_offset + idx == state.selected_index;
             
-            // Format the message
+            // Format the message with highlighting
             let first_line = result.text
                 .lines()
                 .next()
-                .map(|line| truncate_str(line, width.saturating_sub(15)))
+                .map(|line| truncate_str_with_highlight(line, &state.query, width.saturating_sub(15)))
                 .unwrap_or_else(|| "[No content]".to_string());
             
             let mut line_content = format!(

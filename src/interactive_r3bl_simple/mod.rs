@@ -22,6 +22,8 @@ mod test_layout;
 mod test_ctrl_c;
 #[cfg(test)]
 mod test_app_ctrl_c;
+#[cfg(test)]
+mod test_highlight;
 
 pub use app::SearchApp;
 pub use state::{AppState, SearchSignal};
