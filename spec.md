@@ -129,7 +129,7 @@ When 'S' is pressed in the full result view:
 │                                                                                │
 │ Showing X-Y of Z messages ↑/↓ to scroll                                        │
 └────────────────────────────────────────────────────────────────────────────────┘
-Enter: View | ↑/↓: Navigate | /: Search | I: Copy Session ID | O: Sort | C: Copy All | Esc: Back
+Enter: View | ↑/↓: Navigate | Tab: Role Filter | /: Search | I: Copy Session ID | O: Sort | C: Copy All | Esc: Back
 ```
 
 **Navigation**: Pressing Esc returns to the previous screen (typically ResultDetail), not directly to Search.
@@ -140,6 +140,7 @@ Enter: View | ↑/↓: Navigate | /: Search | I: Copy Session ID | O: Sort | C: 
    - Shows all messages in a scrollable list format
    - Each message displays: index, role (centered), timestamp, and preview text
    - Selected message is highlighted with ">" indicator and different background
+   - **Role Filter Display**: When active, shows "| Role: [role]" in the info bar
 
 2. **Interactive Search**:
    - Type to filter messages in real-time (no need to press '/')
@@ -147,12 +148,14 @@ Enter: View | ↑/↓: Navigate | /: Search | I: Copy Session ID | O: Sort | C: 
    - Shows filtered count: "Messages (123 total, 45 filtered)"
    - Backspace to delete characters, Esc to clear search
    - **Search result highlighting**: Matched text is highlighted in message previews
+   - **Tab key in search mode**: Role filter can be toggled even while typing search queries
 
 3. **Navigation and Actions**:
    - ↑/↓: Move selection through messages
    - PageUp/PageDown: Jump 10 messages at a time
    - Enter: View full message in detail view
    - /: Start search mode (interactive filtering)
+   - Tab: Cycle through role filters: None → user → assistant → system → None
    - O: Toggle sort order (Ascending/Descending/Original)
    - C: Copy selected message
    - Shift+C: Copy all visible (filtered) messages
@@ -472,6 +475,7 @@ struct SessionState {
     order: Option<SessionOrder>,      // Sort order
     file_path: Option<String>,        // Session file path
     session_id: Option<String>,       // Session identifier
+    role_filter: Option<String>,      // Active role filter
 }
 
 struct UIState {

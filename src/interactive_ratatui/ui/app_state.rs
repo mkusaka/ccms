@@ -42,6 +42,7 @@ pub struct SessionState {
     pub order: Option<SessionOrder>,
     pub file_path: Option<String>,
     pub session_id: Option<String>,
+    pub role_filter: Option<String>,
 }
 
 pub struct UiState {
@@ -74,6 +75,7 @@ impl AppState {
                 order: None,
                 file_path: None,
                 session_id: None,
+                role_filter: None,
             },
             ui: UiState {
                 message: None,
@@ -261,6 +263,17 @@ impl AppState {
                 self.update_session_filter();
                 Command::None
             }
+            Message::ToggleSessionRoleFilter => {
+                self.session.role_filter = match &self.session.role_filter {
+                    None => Some("user".to_string()),
+                    Some(r) if r == "user" => Some("assistant".to_string()),
+                    Some(r) if r == "assistant" => Some("system".to_string()),
+                    _ => None,
+                };
+                // Re-apply filter with new role
+                self.update_session_filter();
+                Command::None
+            }
             Message::SetStatus(msg) => {
                 self.ui.message = Some(msg);
                 Command::None
@@ -432,7 +445,8 @@ impl AppState {
             .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
             .collect();
 
-        self.session.filtered_indices = SessionFilter::filter_messages(&items, &self.session.query);
+        self.session.filtered_indices =
+            SessionFilter::filter_messages(&items, &self.session.query, &self.session.role_filter);
 
         // Reset selection if current selection is out of bounds
         if self.session.selected_index >= self.session.filtered_indices.len() {
@@ -461,6 +475,7 @@ impl AppState {
                 order: self.session.order,
                 file_path: self.session.file_path.clone(),
                 session_id: self.session.session_id.clone(),
+                role_filter: self.session.role_filter.clone(),
             },
             ui_state: UiStateSnapshot {
                 message: self.ui.message.clone(),
@@ -491,6 +506,7 @@ impl AppState {
         self.session.order = state.session_state.order;
         self.session.file_path = state.session_state.file_path.clone();
         self.session.session_id = state.session_state.session_id.clone();
+        self.session.role_filter = state.session_state.role_filter.clone();
 
         // Restore UI state
         self.ui.message = state.ui_state.message.clone();

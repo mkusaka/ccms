@@ -102,6 +102,8 @@ impl Renderer {
         self.session_viewer
             .set_session_id(state.session.session_id.clone());
         self.session_viewer.set_message(state.ui.message.clone());
+        self.session_viewer
+            .set_role_filter(state.session.role_filter.clone());
         // Don't override the internal ListViewer's selected_index and scroll_offset
         // self.session_viewer
         //     .set_selected_index(state.session.selected_index);

@@ -151,12 +151,24 @@ ccms -i -n 100                               # Adjust result limit
 - Results are limited by the `-n` flag (default: 50, but 20x more are loaded for scrolling)
 
 **Result Actions:**
-- `S` - View full session
+- `S` - View full session (Session Viewer)
 - `F` - Copy file path to clipboard
 - `I` - Copy session ID to clipboard
 - `P` - Copy project path to clipboard
 - `M` - Copy message text to clipboard
 - `R` - Copy raw JSON to clipboard
+
+**Session Viewer Controls:**
+- `↑/↓` or `j/k` - Navigate messages
+- `Tab` - Cycle role filters (all → user → assistant → system)
+- `/` - Search within session (Tab works in search mode too)
+- `O` - Toggle sort order
+- `Enter` - View message detail
+- `C` - Copy selected message
+- `Shift+C` - Copy all visible messages
+- `I` - Copy session ID
+- `F` - Copy file path
+- `Esc` - Return to previous screen
 
 ### Advanced Queries
 

@@ -32,6 +32,7 @@ pub enum Message {
     SessionSelectDown,
     SessionNavigated,
     ToggleSessionOrder,
+    ToggleSessionRoleFilter,
 
     // Role filter
     ToggleRoleFilter,
