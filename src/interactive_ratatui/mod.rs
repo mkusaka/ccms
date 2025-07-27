@@ -190,12 +190,12 @@ impl InteractiveSearch {
                 self.handle_message(Message::ToggleTruncation);
                 return Ok(false);
             }
-            // Navigation shortcuts only work outside of Search mode
-            KeyCode::Char('[') if self.state.mode != Mode::Search => {
+            // Navigation shortcuts with Alt modifier
+            KeyCode::Left if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.handle_message(Message::NavigateBack);
                 return Ok(false);
             }
-            KeyCode::Char(']') if self.state.mode != Mode::Search => {
+            KeyCode::Right if key.modifiers.contains(KeyModifiers::ALT) => {
                 self.handle_message(Message::NavigateForward);
                 return Ok(false);
             }

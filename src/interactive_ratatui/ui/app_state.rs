@@ -122,13 +122,25 @@ impl AppState {
             }
             Message::EnterResultDetail => {
                 if let Some(result) = self.search.results.get(self.search.selected_index).cloned() {
-                    // Save current state to navigation history
-                    let current_state = self.create_navigation_state();
-                    self.navigation_history.push(current_state);
-                    
-                    self.ui.selected_result = Some(result);
-                    self.ui.detail_scroll_offset = 0;
-                    self.mode = Mode::ResultDetail;
+                    // Only save state if we're actually changing modes
+                    if self.mode != Mode::ResultDetail {
+                        // If this is our first navigation, save the initial state
+                        if self.navigation_history.is_empty() {
+                            let initial_state = self.create_navigation_state();
+                            self.navigation_history.push(initial_state);
+                        }
+                        
+                        self.ui.selected_result = Some(result);
+                        self.ui.detail_scroll_offset = 0;
+                        self.mode = Mode::ResultDetail;
+                        
+                        // Save the new state after transitioning
+                        let new_state = self.create_navigation_state();
+                        self.navigation_history.push(new_state);
+                    } else {
+                        self.ui.selected_result = Some(result);
+                        self.ui.detail_scroll_offset = 0;
+                    }
                 }
                 Command::None
             }
@@ -141,9 +153,11 @@ impl AppState {
                 };
 
                 if let Some(result) = result {
-                    // Save current state to navigation history
-                    let current_state = self.create_navigation_state();
-                    self.navigation_history.push(current_state);
+                    // If this is our first navigation, save the initial state
+                    if self.navigation_history.is_empty() {
+                        let initial_state = self.create_navigation_state();
+                        self.navigation_history.push(initial_state);
+                    }
                     
                     let file = result.file.clone();
                     self.mode = Mode::SessionViewer;
@@ -152,6 +166,11 @@ impl AppState {
                     self.session.query.clear();
                     self.session.selected_index = 0;
                     self.session.scroll_offset = 0;
+                    
+                    // Save the new state after transitioning
+                    let new_state = self.create_navigation_state();
+                    self.navigation_history.push(new_state);
+                    
                     Command::LoadSession(file)
                 } else {
                     Command::None
@@ -170,11 +189,18 @@ impl AppState {
                 Command::None
             }
             Message::ShowHelp => {
-                // Save current state to navigation history
-                let current_state = self.create_navigation_state();
-                self.navigation_history.push(current_state);
+                // If this is our first navigation, save the initial state
+                if self.navigation_history.is_empty() {
+                    let initial_state = self.create_navigation_state();
+                    self.navigation_history.push(initial_state);
+                }
                 
                 self.mode = Mode::Help;
+                
+                // Save the new state after transitioning
+                let new_state = self.create_navigation_state();
+                self.navigation_history.push(new_state);
+                
                 Command::None
             }
             Message::CloseHelp => {
@@ -322,36 +348,44 @@ impl AppState {
                         raw_json: Some(raw_json),    // Store full JSON
                     };
 
-                    // Save current state to navigation history
-                    let current_state = self.create_navigation_state();
-                    self.navigation_history.push(current_state);
+                    // If this is our first navigation, save the initial state
+                    if self.navigation_history.is_empty() {
+                        let initial_state = self.create_navigation_state();
+                        self.navigation_history.push(initial_state);
+                    }
                     
                     self.ui.selected_result = Some(result);
                     self.ui.detail_scroll_offset = 0;
                     self.mode = Mode::ResultDetail;
+                    
+                    // Save the new state after transitioning
+                    let new_state = self.create_navigation_state();
+                    self.navigation_history.push(new_state);
                 }
                 Command::None
             }
             Message::NavigateBack => {
-                if self.navigation_history.can_go_back() {
-                    // go_back returns the state we're leaving, not the state we're going to
-                    self.navigation_history.go_back();
+                #[cfg(test)]
+                println!("NavigateBack: can_go_back = {}", self.navigation_history.can_go_back());
+                
+                if let Some(previous_state) = self.navigation_history.go_back() {
+                    // When we're at position 0 and go back, we go to the initial state
+                    // In that case, go_back() returns the state at position 0 (what we saved)
+                    // and we should restore that state
+                    #[cfg(test)]
+                    println!("NavigateBack: restoring state with mode = {:?}", previous_state.mode);
                     
-                    // Get the state at the new position
-                    if let Some(target_state) = self.navigation_history.current().cloned() {
-                        self.restore_navigation_state(&target_state);
-                        
-                        // Load session if entering SessionViewer mode
-                        if self.mode == Mode::SessionViewer {
-                            if let Some(file_path) = &self.session.file_path {
-                                return Command::LoadSession(file_path.clone());
-                            }
+                    self.restore_navigation_state(&previous_state);
+                    
+                    // Load session if entering SessionViewer mode
+                    if self.mode == Mode::SessionViewer {
+                        if let Some(file_path) = &self.session.file_path {
+                            return Command::LoadSession(file_path.clone());
                         }
-                    } else {
-                        // We're at the beginning (before first navigation)
-                        // Restore to initial Search mode
-                        self.mode = Mode::Search;
                     }
+                } else {
+                    #[cfg(test)]
+                    println!("NavigateBack: go_back() returned None");
                 }
                 Command::None
             }

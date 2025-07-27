@@ -89,18 +89,13 @@ impl NavigationHistory {
     /// Navigate back in history
     pub fn go_back(&mut self) -> Option<NavigationState> {
         match self.current_index {
-            Some(idx) => {
-                // Return the state at current index (the state we came from)
-                let state = self.history.get(idx).cloned();
-                // Move index back if possible
-                if idx > 0 {
-                    self.current_index = Some(idx - 1);
-                } else {
-                    self.current_index = None;
-                }
-                state
+            Some(idx) if idx > 0 => {
+                // Move to previous index
+                self.current_index = Some(idx - 1);
+                // Return the state at the new position
+                self.history.get(idx - 1).cloned()
             }
-            None => None,
+            _ => None, // Can't go back from index 0 or None
         }
     }
 
@@ -122,8 +117,11 @@ impl NavigationHistory {
 
     /// Check if can navigate back
     pub fn can_go_back(&self) -> bool {
-        // Can go back if we have a current index (meaning we've navigated somewhere)
-        self.current_index.is_some()
+        // Can go back if current index > 0
+        match self.current_index {
+            Some(idx) => idx > 0,
+            None => false,
+        }
     }
 
     /// Check if can navigate forward
@@ -208,7 +206,7 @@ mod tests {
         let state1 = create_test_state(Mode::Search);
         history.push(state1.clone());
         assert_eq!(history.len(), 1);
-        assert!(history.can_go_back()); // Can go back from current position
+        assert!(!history.can_go_back()); // Can't go back from position 0
         assert!(!history.can_go_forward());
 
         // Push second state
@@ -232,40 +230,31 @@ mod tests {
         history.push(state3.clone());
 
         // Current index is 2 (SessionViewer)
-        // Go back - should return SessionViewer and move to index 1
+        // Go back - should return ResultDetail and move to index 1
         assert!(history.can_go_back());
         let back_state = history.go_back().unwrap();
-        assert_eq!(back_state.mode, Mode::SessionViewer);
+        assert_eq!(back_state.mode, Mode::ResultDetail);
         assert!(history.can_go_back());
         assert!(history.can_go_forward());
 
-        // Go back again - should return ResultDetail and move to index 0
+        // Go back again - should return Search and move to index 0
         let back_state2 = history.go_back().unwrap();
-        assert_eq!(back_state2.mode, Mode::ResultDetail);
-        assert!(history.can_go_back());
+        assert_eq!(back_state2.mode, Mode::Search);
+        assert!(!history.can_go_back()); // Can't go back from index 0
         assert!(history.can_go_forward());
 
-        // Go back once more - should return Search and move to None
-        let back_state3 = history.go_back().unwrap();
-        assert_eq!(back_state3.mode, Mode::Search);
-        assert!(!history.can_go_back());
-        assert!(history.can_go_forward());
+        // Try to go back from index 0 - should return None
+        assert!(history.go_back().is_none());
 
-        // Go forward - should return Search and move to index 0
+        // Go forward - should return ResultDetail and move to index 1
         let forward_state = history.go_forward().unwrap();
-        assert_eq!(forward_state.mode, Mode::Search);
+        assert_eq!(forward_state.mode, Mode::ResultDetail);
         assert!(history.can_go_back());
         assert!(history.can_go_forward());
 
-        // Go forward again - should return ResultDetail and move to index 1
+        // Go forward again - should return SessionViewer and move to index 2
         let forward_state2 = history.go_forward().unwrap();
-        assert_eq!(forward_state2.mode, Mode::ResultDetail);
-        assert!(history.can_go_back());
-        assert!(history.can_go_forward());
-
-        // Go forward once more - should return SessionViewer and move to index 2
-        let forward_state3 = history.go_forward().unwrap();
-        assert_eq!(forward_state3.mode, Mode::SessionViewer);
+        assert_eq!(forward_state2.mode, Mode::SessionViewer);
         assert!(history.can_go_back());
         assert!(!history.can_go_forward());
     }

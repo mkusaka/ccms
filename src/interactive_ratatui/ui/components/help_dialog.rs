@@ -32,8 +32,8 @@ impl HelpDialog {
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),
             )]),
-            Line::from("  [           - Navigate back (not in Search mode)"),
-            Line::from("  ]           - Navigate forward (not in Search mode)"),
+            Line::from("  Alt+←       - Navigate back through history"),
+            Line::from("  Alt+→       - Navigate forward through history"),
             Line::from("  Ctrl+T      - Toggle message truncation"),
             Line::from("  ?           - Show this help"),
             Line::from(""),

@@ -265,11 +265,19 @@ mod tests {
         assert_eq!(app.state.mode, Mode::Search);
 
         // ESC in session viewer should return to previous mode
-        app.state.mode = Mode::ResultDetail;
-        // Create and push a navigation state
-        let nav_state = app.state.create_navigation_state();
-        app.state.navigation_history.push(nav_state);
-        app.state.mode = Mode::SessionViewer;
+        // First, simulate navigation from Search -> ResultDetail -> SessionViewer
+        app.state.mode = Mode::Search;
+        app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
+        
+        // Navigate to ResultDetail (this will save both Search and ResultDetail states)
+        app.handle_message(Message::EnterResultDetail);
+        assert_eq!(app.state.mode, Mode::ResultDetail);
+        
+        // Navigate to SessionViewer (this will save SessionViewer state)
+        app.handle_message(Message::EnterSessionViewer);
+        assert_eq!(app.state.mode, Mode::SessionViewer);
+        
+        // Now ESC should go back to ResultDetail
         let should_exit = app
             .handle_input(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()))
             .unwrap();
@@ -290,12 +298,12 @@ mod tests {
         app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
         app.handle_message(Message::EnterResultDetail);
         assert_eq!(app.state.mode, Mode::ResultDetail);
-        assert_eq!(app.state.navigation_history.len(), 1);
+        assert_eq!(app.state.navigation_history.len(), 2); // Search and ResultDetail
 
         // Navigate to session viewer
         app.handle_message(Message::EnterSessionViewer);
         assert_eq!(app.state.mode, Mode::SessionViewer);
-        assert_eq!(app.state.navigation_history.len(), 2);
+        assert_eq!(app.state.navigation_history.len(), 3); // Search, ResultDetail, SessionViewer
 
         // ESC should pop back to result detail
         app.handle_message(Message::ExitToSearch);
@@ -308,13 +316,18 @@ mod tests {
         assert!(app.state.navigation_history.can_go_forward());
     }
 
-    /// Test navigation shortcuts [ and ]
+    /// Test basic navigation history behavior - corrected understanding
     #[test]
-    fn test_bracket_navigation() {
-        // First, let's add a simple test to understand navigation behavior
+    fn test_navigation_history_corrected() {
+        // This test shows the corrected understanding of navigation history
         let mut history = NavigationHistory::new(10);
         
-        // Create states
+        // Start: no history
+        assert_eq!(history.len(), 0);
+        assert!(!history.can_go_back());
+        assert!(!history.can_go_forward());
+        
+        // When we navigate from Search to ResultDetail, we save the Search state
         let search_state = NavigationState {
             mode: Mode::Search,
             search_state: SearchStateSnapshot {
@@ -342,109 +355,144 @@ mod tests {
             },
         };
         
-        let detail_state = NavigationState {
+        // Push Search state when navigating to ResultDetail
+        history.push(search_state.clone());
+        assert!(!history.can_go_back()); // Can't go back from position 0
+        assert!(!history.can_go_forward());
+        assert_eq!(history.len(), 1);
+        
+        // Now push ResultDetail state
+        let result_detail_state = NavigationState {
             mode: Mode::ResultDetail,
-            ..search_state.clone()
+            search_state: SearchStateSnapshot {
+                query: String::new(),
+                results: Vec::new(),
+                selected_index: 0,
+                scroll_offset: 0,
+                role_filter: None,
+            },
+            session_state: SessionStateSnapshot {
+                messages: Vec::new(),
+                query: String::new(),
+                filtered_indices: Vec::new(),
+                selected_index: 0,
+                scroll_offset: 0,
+                order: None,
+                file_path: None,
+                session_id: None,
+            },
+            ui_state: UiStateSnapshot {
+                message: None,
+                detail_scroll_offset: 0,
+                selected_result: None,
+                truncation_enabled: true,
+            },
         };
+        history.push(result_detail_state);
+        assert!(history.can_go_back()); // Can go back from position 1
+        assert!(!history.can_go_forward());
+        assert_eq!(history.len(), 2);
         
-        // Test navigation
-        history.push(search_state.clone());  // Position 0
-        history.push(detail_state.clone());   // Position 1
+        // When we go back, we get the Search state
+        let back_state = history.go_back();
+        assert_eq!(back_state.unwrap().mode, Mode::Search, "go_back returns Search state");
+        assert!(!history.can_go_back(), "Can't go back from position 0");
+        assert!(history.can_go_forward());
         
-        // We're now at position 1 (ResultDetail)
-        // Go back should return the state at position 1 and move to position 0
-        let back_state = history.go_back().unwrap();
-        assert_eq!(back_state.mode, Mode::ResultDetail, "go_back returns current state");
-        
-        // But we want to restore the state at the new position (0), not the returned state
-        // So we need to check what state we should be in after going back
-        let current_state = history.current();
-        assert_eq!(current_state.unwrap().mode, Mode::Search, "After go_back, we should be at Search");
+        // Go forward should return us to ResultDetail
+        let forward_state = history.go_forward();
+        assert_eq!(forward_state.unwrap().mode, Mode::ResultDetail, "go_forward returns ResultDetail");
+        assert!(history.can_go_back());
     }
     
-    /// Test navigation shortcuts [ and ] with proper understanding of navigation behavior
+    /// Test navigation shortcuts Alt+Left and Alt+Right - basic functionality
     #[test] 
-    fn test_bracket_navigation_proper() {
+    fn test_alt_arrow_navigation_basic() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
         
-        // Start in Search mode
+        // Define key events
+        let alt_left = KeyEvent::new(KeyCode::Left, KeyModifiers::ALT);
+        let alt_right = KeyEvent::new(KeyCode::Right, KeyModifiers::ALT);
+        
+        // Test 1: No navigation without history
         assert_eq!(app.state.mode, Mode::Search);
+        app.handle_input(alt_left).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "Alt+Left without history should not change mode");
+        app.handle_input(alt_right).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "Alt+Right without history should not change mode");
         
-        // Test 1: [ and ] don't work without navigation history
-        let bracket_back = KeyEvent::new(KeyCode::Char('['), KeyModifiers::empty());
-        let bracket_forward = KeyEvent::new(KeyCode::Char(']'), KeyModifiers::empty());
+        // Test 2: Create simple navigation history
+        app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
         
-        app.handle_input(bracket_back).unwrap();
-        assert_eq!(app.state.mode, Mode::Search, "[ should not change mode without history");
+        // Navigate to ResultDetail - this will push both Search and ResultDetail states
+        app.handle_message(Message::EnterResultDetail);
+        assert_eq!(app.state.mode, Mode::ResultDetail);
+        assert!(app.state.ui.selected_result.is_some(), "Should have selected result");
+        assert_eq!(app.state.navigation_history.len(), 2, "Should have 2 states in history (Search and ResultDetail)");
         
-        app.handle_input(bracket_forward).unwrap();
-        assert_eq!(app.state.mode, Mode::Search, "] should not change mode without history");
+        // Test 3: Navigate back to Search
+        println!("Before Alt+Left: mode = {:?}, history_len = {}, can_go_back = {}", 
+                 app.state.mode, 
+                 app.state.navigation_history.len(),
+                 app.state.navigation_history.can_go_back());
+        app.handle_input(alt_left).unwrap();
+        println!("After Alt+Left: mode = {:?}, history_len = {}", 
+                 app.state.mode, 
+                 app.state.navigation_history.len());
+        assert_eq!(app.state.mode, Mode::Search, "Alt+Left should go back to Search");
+        assert!(!app.state.navigation_history.can_go_back(), "Should not be able to go back from initial state");
+        assert!(app.state.navigation_history.can_go_forward(), "Should be able to go forward");
         
-        // Test 2: Create navigation history by navigating through modes
+        // Test 4: Navigate forward to ResultDetail
+        app.handle_input(alt_right).unwrap();
+        assert_eq!(app.state.mode, Mode::ResultDetail, "Alt+Right should go forward to ResultDetail");
+        assert!(app.state.navigation_history.can_go_back(), "Should be able to go back");
+        assert!(!app.state.navigation_history.can_go_forward(), "Should not be able to go forward from end");
+        
+        // Test 5: Can't go forward from the end
+        app.handle_input(alt_right).unwrap();
+        assert_eq!(app.state.mode, Mode::ResultDetail, "Alt+Right at end should not change mode");
+    }
+    
+    /// Test navigation in different modes including Session Viewer
+    #[test]
+    fn test_alt_arrow_navigation_session_viewer() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+        
+        // Define key events
+        let alt_left = KeyEvent::new(KeyCode::Left, KeyModifiers::ALT);
+        let alt_right = KeyEvent::new(KeyCode::Right, KeyModifiers::ALT);
+        
+        // Setup: Navigate through modes
         app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
         app.handle_message(Message::EnterResultDetail);
         assert_eq!(app.state.mode, Mode::ResultDetail);
+        assert_eq!(app.state.navigation_history.len(), 2); // Search, ResultDetail
         
         app.handle_message(Message::EnterSessionViewer);
         assert_eq!(app.state.mode, Mode::SessionViewer);
+        assert_eq!(app.state.navigation_history.len(), 3); // Search, ResultDetail, SessionViewer
         
-        // Now history contains: [Search, ResultDetail] and we're at SessionViewer
+        // Test navigation from Session Viewer
+        app.handle_input(alt_left).unwrap();
+        assert_eq!(app.state.mode, Mode::ResultDetail, "Alt+Left from SessionViewer should go to ResultDetail");
         
-        // Test 3: [ navigates back in non-Search modes
-        // When we go back from SessionViewer (position 1), we go to position 0 which has Search
-        app.handle_input(bracket_back).unwrap();
-        assert_eq!(app.state.mode, Mode::Search, "[ should navigate back to Search (position 0)");
+        app.handle_input(alt_left).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "Alt+Left from ResultDetail should go to Search");
         
-        // Now we're at position 0, we can't go back further ([ won't work in Search mode)
-        // But the navigation history still thinks we can go back (from position 0 to None)
-        assert!(app.state.navigation_history.can_go_back());
+        // Navigate forward again
+        app.handle_input(alt_right).unwrap();
+        assert_eq!(app.state.mode, Mode::ResultDetail, "Alt+Right should go to ResultDetail");
         
-        // Since we're in Search mode, [ won't trigger navigation
-        app.handle_input(bracket_back).unwrap();
-        assert_eq!(app.state.mode, Mode::Search, "[ in Search mode doesn't navigate");
+        app.handle_input(alt_right).unwrap();
+        assert_eq!(app.state.mode, Mode::SessionViewer, "Alt+Right should go to SessionViewer");
         
-        // We're still at position 0, so we can still go back and forward
-        assert!(app.state.navigation_history.can_go_back(), "Still at position 0, can go back");
-        assert!(app.state.navigation_history.can_go_forward(), "Can go forward from position 0");
-        
-        // Test 4: ] doesn't work in Search mode
-        app.handle_input(bracket_forward).unwrap();
-        assert_eq!(app.state.mode, Mode::Search, "] should be ignored in Search mode");
-        
-        // Test 5: [ doesn't work in Search mode when at beginning
-        app.handle_input(bracket_back).unwrap();
-        assert_eq!(app.state.mode, Mode::Search, "[ should be ignored in Search mode when at beginning");
-        
-        // Test 6: Since [ and ] don't work in Search mode, we need to verify
-        // the navigation history is preserved and can be used from other modes
-        // Let's directly set the mode to test navigation
-        app.state.mode = Mode::Help; // Directly set mode without adding to history
-        
-        // Now we can use ] to navigate forward through history
-        // We're at position 0, so forward goes to position 1 (ResultDetail)
-        app.handle_input(bracket_forward).unwrap();
-        assert_eq!(app.state.mode, Mode::ResultDetail, "] should navigate forward to ResultDetail");
-        
-        // Test 7: Can't go forward from the end
-        assert!(!app.state.navigation_history.can_go_forward(), "Should be at the end");
-        app.handle_input(bracket_forward).unwrap();
-        assert_eq!(app.state.mode, Mode::ResultDetail, "] should not change mode at the end");
-        
-        // Test 8: Navigate back to Search
-        app.handle_input(bracket_back).unwrap();
-        assert_eq!(app.state.mode, Mode::Search, "[ should go back to Search");
-        
-        // We're at position 0, so we can still technically go back to None
-        assert!(app.state.navigation_history.can_go_back(), "At position 0, can still go back");
-        
-        // Test 9: Verify [ and ] are ignored in Search mode
-        app.state.search.query.clear();
-        app.handle_input(bracket_back).unwrap();
-        assert_eq!(app.state.mode, Mode::Search, "[ should not navigate in Search mode");
-        
-        app.handle_input(bracket_forward).unwrap();
-        assert_eq!(app.state.mode, Mode::Search, "] should not navigate in Search mode");
+        // Can't go forward from the end
+        assert!(!app.state.navigation_history.can_go_forward());
+        app.handle_input(alt_right).unwrap();
+        assert_eq!(app.state.mode, Mode::SessionViewer, "Alt+Right at end should not change mode");
     }
+    
 
     /// Test Tab key role filter toggle
     #[test]

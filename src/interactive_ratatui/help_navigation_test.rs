@@ -13,14 +13,14 @@ mod tests {
         // Show help from search mode
         state.update(Message::ShowHelp);
         assert_eq!(state.mode, Mode::Help);
-        assert_eq!(state.navigation_history.len(), 1);
-        assert!(state.navigation_history.can_go_back()); // Can go back to the pushed state
+        assert_eq!(state.navigation_history.len(), 2); // Initial Search + Help
+        assert!(state.navigation_history.can_go_back()); // Can go back to Search
 
         // Close help should return to search mode
         state.update(Message::CloseHelp);
         assert_eq!(state.mode, Mode::Search);
-        assert!(!state.navigation_history.can_go_back());
-        assert!(state.navigation_history.can_go_forward()); // Can go forward back to the state we came from
+        assert!(!state.navigation_history.can_go_back()); // At position 0
+        assert!(state.navigation_history.can_go_forward()); // Can go forward to Help
     }
 
     #[test]
@@ -32,18 +32,18 @@ mod tests {
         state.search.results = vec![create_test_result()];
         state.update(Message::EnterResultDetail);
         assert_eq!(state.mode, Mode::ResultDetail);
-        assert_eq!(state.navigation_history.len(), 1);
+        assert_eq!(state.navigation_history.len(), 2); // Search + ResultDetail
 
         // Show help from result detail mode
         state.update(Message::ShowHelp);
         assert_eq!(state.mode, Mode::Help);
-        assert_eq!(state.navigation_history.len(), 2);
+        assert_eq!(state.navigation_history.len(), 3); // Search + ResultDetail + Help
 
         // Close help should return to result detail mode
         state.update(Message::CloseHelp);
         assert_eq!(state.mode, Mode::ResultDetail);
-        assert!(state.navigation_history.can_go_back());
-        assert!(state.navigation_history.can_go_forward());
+        assert!(state.navigation_history.can_go_back()); // Can go back to Search
+        assert!(state.navigation_history.can_go_forward()); // Can go forward to Help
     }
 
     #[test]
@@ -54,18 +54,18 @@ mod tests {
         state.search.results = vec![create_test_result()];
         state.update(Message::EnterSessionViewer);
         assert_eq!(state.mode, Mode::SessionViewer);
-        assert_eq!(state.navigation_history.len(), 1);
+        assert_eq!(state.navigation_history.len(), 2); // Search + SessionViewer
 
         // Show help from session viewer mode
         state.update(Message::ShowHelp);
         assert_eq!(state.mode, Mode::Help);
-        assert_eq!(state.navigation_history.len(), 2);
+        assert_eq!(state.navigation_history.len(), 3); // Search + SessionViewer + Help
 
         // Close help should return to session viewer mode
         state.update(Message::CloseHelp);
         assert_eq!(state.mode, Mode::SessionViewer);
-        assert!(state.navigation_history.can_go_back());
-        assert!(state.navigation_history.can_go_forward());
+        assert!(state.navigation_history.can_go_back()); // Can go back to Search
+        assert!(state.navigation_history.can_go_forward()); // Can go forward to Help
     }
 
     #[test]
@@ -75,16 +75,17 @@ mod tests {
         // Show help
         state.update(Message::ShowHelp);
         assert_eq!(state.mode, Mode::Help);
+        assert_eq!(state.navigation_history.len(), 2); // Search + Help
 
-        // Trying to show help again from help mode should not change anything
-        // (This is prevented in the key handler, but test the state handling)
+        // Trying to show help again from help mode will push another Help state
         state.update(Message::ShowHelp);
         assert_eq!(state.mode, Mode::Help);
-        assert_eq!(state.navigation_history.len(), 2); // Would push again if not prevented
+        assert_eq!(state.navigation_history.len(), 3); // Search + Help + Help
 
-        // Close help - should go back to Help (the state we pushed when showing help the second time)
+        // Close help - should go back to previous state (which is also Help)
         state.update(Message::CloseHelp);
         assert_eq!(state.mode, Mode::Help);
+        assert_eq!(state.navigation_history.len(), 3); // History stays same, just position changed
     }
 
     #[test]
@@ -94,19 +95,24 @@ mod tests {
         // Navigate: Search -> ResultDetail -> SessionViewer -> Help
         state.search.results = vec![create_test_result()];
         state.update(Message::EnterResultDetail);
+        assert_eq!(state.navigation_history.len(), 2); // Search + ResultDetail
+        
         state.update(Message::EnterSessionViewer);
+        assert_eq!(state.navigation_history.len(), 3); // Search + ResultDetail + SessionViewer
+        
         state.update(Message::ShowHelp);
-
         assert_eq!(state.mode, Mode::Help);
-        assert_eq!(state.navigation_history.len(), 3);
+        assert_eq!(state.navigation_history.len(), 4); // Search + ResultDetail + SessionViewer + Help
 
         // Close help should return to session viewer
         state.update(Message::CloseHelp);
         assert_eq!(state.mode, Mode::SessionViewer);
 
-        // Navigate back to search
+        // Navigate back to result detail
         state.update(Message::ExitToSearch);
         assert_eq!(state.mode, Mode::ResultDetail);
+        
+        // Navigate back to search
         state.update(Message::ExitToSearch);
         assert_eq!(state.mode, Mode::Search);
         
@@ -121,8 +127,11 @@ mod tests {
         // Navigate: Search -> ResultDetail -> SessionViewer
         state.search.results = vec![create_test_result()];
         state.update(Message::EnterResultDetail);
+        assert_eq!(state.navigation_history.len(), 2); // Search + ResultDetail
+        
         state.update(Message::EnterSessionViewer);
         assert_eq!(state.mode, Mode::SessionViewer);
+        assert_eq!(state.navigation_history.len(), 3); // Search + ResultDetail + SessionViewer
 
         // Navigate back from SessionViewer to ResultDetail
         state.update(Message::NavigateBack);
@@ -133,20 +142,20 @@ mod tests {
         // Navigate back again to Search
         state.update(Message::NavigateBack);
         assert_eq!(state.mode, Mode::Search);
-        assert!(!state.navigation_history.can_go_back());
+        assert!(!state.navigation_history.can_go_back()); // Can't go back from position 0
         assert!(state.navigation_history.can_go_forward());
 
-        // Navigate forward - goes to first item in history (Search)
-        state.update(Message::NavigateForward);
-        assert_eq!(state.mode, Mode::Search); // We're at the first saved state
-        assert!(state.navigation_history.can_go_back());
-        assert!(state.navigation_history.can_go_forward());
-
-        // Navigate forward again to ResultDetail
+        // Navigate forward - goes to ResultDetail
         state.update(Message::NavigateForward);
         assert_eq!(state.mode, Mode::ResultDetail);
         assert!(state.navigation_history.can_go_back());
-        assert!(!state.navigation_history.can_go_forward());
+        assert!(state.navigation_history.can_go_forward());
+
+        // Navigate forward again to SessionViewer
+        state.update(Message::NavigateForward);
+        assert_eq!(state.mode, Mode::SessionViewer);
+        assert!(state.navigation_history.can_go_back());
+        assert!(!state.navigation_history.can_go_forward()); // At the end of history
     }
 
     // Helper function to create a test result
