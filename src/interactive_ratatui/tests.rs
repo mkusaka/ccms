@@ -1,6 +1,6 @@
 use super::*;
-use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::SearchOptions;
+use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::commands::Command;
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;

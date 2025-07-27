@@ -31,7 +31,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-
     // Note: The sort_messages functionality is not exposed by SessionService
     // These tests demonstrate the expected behavior if it were public
 

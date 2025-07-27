@@ -147,7 +147,6 @@ pub fn discover_claude_files(pattern: Option<&str>) -> Result<Vec<PathBuf>> {
     discovery.discover_files(&base_path)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

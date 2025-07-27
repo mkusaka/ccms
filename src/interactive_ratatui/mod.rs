@@ -406,7 +406,6 @@ impl InteractiveSearch {
         }
     }
 
-
     #[cfg(test)]
     pub(crate) fn set_mode(&mut self, mode: Mode) {
         self.state.mode = mode;
