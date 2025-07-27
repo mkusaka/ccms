@@ -10,10 +10,6 @@ pub const MESSAGE_CLEAR_DELAY_MS: u64 = 3000;
 /// Event polling interval in milliseconds
 pub const EVENT_POLL_INTERVAL_MS: u64 = 50;
 
-/// Search debounce delay in milliseconds
-#[allow(dead_code)]
-pub const SEARCH_DEBOUNCE_DELAY_MS: u64 = 300;
-
 /// Double Ctrl+C timeout in seconds
 pub const DOUBLE_CTRL_C_TIMEOUT_SECS: u64 = 1;
 
@@ -24,20 +20,12 @@ pub const SEARCH_BAR_HEIGHT: u16 = 3;
 /// Height of the status bar
 pub const STATUS_BAR_HEIGHT: u16 = 1;
 
-/// Number of lines to keep visible when scrolling
-#[allow(dead_code)]
-pub const SCROLL_MARGIN: usize = 10;
-
 /// Page size for PageUp/PageDown navigation
 pub const PAGE_SIZE: usize = 10;
 
 // Buffer sizes
 /// Buffer size for file reading (32KB)
 pub const FILE_READ_BUFFER_SIZE: usize = 32 * 1024;
-
-/// Default maximum search results
-#[allow(dead_code)]
-pub const DEFAULT_MAX_RESULTS: usize = 100;
 
 // Help dialog dimensions
 /// Maximum width for help dialog
