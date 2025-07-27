@@ -12,7 +12,9 @@ pub struct SearchService {
 impl SearchService {
     pub fn new(options: SearchOptions) -> Self {
         let engine = Arc::new(SearchEngine::new(options));
-        Self { engine }
+        Self {
+            engine,
+        }
     }
 
     pub fn search(&self, request: SearchRequest) -> Result<SearchResponse> {

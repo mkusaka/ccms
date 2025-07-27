@@ -1,9 +1,9 @@
 use super::*;
-use crate::SearchOptions;
 use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::commands::Command;
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
+use crate::SearchOptions;
 
 #[test]
 fn test_interactive_search_creation() {

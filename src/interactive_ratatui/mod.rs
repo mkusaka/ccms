@@ -411,3 +411,4 @@ impl InteractiveSearch {
         self.state.mode = mode;
     }
 }
+}

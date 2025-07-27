@@ -40,4 +40,5 @@ mod tests {
         // It sorts messages by timestamp in ascending, descending, or original order
         // This test documents the expected behavior for future reference
     }
+
 }
