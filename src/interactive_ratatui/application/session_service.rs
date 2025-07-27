@@ -26,5 +26,4 @@ impl SessionService {
         let cached_file = cache.get_messages(path)?;
         Ok(cached_file.raw_lines.clone())
     }
-
 }

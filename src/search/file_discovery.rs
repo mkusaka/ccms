@@ -150,7 +150,7 @@ pub fn discover_claude_files(pattern: Option<&str>) -> Result<Vec<PathBuf>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::{create_dir_all, File};
+    use std::fs::{File, create_dir_all};
     use std::io::Write;
     use tempfile::tempdir;
 
