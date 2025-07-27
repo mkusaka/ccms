@@ -1,11 +1,15 @@
 use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
+#[cfg(test)]
 use crate::query::condition::SearchResult;
+#[cfg(test)]
 use anyhow::Result;
 
+#[cfg(test)]
 pub struct SearchFilter {
     pub role_filter: Option<String>,
 }
 
+#[cfg(test)]
 impl SearchFilter {
     pub fn new(role_filter: Option<String>) -> Self {
         Self { role_filter }

@@ -26,6 +26,15 @@ impl SearchEngine {
         pattern: &str,
         query: QueryCondition,
     ) -> Result<(Vec<SearchResult>, std::time::Duration, usize)> {
+        self.search_with_role_filter(pattern, query, None)
+    }
+
+    pub fn search_with_role_filter(
+        &self,
+        pattern: &str,
+        query: QueryCondition,
+        role_filter: Option<String>,
+    ) -> Result<(Vec<SearchResult>, std::time::Duration, usize)> {
         let start_time = std::time::Instant::now();
 
         // Discover files
@@ -101,7 +110,7 @@ impl SearchEngine {
         // });
 
         // Apply filters
-        self.apply_filters(&mut all_results)?;
+        self.apply_filters(&mut all_results, role_filter)?;
 
         // Sort by timestamp (newest first)
         all_results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
@@ -329,7 +338,20 @@ impl SearchEngine {
         Ok(results)
     }
 
-    fn apply_filters(&self, results: &mut Vec<SearchResult>) -> Result<()> {
+    fn apply_filters(
+        &self,
+        results: &mut Vec<SearchResult>,
+        role_filter: Option<String>,
+    ) -> Result<()> {
+        // Apply role filter from interactive UI (if provided)
+        if let Some(role) = role_filter {
+            results.retain(|r| r.role == role);
+        }
+
+        // Apply role filter from command line options
+        if let Some(role) = &self.options.role {
+            results.retain(|r| r.role == *role);
+        }
         // Apply timestamp filters
         if let Some(before) = &self.options.before {
             let before_time =
