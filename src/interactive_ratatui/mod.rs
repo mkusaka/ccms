@@ -55,14 +55,13 @@ pub struct InteractiveSearch {
 
 impl InteractiveSearch {
     pub fn new(options: SearchOptions) -> Self {
-        let max_results = options.max_results.unwrap_or(100);
         let cache = Arc::new(Mutex::new(CacheService::new()));
 
         let search_service = Arc::new(SearchService::new(options.clone()));
         let session_service = Arc::new(SessionService::new(cache));
 
         Self {
-            state: AppState::new(options, max_results),
+            state: AppState::new(),
             renderer: Renderer::new(),
             search_service,
             session_service,
@@ -405,17 +404,6 @@ impl InteractiveSearch {
         {
             Err(anyhow::anyhow!("Clipboard not supported on this platform"))
         }
-    }
-
-    // For compatibility with existing tests
-    #[allow(dead_code)]
-    pub(crate) fn current_mode(&self) -> Mode {
-        self.state.mode
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn push_screen(&mut self, mode: Mode) {
-        self.state.mode = mode;
     }
 
     #[cfg(test)]

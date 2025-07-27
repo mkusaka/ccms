@@ -1,4 +1,3 @@
-use crate::SearchOptions;
 use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::domain::models::SessionOrder;
 use crate::interactive_ratatui::ui::commands::Command;
@@ -17,10 +16,6 @@ pub struct AppState {
     pub search: SearchState,
     pub session: SessionState,
     pub ui: UiState,
-    #[allow(dead_code)]
-    pub base_options: SearchOptions,
-    #[allow(dead_code)]
-    pub max_results: usize,
 }
 
 pub struct SearchState {
@@ -52,8 +47,14 @@ pub struct UiState {
     pub truncation_enabled: bool,
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppState {
-    pub fn new(base_options: SearchOptions, max_results: usize) -> Self {
+    pub fn new() -> Self {
         Self {
             mode: Mode::Search,
             navigation_history: NavigationHistory::new(MAX_NAVIGATION_HISTORY),
@@ -83,8 +84,6 @@ impl AppState {
                 selected_result: None,
                 truncation_enabled: true,
             },
-            base_options,
-            max_results,
         }
     }
 
@@ -441,8 +440,7 @@ impl AppState {
             .session
             .messages
             .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .filter_map(|line| SessionListItem::from_json_line(line))
             .collect();
 
         self.session.filtered_indices =

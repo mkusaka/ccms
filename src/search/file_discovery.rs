@@ -147,48 +147,6 @@ pub fn discover_claude_files(pattern: Option<&str>) -> Result<Vec<PathBuf>> {
     discovery.discover_files(&base_path)
 }
 
-pub fn discover_claude_files_with_filter(
-    pattern: Option<&str>,
-    recent_hours: Option<u64>,
-) -> Result<Vec<PathBuf>> {
-    let default_pattern = default_claude_pattern();
-    let pattern = pattern.unwrap_or(&default_pattern);
-    let expanded_path = expand_tilde(pattern);
-
-    // Extract base path and glob pattern
-    let path_str = expanded_path.to_string_lossy();
-    let (base_path, glob_pattern) = if let Some(pos) = path_str.find("**") {
-        let base = &path_str[..pos];
-        (PathBuf::from(base), path_str.to_string())
-    } else if let Some(pos) = path_str.find('*') {
-        let base = &path_str[..pos];
-        let parent = Path::new(base).parent().unwrap_or(Path::new("/"));
-        (parent.to_path_buf(), path_str.to_string())
-    } else {
-        // No glob pattern, treat as single file
-        return Ok(vec![expanded_path]);
-    };
-
-    let discovery = FileDiscovery::from_pattern(&glob_pattern)?;
-    let mut files = discovery.discover_files(&base_path)?;
-
-    // Apply recent filter if specified
-    if let Some(hours) = recent_hours {
-        let cutoff_time = std::time::SystemTime::now()
-            .checked_sub(std::time::Duration::from_secs(hours * 3600))
-            .unwrap_or(std::time::UNIX_EPOCH);
-
-        files.retain(|path| {
-            std::fs::metadata(path)
-                .and_then(|m| m.modified())
-                .map(|mtime| mtime >= cutoff_time)
-                .unwrap_or(false)
-        });
-    }
-
-    Ok(files)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

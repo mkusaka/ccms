@@ -7,7 +7,7 @@ use ccms::interactive_ratatui::ui::{
     renderer::Renderer,
 };
 use ccms::schemas::{BaseMessage, UserContent, UserMessageContent};
-use ccms::{QueryCondition, SearchOptions, SearchResult, SessionMessage};
+use ccms::{QueryCondition, SearchResult, SessionMessage};
 use codspeed_criterion_compat::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
 use ratatui::{Terminal, backend::TestBackend, layout::Rect};
 
@@ -204,7 +204,7 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
     group.bench_function("update_query_changed", |b| {
         b.iter_batched(
             || {
-                let mut state = AppState::new(SearchOptions::default(), 1000);
+                let mut state = AppState::new();
                 state.search.results = create_test_search_results(100);
                 state
             },
@@ -221,7 +221,7 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
         let results = create_test_search_results(1000);
 
         b.iter_batched(
-            || AppState::new(SearchOptions::default(), 1000),
+            AppState::new,
             |mut state| {
                 let msg = Message::SearchCompleted(results.clone());
                 black_box(state.update(msg));
@@ -235,7 +235,7 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
         let results = create_test_search_results(100_000);
 
         b.iter_batched(
-            || AppState::new(SearchOptions::default(), 100_000),
+            AppState::new,
             |mut state| {
                 let msg = Message::SearchCompleted(results.clone());
                 black_box(state.update(msg));
@@ -248,7 +248,7 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
     group.bench_function("update_move_down", |b| {
         b.iter_batched(
             || {
-                let mut state = AppState::new(SearchOptions::default(), 1000);
+                let mut state = AppState::new();
                 state.search.results = create_test_search_results(1000);
                 state.search.selected_index = 500;
                 state
@@ -265,7 +265,7 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
     group.bench_function("update_enter_detail", |b| {
         b.iter_batched(
             || {
-                let mut state = AppState::new(SearchOptions::default(), 1000);
+                let mut state = AppState::new();
                 state.search.results = create_test_search_results(100);
                 state.search.selected_index = 50;
                 state
@@ -287,7 +287,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
     // Full frame rendering in search mode (small dataset)
     group.bench_function("render_search_mode_100", |b| {
         let mut renderer = Renderer::new();
-        let mut state = AppState::new(SearchOptions::default(), 1000);
+        let mut state = AppState::new();
         state.search.results = create_test_search_results(100);
         state.search.selected_index = 50;
         state.search.is_searching = false;
@@ -310,7 +310,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
     // Production-scale full frame rendering (100k entries)
     group.bench_function("render_search_mode_100k", |b| {
         let mut renderer = Renderer::new();
-        let mut state = AppState::new(SearchOptions::default(), 100_000);
+        let mut state = AppState::new();
         state.search.results = create_test_search_results(100_000);
         state.search.selected_index = 50_000;
         state.search.is_searching = false;
@@ -334,7 +334,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
     // Full frame rendering in detail mode
     group.bench_function("render_detail_mode", |b| {
         let mut renderer = Renderer::new();
-        let mut state = AppState::new(SearchOptions::default(), 1000);
+        let mut state = AppState::new();
         let test_results = create_test_search_results(10);
         state.ui.selected_result = Some(test_results[0].clone());
         state.mode = ccms::interactive_ratatui::ui::app_state::Mode::ResultDetail;
@@ -371,7 +371,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
         b.iter_batched(
             || {
                 let renderer = Renderer::new();
-                let state = AppState::new(SearchOptions::default(), 1000);
+                let state = AppState::new();
                 (renderer, state, TestBackend::new(120, 40))
             },
             |(mut renderer, mut state, backend)| {
@@ -405,7 +405,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
         b.iter_batched(
             || {
                 let renderer = Renderer::new();
-                let mut state = AppState::new(SearchOptions::default(), 100_000);
+                let mut state = AppState::new();
                 // Typing with large existing dataset
                 state.search.results = create_test_search_results(50_000);
                 (renderer, state, TestBackend::new(120, 40))

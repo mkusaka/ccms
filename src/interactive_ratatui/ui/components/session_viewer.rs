@@ -69,8 +69,7 @@ impl SessionViewer {
             let items: Vec<SessionListItem> = self
                 .raw_messages
                 .iter()
-                .enumerate()
-                .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+                .filter_map(|line| SessionListItem::from_json_line(line))
                 .collect();
 
             self.list_viewer.set_items(items);
@@ -118,13 +117,11 @@ impl SessionViewer {
         self.role_filter = role_filter;
     }
 
-    #[allow(dead_code)]
     pub fn start_search(&mut self) {
         self.is_searching = true;
         self.text_input.set_text(String::new());
     }
 
-    #[allow(dead_code)]
     pub fn stop_search(&mut self) {
         self.is_searching = false;
     }

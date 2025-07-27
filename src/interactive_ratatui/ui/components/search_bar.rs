@@ -43,12 +43,10 @@ impl SearchBar {
         self.role_filter = role_filter;
     }
 
-    #[allow(dead_code)]
     pub fn get_query(&self) -> &str {
         self.text_input.text()
     }
 
-    #[allow(dead_code)]
     pub fn is_searching(&self) -> bool {
         self.is_searching
     }

@@ -92,8 +92,7 @@ mod tests {
 
         let items: Vec<SessionListItem> = jsonl_data
             .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .filter_map(|line| SessionListItem::from_json_line(line))
             .collect();
 
         let indices = SessionFilter::filter_messages(&items, "", &None);
@@ -115,8 +114,7 @@ mod tests {
 
         let items: Vec<SessionListItem> = jsonl_data
             .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .filter_map(|line| SessionListItem::from_json_line(line))
             .collect();
 
         let indices = SessionFilter::filter_messages(&items, "world", &None);
@@ -136,8 +134,7 @@ mod tests {
 
         let items: Vec<SessionListItem> = jsonl_data
             .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .filter_map(|line| SessionListItem::from_json_line(line))
             .collect();
 
         let indices = SessionFilter::filter_messages(&items, "fox", &None);
@@ -158,8 +155,7 @@ mod tests {
 
         let items: Vec<SessionListItem> = jsonl_data
             .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .filter_map(|line| SessionListItem::from_json_line(line))
             .collect();
 
         let indices = SessionFilter::filter_messages(&items, "世界", &None);
@@ -179,8 +175,7 @@ mod tests {
 
         let items: Vec<SessionListItem> = jsonl_data
             .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .filter_map(|line| SessionListItem::from_json_line(line))
             .collect();
 
         // Test various whitespace scenarios
@@ -219,8 +214,7 @@ mod tests {
 
         let items: Vec<SessionListItem> = jsonl_data
             .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .filter_map(|line| SessionListItem::from_json_line(line))
             .collect();
 
         // These searches now work on display text as expected
@@ -259,8 +253,7 @@ mod tests {
 
         let items: Vec<SessionListItem> = jsonl_data
             .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .filter_map(|line| SessionListItem::from_json_line(line))
             .collect();
 
         // Test with no role filter - should return all messages
@@ -296,8 +289,7 @@ mod tests {
 
         let items: Vec<SessionListItem> = jsonl_data
             .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .filter_map(|line| SessionListItem::from_json_line(line))
             .collect();
 
         // Test with text filter "Hello" and user role filter
@@ -327,8 +319,7 @@ mod tests {
 
         let items: Vec<SessionListItem> = jsonl_data
             .iter()
-            .enumerate()
-            .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
+            .filter_map(|line| SessionListItem::from_json_line(line))
             .collect();
 
         // Test with lowercase role filter - should match all case variations

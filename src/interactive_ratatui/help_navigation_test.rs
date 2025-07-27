@@ -1,12 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use crate::SearchOptions;
     use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
     use crate::interactive_ratatui::ui::events::Message;
 
     #[test]
     fn test_help_dialog_navigation_from_search_mode() {
-        let mut state = AppState::new(SearchOptions::default(), 100);
+        let mut state = AppState::new();
         assert_eq!(state.mode, Mode::Search);
         assert!(state.navigation_history.is_empty());
 
@@ -25,7 +24,7 @@ mod tests {
 
     #[test]
     fn test_help_dialog_navigation_from_result_detail_mode() {
-        let mut state = AppState::new(SearchOptions::default(), 100);
+        let mut state = AppState::new();
 
         // First navigate to result detail mode
         // (We need to set up a result first)
@@ -48,7 +47,7 @@ mod tests {
 
     #[test]
     fn test_help_dialog_navigation_from_session_viewer_mode() {
-        let mut state = AppState::new(SearchOptions::default(), 100);
+        let mut state = AppState::new();
 
         // First navigate to session viewer mode
         state.search.results = vec![create_test_result()];
@@ -70,7 +69,7 @@ mod tests {
 
     #[test]
     fn test_help_dialog_navigation_from_help_mode() {
-        let mut state = AppState::new(SearchOptions::default(), 100);
+        let mut state = AppState::new();
 
         // Show help
         state.update(Message::ShowHelp);
@@ -90,7 +89,7 @@ mod tests {
 
     #[test]
     fn test_help_dialog_navigation_complex_flow() {
-        let mut state = AppState::new(SearchOptions::default(), 100);
+        let mut state = AppState::new();
 
         // Navigate: Search -> ResultDetail -> SessionViewer -> Help
         state.search.results = vec![create_test_result()];
@@ -122,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_navigation_back_forward() {
-        let mut state = AppState::new(SearchOptions::default(), 100);
+        let mut state = AppState::new();
 
         // Navigate: Search -> ResultDetail -> SessionViewer
         state.search.results = vec![create_test_result()];

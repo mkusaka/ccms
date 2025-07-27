@@ -6,8 +6,6 @@ use ratatui::text::{Line, Span};
 
 #[derive(Debug, Clone)]
 pub struct SessionListItem {
-    #[allow(dead_code)]
-    pub index: usize,
     pub raw_json: String,
     pub role: String,
     pub timestamp: String,
@@ -22,7 +20,7 @@ impl SessionListItem {
         format!("{} {} {}", formatted_timestamp, self.role, self.content)
     }
 
-    pub fn from_json_line(index: usize, json_line: &str) -> Option<Self> {
+    pub fn from_json_line(json_line: &str) -> Option<Self> {
         if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(json_line) {
             // Extract role/type
             let role = json_value
@@ -79,7 +77,6 @@ impl SessionListItem {
             };
 
             Some(Self {
-                index,
                 raw_json: json_line.to_string(),
                 role,
                 timestamp,

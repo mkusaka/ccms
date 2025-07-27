@@ -31,28 +31,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_filter_messages_empty_list() {
-        let messages: Vec<String> = vec![];
-        let indices = SessionService::filter_messages(&messages, "query", &None);
-
-        assert_eq!(indices.len(), 0);
-    }
-
-    #[test]
-    fn test_filter_messages_with_query() {
-        let messages = vec![
-            r#"{"type":"user","message":{"role":"user","content":"Hello world"},"uuid":"1","timestamp":"2024-12-25T14:30:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-            r#"{"type":"assistant","message":{"role":"assistant","content":"Goodbye world"},"uuid":"2","timestamp":"2024-12-25T14:31:00Z","sessionId":"session1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-            r#"{"type":"user","message":{"role":"user","content":"Hello again"},"uuid":"3","timestamp":"2024-12-25T14:32:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-            r#"{"type":"system","content":"Something else","uuid":"4","timestamp":"2024-12-25T14:33:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-        ];
-
-        let indices = SessionService::filter_messages(&messages, "Hello", &None);
-
-        assert_eq!(indices, vec![0, 2]);
-    }
-
     // Note: The sort_messages functionality is not exposed by SessionService
     // These tests demonstrate the expected behavior if it were public
 

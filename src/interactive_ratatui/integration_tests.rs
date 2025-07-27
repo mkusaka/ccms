@@ -70,7 +70,7 @@ mod tests {
         assert!(buffer_contains(buffer, "Search"));
 
         // Test help mode rendering
-        app.push_screen(Mode::Help);
+        app.set_mode(Mode::Help);
         terminal
             .draw(|f| app.renderer.render(f, &app.state))
             .unwrap();
@@ -135,7 +135,7 @@ mod tests {
         app.state.mode = Mode::SessionViewer;
 
         // Verify session viewer state initialization
-        assert_eq!(app.current_mode(), Mode::SessionViewer);
+        assert_eq!(app.state.mode, Mode::SessionViewer);
     }
 
     /// Test search functionality integration
