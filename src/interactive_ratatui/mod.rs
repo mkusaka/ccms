@@ -18,6 +18,8 @@ mod domain;
 pub mod ui;
 
 #[cfg(test)]
+mod help_navigation_test;
+#[cfg(test)]
 mod integration_tests;
 #[cfg(test)]
 mod session_view_integration_test;
