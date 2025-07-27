@@ -36,14 +36,17 @@ impl SearchApp {
     pub async fn render(&self, state: &mut AppState) -> Result<String> {
         let mut output = String::new();
         
-        // Clear screen
-        output.push_str("\x1b[2J\x1b[H");
+        // Hide cursor temporarily during render
+        output.push_str("\x1b[?25l");
         
         match state.current_mode {
             ViewMode::Search => self.render_search_view(&mut output, state).await?,
             ViewMode::ResultDetail => self.render_detail_view(&mut output, state).await?,
             ViewMode::Help => self.render_help_view(&mut output, state).await?,
         }
+        
+        // Show cursor again
+        output.push_str("\x1b[?25h");
         
         Ok(output)
     }

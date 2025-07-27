@@ -59,6 +59,8 @@ pub async fn run_interactive_search(pattern: &str, options: SearchOptions) -> Re
                 state_lock.needs_render = false;
                 drop(state_lock);
                 
+                // Clear screen and move cursor to home before printing
+                print!("\x1b[2J\x1b[H");
                 print!("{output}");
                 io::stdout().flush()?;
             } else {
