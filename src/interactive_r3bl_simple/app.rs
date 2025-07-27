@@ -350,7 +350,7 @@ impl SearchApp {
                     self.trigger_search(state).await?;
                 }
             }
-            c if c.is_ascii() && !c.is_control() => {
+            c if !c.is_control() => {
                 if matches!(state.current_mode, ViewMode::Search) {
                     state.query.push(c);
                     state.needs_render = true;
