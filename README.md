@@ -139,6 +139,8 @@ ccms -i -n 100                               # Adjust result limit
 - `Tab` - Cycle role filters (all → user → assistant → system → summary)
 - `Ctrl+R` - Clear cache and reload files
 - `Ctrl+T` - Toggle message truncation (Truncated/Full Text)
+- `Alt+←` - Navigate back through history
+- `Alt+→` - Navigate forward through history
 - `Ctrl+C (2x)` - Exit (press twice within 1 second)
 - `Esc` - Go back to previous screen (does not exit from search screen)
 

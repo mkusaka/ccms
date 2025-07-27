@@ -62,6 +62,8 @@ Search [role]: [query]
 | Tab | Cycle through role filters: None → user → assistant → system → summary → None |
 | Ctrl+R | Clear cache and reload all files |
 | Ctrl+T | Toggle message truncation (Truncated/Full Text) |
+| Alt+← | Navigate back through history |
+| Alt+→ | Navigate forward through history |
 | Ctrl+C (2x) | Exit interactive mode (press twice within 1 second) |
 
 ### Full Result View
@@ -94,6 +96,7 @@ Actions:
   [K/↑] - Scroll up
   [PageDown] - Scroll down 10 lines
   [PageUp] - Scroll up 10 lines
+  [Alt+←/→] - Navigate history
   [Esc] - Return to search results
 ```
 
@@ -154,6 +157,7 @@ Enter: View | ↑/↓: Navigate | /: Search | I: Copy Session ID | O: Sort | C: 
    - C: Copy selected message
    - Shift+C: Copy all visible (filtered) messages
    - I: Copy session ID
+   - Alt+←/→: Navigate back/forward through history
    - Esc/Backspace: Return to previous screen
    - Maintains scroll position and selection state
 
