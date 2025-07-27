@@ -307,6 +307,54 @@ mod tests {
         assert!(app.state.navigation_history.can_go_forward());
     }
 
+    /// Test Ctrl+I/Ctrl+Tab doesn't trigger role filter toggle in Search mode
+    #[test]
+    fn test_ctrl_i_navigation_vs_tab() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+        
+        // Start in Search mode
+        assert_eq!(app.state.mode, Mode::Search);
+        assert_eq!(app.state.search.role_filter, None);
+        
+        // Test 1: Tab key (without Ctrl) toggles role filter
+        let tab_key = KeyEvent::new(KeyCode::Tab, KeyModifiers::empty());
+        app.handle_input(tab_key).unwrap();
+        assert_eq!(app.state.search.role_filter, Some("user".to_string()));
+        
+        // Test 2: Tab key with Ctrl modifier should NOT toggle role filter
+        let ctrl_tab_key = KeyEvent::new(KeyCode::Tab, KeyModifiers::CONTROL);
+        let previous_filter = app.state.search.role_filter.clone();
+        app.handle_input(ctrl_tab_key).unwrap();
+        assert_eq!(app.state.search.role_filter, previous_filter, "Ctrl+Tab should not change role filter");
+        
+        // Test 3: Ctrl+I should also not toggle role filter
+        let ctrl_i_key = KeyEvent::new(KeyCode::Char('i'), KeyModifiers::CONTROL);
+        let previous_filter2 = app.state.search.role_filter.clone();
+        app.handle_input(ctrl_i_key).unwrap();
+        assert_eq!(app.state.search.role_filter, previous_filter2, "Ctrl+I should not change role filter");
+        
+        // Test 4: Verify Ctrl+I doesn't trigger role filter when we have navigation history
+        // but can't go forward (different scenario)
+        app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
+        
+        // Create some navigation history: Search -> ResultDetail -> Search
+        app.handle_message(Message::EnterResultDetail);
+        assert_eq!(app.state.mode, Mode::ResultDetail);
+        
+        app.handle_message(Message::ExitToSearch);
+        assert_eq!(app.state.mode, Mode::Search);
+        
+        // Check current role filter (it may have been restored from navigation)
+        let current_filter = app.state.search.role_filter.clone();
+        
+        // Test that Ctrl+I doesn't toggle role filter even when we have history
+        let ctrl_i_key2 = KeyEvent::new(KeyCode::Char('i'), KeyModifiers::CONTROL);
+        app.handle_input(ctrl_i_key2).unwrap();
+        
+        // Role filter should remain the same (not toggled)
+        assert_eq!(app.state.search.role_filter, current_filter, "Ctrl+I should not toggle role filter");
+    }
+
     /// Test copy feedback messages
     #[test]
     fn test_copy_feedback() {

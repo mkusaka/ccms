@@ -33,7 +33,7 @@ impl HelpDialog {
                     .add_modifier(Modifier::BOLD),
             )]),
             Line::from("  Ctrl+O      - Navigate back (like Vim jumplist)"),
-            Line::from("  Ctrl+I      - Navigate forward"),
+            Line::from("  Ctrl+I      - Navigate forward (Note: may not work in some terminals)"),
             Line::from("  Ctrl+T      - Toggle message truncation"),
             Line::from("  ?           - Show this help"),
             Line::from(""),
