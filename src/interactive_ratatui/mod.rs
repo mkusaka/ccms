@@ -14,6 +14,7 @@ use std::time::Duration;
 use crate::SearchOptions;
 
 mod application;
+mod constants;
 mod domain;
 pub mod ui;
 
@@ -29,6 +30,7 @@ mod tests;
 use self::application::{
     cache_service::CacheService, search_service::SearchService, session_service::SessionService,
 };
+use self::constants::*;
 use self::domain::models::{Mode, SearchRequest, SearchResponse};
 use self::ui::{
     app_state::AppState, commands::Command, components::Component, events::Message,
@@ -72,7 +74,7 @@ impl InteractiveSearch {
             pattern: String::new(),
             last_ctrl_c_press: None,
             message_timer: None,
-            message_clear_delay: 3000, // 3秒後に消える
+            message_clear_delay: MESSAGE_CLEAR_DELAY_MS,
         }
     }
 
@@ -150,7 +152,7 @@ impl InteractiveSearch {
                 }
             }
 
-            if poll(Duration::from_millis(50))? {
+            if poll(Duration::from_millis(EVENT_POLL_INTERVAL_MS))? {
                 if let Event::Key(key) = event::read()? {
                     let should_quit = self.handle_input(key)?;
                     if should_quit {
@@ -169,7 +171,7 @@ impl InteractiveSearch {
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             if let Some(last_press) = self.last_ctrl_c_press {
                 // Check if second press is within 1 second
-                if last_press.elapsed() < Duration::from_secs(1) {
+                if last_press.elapsed() < Duration::from_secs(DOUBLE_CTRL_C_TIMEOUT_SECS) {
                     // Exit application
                     return Ok(true);
                 }

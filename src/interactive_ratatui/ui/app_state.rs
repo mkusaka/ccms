@@ -1,4 +1,5 @@
 use crate::SearchOptions;
+use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::domain::models::SessionOrder;
 use crate::interactive_ratatui::ui::commands::Command;
 use crate::interactive_ratatui::ui::events::Message;
@@ -54,7 +55,7 @@ impl AppState {
     pub fn new(base_options: SearchOptions, max_results: usize) -> Self {
         Self {
             mode: Mode::Search,
-            navigation_history: NavigationHistory::new(50), // Keep last 50 states
+            navigation_history: NavigationHistory::new(MAX_NAVIGATION_HISTORY),
             search: SearchState {
                 query: String::new(),
                 results: Vec::new(),

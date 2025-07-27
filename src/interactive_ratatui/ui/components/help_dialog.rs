@@ -1,3 +1,4 @@
+use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::ui::components::Component;
 use crate::interactive_ratatui::ui::events::Message;
 use crossterm::event::KeyEvent;
@@ -6,7 +7,7 @@ use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::{Block, Borders, Paragraph},
 };
 
 #[derive(Default)]
@@ -117,8 +118,9 @@ impl Component for HelpDialog {
         let help_text = Self::get_help_text();
 
         // Calculate dimensions for the help dialog
-        let width = 85.min(area.width - 4);
-        let height = (help_text.len() as u16 + 4).min(area.height - 4);
+        let width = HELP_DIALOG_MAX_WIDTH.min(area.width.saturating_sub(HELP_DIALOG_MARGIN));
+        let height = (help_text.len() as u16 + HELP_DIALOG_MARGIN)
+            .min(area.height.saturating_sub(HELP_DIALOG_MARGIN));
 
         // Center the dialog
         let x = (area.width - width) / 2;
@@ -126,8 +128,9 @@ impl Component for HelpDialog {
 
         let dialog_area = Rect::new(x, y, width, height);
 
-        // Clear the area behind the dialog
-        f.render_widget(Clear, dialog_area);
+        // Use a block with background instead of Clear widget for better performance
+        let background_block = Block::default().style(Style::default().bg(Color::Black));
+        f.render_widget(background_block, dialog_area);
 
         let help = Paragraph::new(help_text)
             .block(

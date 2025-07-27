@@ -1,3 +1,4 @@
+use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::components::{
     Component, help_dialog::HelpDialog, result_detail::ResultDetail, result_list::ResultList,
@@ -43,9 +44,9 @@ impl Renderer {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Search bar
-                Constraint::Min(0),    // Results
-                Constraint::Length(1), // Status bar
+                Constraint::Length(SEARCH_BAR_HEIGHT), // Search bar
+                Constraint::Min(0),                    // Results
+                Constraint::Length(STATUS_BAR_HEIGHT), // Status bar
             ])
             .split(f.area());
 

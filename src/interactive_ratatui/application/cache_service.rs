@@ -1,4 +1,5 @@
 use crate::SessionMessage;
+use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::domain::models::CachedFile;
 use anyhow::Result;
 use std::collections::HashMap;
@@ -26,7 +27,7 @@ impl CacheService {
 
         if needs_reload {
             let file = std::fs::File::open(path)?;
-            let reader = std::io::BufReader::with_capacity(32 * 1024, file);
+            let reader = std::io::BufReader::with_capacity(FILE_READ_BUFFER_SIZE, file);
             use std::io::BufRead;
 
             let mut messages = Vec::new();
