@@ -111,8 +111,10 @@ mod tests {
         // of the filtered role, not just whatever was in the first max_results
         
         // Create a service with a low max_results for testing
-        let mut options = SearchOptions::default();
-        options.max_results = Some(5);
+        let options = SearchOptions {
+            max_results: Some(5),
+            ..Default::default()
+        };
         let service = SearchService::new(options);
 
         // Request without role filter should get mixed results
