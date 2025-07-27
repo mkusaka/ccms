@@ -265,7 +265,9 @@ mod tests {
 
         // ESC in session viewer should return to previous mode
         app.state.mode = Mode::ResultDetail;
-        app.state.mode_stack.push(Mode::ResultDetail);
+        // Create and push a navigation state
+        let nav_state = app.state.create_navigation_state();
+        app.state.navigation_history.push(nav_state);
         app.state.mode = Mode::SessionViewer;
         let should_exit = app
             .handle_input(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()))
@@ -274,35 +276,35 @@ mod tests {
         assert_eq!(app.state.mode, Mode::ResultDetail);
     }
 
-    /// Test navigation stack functionality
+    /// Test navigation history functionality
     #[test]
-    fn test_navigation_stack() {
+    fn test_navigation_history() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
         // Start in search mode
         app.state.mode = Mode::Search;
-        assert!(app.state.mode_stack.is_empty());
+        assert!(app.state.navigation_history.is_empty());
 
         // Navigate to result detail
         app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
         app.handle_message(Message::EnterResultDetail);
         assert_eq!(app.state.mode, Mode::ResultDetail);
-        assert_eq!(app.state.mode_stack, vec![Mode::Search]);
+        assert_eq!(app.state.navigation_history.len(), 1);
 
         // Navigate to session viewer
         app.handle_message(Message::EnterSessionViewer);
         assert_eq!(app.state.mode, Mode::SessionViewer);
-        assert_eq!(app.state.mode_stack, vec![Mode::Search, Mode::ResultDetail]);
+        assert_eq!(app.state.navigation_history.len(), 2);
 
         // ESC should pop back to result detail
         app.handle_message(Message::ExitToSearch);
         assert_eq!(app.state.mode, Mode::ResultDetail);
-        assert_eq!(app.state.mode_stack, vec![Mode::Search]);
+        assert!(app.state.navigation_history.can_go_forward());
 
         // Another ESC should go back to search
         app.handle_message(Message::ExitToSearch);
         assert_eq!(app.state.mode, Mode::Search);
-        assert!(app.state.mode_stack.is_empty());
+        assert!(app.state.navigation_history.can_go_forward());
     }
 
     /// Test copy feedback messages

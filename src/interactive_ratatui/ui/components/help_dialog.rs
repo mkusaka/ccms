@@ -27,6 +27,17 @@ impl HelpDialog {
             )]),
             Line::from(""),
             Line::from(vec![Span::styled(
+                "Global Shortcuts:",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )]),
+            Line::from("  Ctrl+O      - Navigate back (like Vim jumplist)"),
+            Line::from("  Ctrl+I      - Navigate forward"),
+            Line::from("  Ctrl+T      - Toggle message truncation"),
+            Line::from("  ?           - Show this help"),
+            Line::from(""),
+            Line::from(vec![Span::styled(
                 "Search Mode:",
                 Style::default()
                     .fg(Color::Yellow)
@@ -37,7 +48,6 @@ impl HelpDialog {
             Line::from("  s           - View full session"),
             Line::from("  Tab         - Toggle role filter (user/assistant/system)"),
             Line::from("  Esc         - Quit"),
-            Line::from("  ?           - Show this help"),
             Line::from(""),
             Line::from(vec![Span::styled(
                 "Text Editing Shortcuts (Search & Session Viewer):",

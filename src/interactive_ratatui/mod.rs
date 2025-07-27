@@ -190,6 +190,14 @@ impl InteractiveSearch {
                 self.handle_message(Message::ToggleTruncation);
                 return Ok(false);
             }
+            KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.handle_message(Message::NavigateBack);
+                return Ok(false);
+            }
+            KeyCode::Char('i') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.handle_message(Message::NavigateForward);
+                return Ok(false);
+            }
             _ => {}
         }
 
