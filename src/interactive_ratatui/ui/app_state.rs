@@ -444,7 +444,8 @@ impl AppState {
             .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
             .collect();
 
-        self.session.filtered_indices = SessionFilter::filter_messages(&items, &self.session.query, &self.session.role_filter);
+        self.session.filtered_indices =
+            SessionFilter::filter_messages(&items, &self.session.query, &self.session.role_filter);
 
         // Reset selection if current selection is out of bounds
         if self.session.selected_index >= self.session.filtered_indices.len() {

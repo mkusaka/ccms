@@ -938,7 +938,7 @@ mod tests {
     #[test]
     fn test_session_viewer_role_filter() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
-        
+
         // Set up session viewer mode
         app.state.mode = Mode::SessionViewer;
         app.state.session.messages = vec![
@@ -946,23 +946,23 @@ mod tests {
             r#"{"type":"assistant","message":{"content":"Hi there"},"timestamp":"2024-01-01T00:01:00Z"}"#.to_string(),
             r#"{"type":"system","content":"System message","timestamp":"2024-01-01T00:02:00Z"}"#.to_string(),
         ];
-        
+
         // Initially no role filter
         assert_eq!(app.state.session.role_filter, None);
-        
+
         // Tab key toggles role filter
         let tab_key = KeyEvent::new(KeyCode::Tab, KeyModifiers::empty());
         app.handle_input(tab_key).unwrap();
         assert_eq!(app.state.session.role_filter, Some("user".to_string()));
-        
+
         // Tab again - cycles to assistant
         app.handle_input(tab_key).unwrap();
         assert_eq!(app.state.session.role_filter, Some("assistant".to_string()));
-        
+
         // Tab again - cycles to system
         app.handle_input(tab_key).unwrap();
         assert_eq!(app.state.session.role_filter, Some("system".to_string()));
-        
+
         // Tab again - cycles back to None
         app.handle_input(tab_key).unwrap();
         assert_eq!(app.state.session.role_filter, None);

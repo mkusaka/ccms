@@ -31,7 +31,11 @@ impl SessionService {
     }
 
     #[allow(dead_code)]
-    pub fn filter_messages(messages: &[String], query: &str, role_filter: &Option<String>) -> Vec<usize> {
+    pub fn filter_messages(
+        messages: &[String],
+        query: &str,
+        role_filter: &Option<String>,
+    ) -> Vec<usize> {
         // Convert raw JSON strings to SessionListItems for search
         let items: Vec<SessionListItem> = messages
             .iter()

@@ -26,9 +26,13 @@ impl SearchFilter {
 pub struct SessionFilter;
 
 impl SessionFilter {
-    pub fn filter_messages(items: &[SessionListItem], query: &str, role_filter: &Option<String>) -> Vec<usize> {
+    pub fn filter_messages(
+        items: &[SessionListItem],
+        query: &str,
+        role_filter: &Option<String>,
+    ) -> Vec<usize> {
         let query_lower = query.to_lowercase();
-        
+
         items
             .iter()
             .enumerate()
@@ -39,7 +43,7 @@ impl SessionFilter {
                         return false;
                     }
                 }
-                
+
                 // Then apply text filter
                 if query.is_empty() {
                     true
