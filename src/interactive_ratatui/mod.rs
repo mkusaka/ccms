@@ -30,8 +30,8 @@ mod tests;
 use self::application::{
     cache_service::CacheService, search_service::SearchService, session_service::SessionService,
 };
-use self::domain::models::{Mode, SearchRequest, SearchResponse};
 use self::constants::*;
+use self::domain::models::{Mode, SearchRequest, SearchResponse};
 use self::ui::{
     app_state::AppState, commands::Command, components::Component, events::Message,
     renderer::Renderer,

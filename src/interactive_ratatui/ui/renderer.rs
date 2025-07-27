@@ -45,8 +45,8 @@ impl Renderer {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(SEARCH_BAR_HEIGHT), // Search bar
-                Constraint::Min(0),                     // Results
-                Constraint::Length(STATUS_BAR_HEIGHT),  // Status bar
+                Constraint::Min(0),                    // Results
+                Constraint::Length(STATUS_BAR_HEIGHT), // Status bar
             ])
             .split(f.area());
 

@@ -1,5 +1,5 @@
-use crate::interactive_ratatui::constants::*;
 use super::list_item::ListItem;
+use crate::interactive_ratatui::constants::*;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -250,7 +250,7 @@ impl<T: ListItem> ListViewer<T> {
     fn ensure_item_visible_full_text(&mut self, available_height: u16, available_width: u16) {
         // First, check if selected item is already visible
         let (start, end) = self.calculate_visible_range(available_height, available_width);
-        
+
         if self.selected_index >= start && self.selected_index < end {
             // Already visible, no adjustment needed
             return;
@@ -266,14 +266,14 @@ impl<T: ListItem> ListViewer<T> {
         // Use binary search for efficiency
         let mut low = self.scroll_offset;
         let mut high = self.selected_index;
-        
+
         while low < high {
             let mid = (low + high) / 2;
             let original_offset = self.scroll_offset;
             self.scroll_offset = mid;
-            
+
             let (_, test_end) = self.calculate_visible_range(available_height, available_width);
-            
+
             if self.selected_index < test_end {
                 // Selected item is visible with this offset
                 high = mid;
@@ -281,12 +281,12 @@ impl<T: ListItem> ListViewer<T> {
                 // Need to scroll further down
                 low = mid + 1;
             }
-            
+
             if mid != low && mid != high {
                 self.scroll_offset = original_offset;
             }
         }
-        
+
         self.scroll_offset = low;
     }
 

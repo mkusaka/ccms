@@ -1,5 +1,5 @@
 //! Constants for the interactive TUI module
-//! 
+//!
 //! This module centralizes magic numbers and configuration values
 //! to improve maintainability and make the codebase more self-documenting.
 

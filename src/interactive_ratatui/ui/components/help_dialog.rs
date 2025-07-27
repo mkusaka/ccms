@@ -119,7 +119,8 @@ impl Component for HelpDialog {
 
         // Calculate dimensions for the help dialog
         let width = HELP_DIALOG_MAX_WIDTH.min(area.width.saturating_sub(HELP_DIALOG_MARGIN));
-        let height = (help_text.len() as u16 + HELP_DIALOG_MARGIN).min(area.height.saturating_sub(HELP_DIALOG_MARGIN));
+        let height = (help_text.len() as u16 + HELP_DIALOG_MARGIN)
+            .min(area.height.saturating_sub(HELP_DIALOG_MARGIN));
 
         // Center the dialog
         let x = (area.width - width) / 2;
@@ -128,8 +129,7 @@ impl Component for HelpDialog {
         let dialog_area = Rect::new(x, y, width, height);
 
         // Use a block with background instead of Clear widget for better performance
-        let background_block = Block::default()
-            .style(Style::default().bg(Color::Black));
+        let background_block = Block::default().style(Style::default().bg(Color::Black));
         f.render_widget(background_block, dialog_area);
 
         let help = Paragraph::new(help_text)
