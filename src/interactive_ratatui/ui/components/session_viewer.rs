@@ -238,7 +238,7 @@ impl Component for SessionViewer {
         // Render status bar
         let status_idx = if self.message.is_some() { 2 } else { 1 };
         if chunks.len() > status_idx {
-            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | f: Copy File Path | /: Search | Esc: Back";
+            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
             let status_bar = Paragraph::new(status_text)
                 .style(Style::default().fg(Color::DarkGray))
                 .alignment(ratatui::layout::Alignment::Center);

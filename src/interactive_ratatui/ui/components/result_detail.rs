@@ -183,6 +183,10 @@ impl ResultDetail {
                 Span::styled(" - Back to search", Styles::action_description()),
             ]),
             Line::from(vec![
+                Span::styled("[Alt+←/→]", Styles::action_key()),
+                Span::styled(" - Navigate history", Styles::action_description()),
+            ]),
+            Line::from(vec![
                 Span::styled("[↑/↓ or j/k]", Styles::action_key()),
                 Span::styled(" - Scroll message", Styles::action_description()),
             ]),
