@@ -1,4 +1,3 @@
-use crate::interactive_ratatui::domain::filter::SearchFilter;
 use crate::interactive_ratatui::domain::models::{SearchRequest, SearchResponse};
 use crate::query::condition::{QueryCondition, SearchResult};
 use crate::search::engine::SearchEngine;
@@ -22,11 +21,7 @@ impl SearchService {
     }
 
     pub fn search(&self, request: SearchRequest) -> Result<SearchResponse> {
-        let mut results = self.execute_search(&request.query, &request.pattern)?;
-
-        // Apply filters
-        let filter = SearchFilter::new(request.role_filter);
-        filter.apply(&mut results)?;
+        let results = self.execute_search(&request.query, &request.pattern, request.role_filter)?;
 
         Ok(SearchResponse {
             id: request.id,
@@ -34,7 +29,7 @@ impl SearchService {
         })
     }
 
-    fn execute_search(&self, query: &str, pattern: &str) -> Result<Vec<SearchResult>> {
+    fn execute_search(&self, query: &str, pattern: &str, role_filter: Option<String>) -> Result<Vec<SearchResult>> {
         let query_condition = if query.trim().is_empty() {
             // Empty query means "match all" - use empty AND condition
             QueryCondition::And { conditions: vec![] }
@@ -42,7 +37,7 @@ impl SearchService {
             parse_query(query)?
         };
 
-        let (mut results, _, _) = self.engine.search(pattern, query_condition)?;
+        let (mut results, _, _) = self.engine.search_with_role_filter(pattern, query_condition, role_filter)?;
 
         // Sort by timestamp descending
         results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
