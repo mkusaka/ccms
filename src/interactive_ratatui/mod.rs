@@ -18,13 +18,13 @@ mod domain;
 pub mod ui;
 
 #[cfg(test)]
+mod help_navigation_test;
+#[cfg(test)]
 mod integration_tests;
 #[cfg(test)]
 mod session_view_integration_test;
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-mod help_navigation_test;
 
 use self::application::{
     cache_service::CacheService, search_service::SearchService, session_service::SessionService,
