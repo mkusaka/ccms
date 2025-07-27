@@ -26,20 +26,29 @@ impl SearchFilter {
 pub struct SessionFilter;
 
 impl SessionFilter {
-    pub fn filter_messages(items: &[SessionListItem], query: &str) -> Vec<usize> {
-        if query.is_empty() {
-            (0..items.len()).collect()
-        } else {
-            let query_lower = query.to_lowercase();
-            items
-                .iter()
-                .enumerate()
-                .filter(|(_, item)| {
+    pub fn filter_messages(items: &[SessionListItem], query: &str, role_filter: &Option<String>) -> Vec<usize> {
+        let query_lower = query.to_lowercase();
+        
+        items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| {
+                // Apply role filter first
+                if let Some(role) = role_filter {
+                    if item.role.to_lowercase() != role.to_lowercase() {
+                        return false;
+                    }
+                }
+                
+                // Then apply text filter
+                if query.is_empty() {
+                    true
+                } else {
                     let search_text = item.to_search_text();
                     search_text.to_lowercase().contains(&query_lower)
-                })
-                .map(|(idx, _)| idx)
-                .collect()
-        }
+                }
+            })
+            .map(|(idx, _)| idx)
+            .collect()
     }
 }

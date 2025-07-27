@@ -1042,4 +1042,79 @@ mod tests {
         assert!(matches!(msg, Some(Message::SessionNavigated)));
         assert_eq!(viewer.list_viewer.selected_index, 1);
     }
+
+    #[test]
+    fn test_role_filter_toggle() {
+        let mut viewer = SessionViewer::new();
+        
+        // Tab key toggles role filter
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::ToggleSessionRoleFilter)));
+        
+        // Tab key should return the message for state management to handle
+    }
+    
+    #[test]
+    fn test_role_filter_display() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_messages(vec![
+            r#"{"type":"user","message":{"content":"Hello"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
+            r#"{"type":"assistant","message":{"content":"Hi there"},"timestamp":"2024-01-01T00:01:00Z"}"#.to_string(),
+        ]);
+        
+        // Test without role filter
+        viewer.set_role_filter(None);
+        let buffer = render_component(&mut viewer, 100, 30);
+        assert!(!buffer_contains(&buffer, "Role:"));
+        
+        // Test with user filter
+        viewer.set_role_filter(Some("user".to_string()));
+        let buffer = render_component(&mut viewer, 100, 30);
+        assert!(buffer_contains(&buffer, "Role: user"));
+        
+        // Test with assistant filter
+        viewer.set_role_filter(Some("assistant".to_string()));
+        let buffer = render_component(&mut viewer, 100, 30);
+        assert!(buffer_contains(&buffer, "Role: assistant"));
+        
+        // Test with system filter
+        viewer.set_role_filter(Some("system".to_string()));
+        let buffer = render_component(&mut viewer, 100, 30);
+        assert!(buffer_contains(&buffer, "Role: system"));
+    }
+    
+    #[test]
+    fn test_tab_key_not_processed_with_ctrl_modifier() {
+        let mut viewer = SessionViewer::new();
+        
+        // Tab with CTRL modifier should not trigger role filter toggle
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Tab,
+            KeyModifiers::CONTROL,
+        ));
+        assert!(msg.is_none());
+    }
+
+    #[test]
+    fn test_role_filter_toggle_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+        
+        // Enter search mode
+        viewer.handle_key(KeyEvent::new(KeyCode::Char('/'), KeyModifiers::empty()));
+        
+        // Tab key should toggle role filter even in search mode
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::ToggleSessionRoleFilter)));
+    }
+
+    #[test]
+    fn test_search_mode_role_filter_help_text() {
+        let mut viewer = SessionViewer::new();
+        
+        // Enter search mode
+        viewer.handle_key(KeyEvent::new(KeyCode::Char('/'), KeyModifiers::empty()));
+        
+        let buffer = render_component(&mut viewer, 100, 30);
+        assert!(buffer_contains(&buffer, "Tab: Role Filter"));
+    }
 }

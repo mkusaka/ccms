@@ -32,6 +32,7 @@ pub struct SessionViewer {
     session_id: Option<String>,
     messages_hash: u64,
     message: Option<String>,
+    role_filter: Option<String>,
 }
 
 impl SessionViewer {
@@ -49,6 +50,7 @@ impl SessionViewer {
             session_id: None,
             messages_hash: 0,
             message: None,
+            role_filter: None,
         }
     }
 
@@ -112,6 +114,10 @@ impl SessionViewer {
         self.message = message;
     }
 
+    pub fn set_role_filter(&mut self, role_filter: Option<String>) {
+        self.role_filter = role_filter;
+    }
+
     #[allow(dead_code)]
     pub fn start_search(&mut self) {
         self.is_searching = true;
@@ -153,14 +159,14 @@ impl SessionViewer {
 
             let search_bar = Paragraph::new(Line::from(search_text)).block(
                 Block::default()
-                    .title("Search in session (Esc to cancel, ↑/↓ or Ctrl+P/N to scroll)")
+                    .title("Search in session (Tab: Role Filter | Esc to cancel | ↑/↓ or Ctrl+P/N to scroll)")
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(ColorScheme::SECONDARY)),
             );
             f.render_widget(search_bar, chunks[0]);
         } else {
             let info_text = format!(
-                "Messages: {} (filtered: {}) | Order: {} | Press '/' to search",
+                "Messages: {} (filtered: {}) | Order: {} {} | Press '/' to search",
                 self.list_viewer.items_count(),
                 self.list_viewer.filtered_count(),
                 match self.order {
@@ -168,6 +174,11 @@ impl SessionViewer {
                     Some(SessionOrder::Descending) => "Descending",
                     Some(SessionOrder::Original) => "Original",
                     None => "Default",
+                },
+                if let Some(role) = &self.role_filter {
+                    format!("| Role: {role}")
+                } else {
+                    String::new()
                 }
             );
             let info_bar = Paragraph::new(info_text).block(Block::default().borders(Borders::ALL));
@@ -238,7 +249,7 @@ impl Component for SessionViewer {
         // Render status bar
         let status_idx = if self.message.is_some() { 2 } else { 1 };
         if chunks.len() > status_idx {
-            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
+            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
             let status_bar = Paragraph::new(status_text)
                 .style(Style::default().fg(Color::DarkGray))
                 .alignment(ratatui::layout::Alignment::Center);
@@ -274,6 +285,9 @@ impl Component for SessionViewer {
                     self.list_viewer.move_down();
                     Some(Message::SessionNavigated)
                 }
+                KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    Some(Message::ToggleSessionRoleFilter)
+                }
                 _ => {
                     let changed = self.text_input.handle_key(key);
                     if changed {
@@ -302,6 +316,9 @@ impl Component for SessionViewer {
                 KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
                     self.list_viewer.move_down();
                     Some(Message::SessionNavigated)
+                }
+                KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    Some(Message::ToggleSessionRoleFilter)
                 }
                 KeyCode::Char('/') => {
                     self.is_searching = true;

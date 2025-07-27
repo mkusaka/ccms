@@ -31,6 +31,7 @@ pub struct SessionStateSnapshot {
     pub order: Option<SessionOrder>,
     pub file_path: Option<String>,
     pub session_id: Option<String>,
+    pub role_filter: Option<String>,
 }
 
 /// Snapshot of UI state
@@ -185,6 +186,7 @@ mod tests {
                 order: None,
                 file_path: None,
                 session_id: None,
+                role_filter: None,
             },
             ui_state: UiStateSnapshot {
                 message: None,

@@ -34,7 +34,7 @@ mod tests {
     #[test]
     fn test_filter_messages_empty_list() {
         let messages: Vec<String> = vec![];
-        let indices = SessionService::filter_messages(&messages, "query");
+        let indices = SessionService::filter_messages(&messages, "query", &None);
 
         assert_eq!(indices.len(), 0);
     }
@@ -48,7 +48,7 @@ mod tests {
             r#"{"type":"system","content":"Something else","uuid":"4","timestamp":"2024-12-25T14:33:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
         ];
 
-        let indices = SessionService::filter_messages(&messages, "Hello");
+        let indices = SessionService::filter_messages(&messages, "Hello", &None);
 
         assert_eq!(indices, vec![0, 2]);
     }

@@ -31,7 +31,7 @@ impl SessionService {
     }
 
     #[allow(dead_code)]
-    pub fn filter_messages(messages: &[String], query: &str) -> Vec<usize> {
+    pub fn filter_messages(messages: &[String], query: &str, role_filter: &Option<String>) -> Vec<usize> {
         // Convert raw JSON strings to SessionListItems for search
         let items: Vec<SessionListItem> = messages
             .iter()
@@ -39,7 +39,7 @@ impl SessionService {
             .filter_map(|(idx, line)| SessionListItem::from_json_line(idx, line))
             .collect();
 
-        SessionFilter::filter_messages(&items, query)
+        SessionFilter::filter_messages(&items, query, role_filter)
     }
 
     #[allow(dead_code)]
