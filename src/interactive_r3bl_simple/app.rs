@@ -129,7 +129,7 @@ impl SearchApp {
             );
             
             if is_selected {
-                line_content = format!("\x1b[7m{}\x1b[0m", line_content);
+                line_content = format!("\x1b[4m{}\x1b[0m", line_content);
             }
             
             screen_lines[current_line] = line_content;
