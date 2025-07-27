@@ -7,16 +7,13 @@ use std::sync::Arc;
 
 pub struct SearchService {
     engine: Arc<SearchEngine>,
-    #[allow(dead_code)]
-    base_options: SearchOptions,
 }
 
 impl SearchService {
     pub fn new(options: SearchOptions) -> Self {
-        let engine = Arc::new(SearchEngine::new(options.clone()));
+        let engine = Arc::new(SearchEngine::new(options));
         Self {
             engine,
-            base_options: options,
         }
     }
 

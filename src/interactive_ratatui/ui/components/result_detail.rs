@@ -34,7 +34,6 @@ impl ResultDetail {
         self.scroll_offset = 0;
     }
 
-    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.result = None;
         self.scroll_offset = 0;

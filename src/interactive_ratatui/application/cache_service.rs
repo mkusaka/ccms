@@ -61,8 +61,4 @@ impl CacheService {
         Ok(self.files.get(path).unwrap())
     }
 
-    #[allow(dead_code)]
-    pub fn clear(&mut self) {
-        self.files.clear();
-    }
 }

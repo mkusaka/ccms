@@ -1,5 +1,4 @@
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub enum Command {
     None,
     ExecuteSearch,

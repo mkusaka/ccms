@@ -1,21 +1,19 @@
 use super::*;
-use crate::SearchOptions;
 use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
+use crate::SearchOptions;
 use crate::interactive_ratatui::ui::commands::Command;
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
 
 #[test]
 fn test_interactive_search_creation() {
-    let options = SearchOptions::default();
-    let interactive = InteractiveSearch::new(options);
+    let interactive = InteractiveSearch::new(SearchOptions::default());
     assert_eq!(interactive.pattern, "");
 }
 
 #[test]
 fn test_app_state_creation() {
-    let options = SearchOptions::default();
-    let state = AppState::new(options, 100);
+    let state = AppState::new();
     assert_eq!(state.mode, Mode::Search);
     assert_eq!(state.search.query, "");
     assert_eq!(state.search.results.len(), 0);
@@ -23,8 +21,7 @@ fn test_app_state_creation() {
 
 #[test]
 fn test_message_handling() {
-    let options = SearchOptions::default();
-    let mut state = AppState::new(options, 100);
+    let mut state = AppState::new();
 
     // Test query change
     let command = state.update(Message::QueryChanged("test query".to_string()));

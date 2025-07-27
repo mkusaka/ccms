@@ -26,12 +26,10 @@ impl ResultList {
         self.list_viewer.set_selected_index(index);
     }
 
-    #[allow(dead_code)]
     pub fn selected_result(&self) -> Option<&SearchResult> {
         self.list_viewer.get_selected_item()
     }
 
-    #[allow(dead_code)]
     pub fn update_results(&mut self, results: Vec<SearchResult>, selected_index: usize) {
         self.list_viewer.set_items(results);
         self.list_viewer.set_selected_index(selected_index);
@@ -41,7 +39,6 @@ impl ResultList {
         self.list_viewer.set_truncation_enabled(enabled);
     }
 
-    #[allow(dead_code)]
     pub fn update_selection(&mut self, index: usize) {
         self.list_viewer.set_selected_index(index);
     }

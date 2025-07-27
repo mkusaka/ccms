@@ -3,11 +3,10 @@ mod tests {
     use super::super::app_state::*;
     use super::super::commands::Command;
     use super::super::events::Message;
-    use crate::SearchOptions;
     use crate::query::condition::{QueryCondition, SearchResult};
 
     fn create_test_state() -> AppState {
-        AppState::new(SearchOptions::default(), 100)
+        AppState::new()
     }
 
     fn create_test_result() -> SearchResult {

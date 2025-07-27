@@ -17,14 +17,4 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_clear_cache() {
-        let mut cache = CacheService::new();
-
-        // Clear should work even on empty cache
-        cache.clear();
-
-        // And work again
-        cache.clear();
-    }
 }
