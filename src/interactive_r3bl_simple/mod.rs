@@ -38,9 +38,11 @@ pub async fn run_interactive_search(pattern: &str, options: SearchOptions) -> Re
     let state = Arc::new(Mutex::new(AppState::new()));
     let mut app = SearchApp::new(pattern.to_string(), options, state.clone());
     
-    // Initial render
+    // Initial render with screen clear
     {
         let mut state_lock = state.lock().await;
+        // Clear screen before first render
+        print!("\x1b[2J\x1b[H");
         let output = app.render(&mut state_lock).await?;
         state_lock.needs_render = false;
         drop(state_lock);
@@ -59,10 +61,11 @@ pub async fn run_interactive_search(pattern: &str, options: SearchOptions) -> Re
                 state_lock.needs_render = false;
                 drop(state_lock);
                 
-                // Clear screen and move cursor to home before printing
-                print!("\x1b[2J\x1b[H");
-                print!("{output}");
-                io::stdout().flush()?;
+                // Only print if there are changes (render returns empty string if no changes)
+                if !output.is_empty() {
+                    print!("{output}");
+                    io::stdout().flush()?;
+                }
             } else {
                 drop(state_lock);
             }

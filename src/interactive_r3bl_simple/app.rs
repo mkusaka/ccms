@@ -17,6 +17,7 @@ pub struct SearchApp {
     search_tx: mpsc::Sender<SearchSignal>,
     search_rx: mpsc::Receiver<SearchSignal>,
     debounce_handle: Option<tokio::task::JoinHandle<()>>,
+    previous_render: Arc<Mutex<String>>,
 }
 
 impl SearchApp {
@@ -30,23 +31,36 @@ impl SearchApp {
             search_tx,
             search_rx,
             debounce_handle: None,
+            previous_render: Arc::new(Mutex::new(String::new())),
         }
     }
     
     pub async fn render(&self, state: &mut AppState) -> Result<String> {
-        let mut output = String::new();
+        let mut buffer = String::new();
         
-        // Hide cursor temporarily during render
-        output.push_str("\x1b[?25l");
-        
+        // Render to buffer first
         match state.current_mode {
-            ViewMode::Search => self.render_search_view(&mut output, state).await?,
-            ViewMode::ResultDetail => self.render_detail_view(&mut output, state).await?,
-            ViewMode::Help => self.render_help_view(&mut output, state).await?,
+            ViewMode::Search => self.render_search_view(&mut buffer, state).await?,
+            ViewMode::ResultDetail => self.render_detail_view(&mut buffer, state).await?,
+            ViewMode::Help => self.render_help_view(&mut buffer, state).await?,
         }
         
-        // Show cursor again
-        output.push_str("\x1b[?25h");
+        // Compare with previous render
+        let mut previous = self.previous_render.lock().await;
+        if *previous == buffer {
+            // No changes, return empty string
+            return Ok(String::new());
+        }
+        
+        // Store new render
+        *previous = buffer.clone();
+        
+        // Build complete output with cursor management
+        let mut output = String::new();
+        output.push_str("\x1b[?25l");  // Hide cursor
+        output.push_str("\x1b[H");      // Move to home
+        output.push_str(&buffer);       // Add rendered content
+        output.push_str("\x1b[?25h");  // Show cursor
         
         Ok(output)
     }
@@ -57,30 +71,32 @@ impl SearchApp {
         let width = width as usize;
         let height = height as usize;
         
-        let mut current_line = 1;
+        // Create a screen buffer (r3bl_tui inspired approach)
+        let mut screen_lines = vec![String::new(); height];
+        let mut current_line = 0;
         
         // Title
-        output.push_str(&format!("\x1b[{current_line};1H")); // Position cursor
-        output.push_str("\x1b[K"); // Clear line
-        output.push_str("\x1b[1mCCMS Search (R3BL TUI)\x1b[0m");
+        if current_line < height {
+            screen_lines[current_line] = "\x1b[1mCCMS Search (R3BL TUI)\x1b[0m".to_string();
+        }
         current_line += 2;
         
         // Search bar
-        output.push_str(&format!("\x1b[{current_line};1H")); // Position cursor
-        output.push_str("\x1b[K"); // Clear line
-        output.push_str("Search: ");
-        output.push_str("\x1b[33m"); // Yellow
-        output.push_str(&state.query);
-        if state.is_searching {
-            output.push_str(" [searching...]");
+        if current_line < height {
+            let mut search_line = String::from("Search: \x1b[33m");
+            search_line.push_str(&state.query);
+            if state.is_searching {
+                search_line.push_str(" [searching...]");
+            }
+            search_line.push_str("\x1b[0m");
+            screen_lines[current_line] = search_line;
         }
-        output.push_str("\x1b[0m");
         current_line += 2;
         
         // Results count
-        output.push_str(&format!("\x1b[{current_line};1H")); // Position cursor
-        output.push_str("\x1b[K"); // Clear line
-        output.push_str(&format!("Results: {} found", state.search_results.len()));
+        if current_line < height {
+            screen_lines[current_line] = format!("Results: {} found", state.search_results.len());
+        }
         current_line += 2;
         
         // Results list
@@ -92,14 +108,11 @@ impl SearchApp {
             .enumerate();
         
         for (idx, result) in visible_results {
-            let is_selected = state.scroll_offset + idx == state.selected_index;
-            
-            output.push_str(&format!("\x1b[{current_line};1H")); // Position cursor
-            output.push_str("\x1b[K"); // Clear line
-            
-            if is_selected {
-                output.push_str("\x1b[7m"); // Reverse video
+            if current_line >= height - 1 {
+                break;
             }
+            
+            let is_selected = state.scroll_offset + idx == state.selected_index;
             
             // Format the message
             let first_line = result.text
@@ -107,40 +120,36 @@ impl SearchApp {
                 .next()
                 .map(|line| truncate_str(line, width.saturating_sub(15)))
                 .unwrap_or_else(|| "[No content]".to_string());
-                
-            output.push_str(&format!(
+            
+            let mut line_content = format!(
                 "{:>2} [{}] {}",
                 state.scroll_offset + idx + 1,
                 truncate_str(&result.role, 10),
                 first_line
-            ));
+            );
             
             if is_selected {
-                output.push_str("\x1b[0m"); // Reset
+                line_content = format!("\x1b[7m{}\x1b[0m", line_content);
             }
             
-            current_line += 1;
-            if current_line >= height - 1 {
-                break;
-            }
-        }
-        
-        // Clear remaining lines
-        while current_line < height - 1 {
-            output.push_str(&format!("\x1b[{current_line};1H\x1b[K"));
+            screen_lines[current_line] = line_content;
             current_line += 1;
         }
         
         // Status bar at bottom
-        output.push_str(&format!("\x1b[{height};1H")); // Position cursor at bottom
-        output.push_str("\x1b[K"); // Clear line
-        output.push_str("\x1b[90m"); // Gray
-        if let Some(status) = &state.status_message {
-            output.push_str(&truncate_str(status, width - 1));
-        } else {
-            output.push_str("↑/↓: Navigate | Enter: View | ?: Help | q: Quit");
+        if height > 0 {
+            let status_bar = if let Some(status) = &state.status_message {
+                format!("\x1b[90m{}\x1b[0m", truncate_str(status, width - 1))
+            } else {
+                "\x1b[90m↑/↓: Navigate | Enter: View | ?: Help | q: Quit\x1b[0m".to_string()
+            };
+            screen_lines[height - 1] = status_bar;
         }
-        output.push_str("\x1b[0m");
+        
+        // Render the screen buffer
+        for (line_num, line) in screen_lines.iter().enumerate() {
+            output.push_str(&format!("\x1b[{};1H\x1b[K{}", line_num + 1, line));
+        }
         
         // Position cursor at the end of search query
         let cursor_col = 9 + state.query.chars().count(); // "Search: " is 8 chars + 1
