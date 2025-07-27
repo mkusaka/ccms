@@ -159,11 +159,13 @@ impl AppState {
                 Command::None
             }
             Message::ShowHelp => {
+                self.mode_stack.push(self.mode);
                 self.mode = Mode::Help;
                 Command::None
             }
             Message::CloseHelp => {
-                self.mode = Mode::Search;
+                // Pop mode from stack if available, otherwise go to Search
+                self.mode = self.mode_stack.pop().unwrap_or(Mode::Search);
                 Command::None
             }
             Message::ToggleRoleFilter => {
