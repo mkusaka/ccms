@@ -333,14 +333,24 @@ impl AppState {
                 Command::None
             }
             Message::NavigateBack => {
-                if let Some(previous_state) = self.navigation_history.go_back() {
-                    self.restore_navigation_state(&previous_state);
+                if self.navigation_history.can_go_back() {
+                    // go_back returns the state we're leaving, not the state we're going to
+                    self.navigation_history.go_back();
                     
-                    // Load session if entering SessionViewer mode
-                    if self.mode == Mode::SessionViewer {
-                        if let Some(file_path) = &self.session.file_path {
-                            return Command::LoadSession(file_path.clone());
+                    // Get the state at the new position
+                    if let Some(target_state) = self.navigation_history.current().cloned() {
+                        self.restore_navigation_state(&target_state);
+                        
+                        // Load session if entering SessionViewer mode
+                        if self.mode == Mode::SessionViewer {
+                            if let Some(file_path) = &self.session.file_path {
+                                return Command::LoadSession(file_path.clone());
+                            }
                         }
+                    } else {
+                        // We're at the beginning (before first navigation)
+                        // Restore to initial Search mode
+                        self.mode = Mode::Search;
                     }
                 }
                 Command::None

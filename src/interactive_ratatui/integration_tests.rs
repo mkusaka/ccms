@@ -3,6 +3,7 @@ mod tests {
     use super::super::*;
     use crate::interactive_ratatui::domain::models::Mode;
     use crate::interactive_ratatui::ui::events::Message;
+    use crate::interactive_ratatui::ui::navigation::{NavigationHistory, NavigationState, SearchStateSnapshot, SessionStateSnapshot, UiStateSnapshot};
     use crate::{QueryCondition, SearchOptions, SearchResult};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use ratatui::backend::TestBackend;
@@ -307,52 +308,166 @@ mod tests {
         assert!(app.state.navigation_history.can_go_forward());
     }
 
-    /// Test Ctrl+I/Ctrl+Tab doesn't trigger role filter toggle in Search mode
+    /// Test navigation shortcuts [ and ]
     #[test]
-    fn test_ctrl_i_navigation_vs_tab() {
+    fn test_bracket_navigation() {
+        // First, let's add a simple test to understand navigation behavior
+        let mut history = NavigationHistory::new(10);
+        
+        // Create states
+        let search_state = NavigationState {
+            mode: Mode::Search,
+            search_state: SearchStateSnapshot {
+                query: String::new(),
+                results: Vec::new(),
+                selected_index: 0,
+                scroll_offset: 0,
+                role_filter: None,
+            },
+            session_state: SessionStateSnapshot {
+                messages: Vec::new(),
+                query: String::new(),
+                filtered_indices: Vec::new(),
+                selected_index: 0,
+                scroll_offset: 0,
+                order: None,
+                file_path: None,
+                session_id: None,
+            },
+            ui_state: UiStateSnapshot {
+                message: None,
+                detail_scroll_offset: 0,
+                selected_result: None,
+                truncation_enabled: true,
+            },
+        };
+        
+        let detail_state = NavigationState {
+            mode: Mode::ResultDetail,
+            ..search_state.clone()
+        };
+        
+        // Test navigation
+        history.push(search_state.clone());  // Position 0
+        history.push(detail_state.clone());   // Position 1
+        
+        // We're now at position 1 (ResultDetail)
+        // Go back should return the state at position 1 and move to position 0
+        let back_state = history.go_back().unwrap();
+        assert_eq!(back_state.mode, Mode::ResultDetail, "go_back returns current state");
+        
+        // But we want to restore the state at the new position (0), not the returned state
+        // So we need to check what state we should be in after going back
+        let current_state = history.current();
+        assert_eq!(current_state.unwrap().mode, Mode::Search, "After go_back, we should be at Search");
+    }
+    
+    /// Test navigation shortcuts [ and ] with proper understanding of navigation behavior
+    #[test] 
+    fn test_bracket_navigation_proper() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+        
+        // Start in Search mode
+        assert_eq!(app.state.mode, Mode::Search);
+        
+        // Test 1: [ and ] don't work without navigation history
+        let bracket_back = KeyEvent::new(KeyCode::Char('['), KeyModifiers::empty());
+        let bracket_forward = KeyEvent::new(KeyCode::Char(']'), KeyModifiers::empty());
+        
+        app.handle_input(bracket_back).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "[ should not change mode without history");
+        
+        app.handle_input(bracket_forward).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "] should not change mode without history");
+        
+        // Test 2: Create navigation history by navigating through modes
+        app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
+        app.handle_message(Message::EnterResultDetail);
+        assert_eq!(app.state.mode, Mode::ResultDetail);
+        
+        app.handle_message(Message::EnterSessionViewer);
+        assert_eq!(app.state.mode, Mode::SessionViewer);
+        
+        // Now history contains: [Search, ResultDetail] and we're at SessionViewer
+        
+        // Test 3: [ navigates back in non-Search modes
+        // When we go back from SessionViewer (position 1), we go to position 0 which has Search
+        app.handle_input(bracket_back).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "[ should navigate back to Search (position 0)");
+        
+        // Now we're at position 0, we can't go back further ([ won't work in Search mode)
+        // But the navigation history still thinks we can go back (from position 0 to None)
+        assert!(app.state.navigation_history.can_go_back());
+        
+        // Since we're in Search mode, [ won't trigger navigation
+        app.handle_input(bracket_back).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "[ in Search mode doesn't navigate");
+        
+        // We're still at position 0, so we can still go back and forward
+        assert!(app.state.navigation_history.can_go_back(), "Still at position 0, can go back");
+        assert!(app.state.navigation_history.can_go_forward(), "Can go forward from position 0");
+        
+        // Test 4: ] doesn't work in Search mode
+        app.handle_input(bracket_forward).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "] should be ignored in Search mode");
+        
+        // Test 5: [ doesn't work in Search mode when at beginning
+        app.handle_input(bracket_back).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "[ should be ignored in Search mode when at beginning");
+        
+        // Test 6: Since [ and ] don't work in Search mode, we need to verify
+        // the navigation history is preserved and can be used from other modes
+        // Let's directly set the mode to test navigation
+        app.state.mode = Mode::Help; // Directly set mode without adding to history
+        
+        // Now we can use ] to navigate forward through history
+        // We're at position 0, so forward goes to position 1 (ResultDetail)
+        app.handle_input(bracket_forward).unwrap();
+        assert_eq!(app.state.mode, Mode::ResultDetail, "] should navigate forward to ResultDetail");
+        
+        // Test 7: Can't go forward from the end
+        assert!(!app.state.navigation_history.can_go_forward(), "Should be at the end");
+        app.handle_input(bracket_forward).unwrap();
+        assert_eq!(app.state.mode, Mode::ResultDetail, "] should not change mode at the end");
+        
+        // Test 8: Navigate back to Search
+        app.handle_input(bracket_back).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "[ should go back to Search");
+        
+        // We're at position 0, so we can still technically go back to None
+        assert!(app.state.navigation_history.can_go_back(), "At position 0, can still go back");
+        
+        // Test 9: Verify [ and ] are ignored in Search mode
+        app.state.search.query.clear();
+        app.handle_input(bracket_back).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "[ should not navigate in Search mode");
+        
+        app.handle_input(bracket_forward).unwrap();
+        assert_eq!(app.state.mode, Mode::Search, "] should not navigate in Search mode");
+    }
+
+    /// Test Tab key role filter toggle
+    #[test]
+    fn test_tab_role_filter() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
         
         // Start in Search mode
         assert_eq!(app.state.mode, Mode::Search);
         assert_eq!(app.state.search.role_filter, None);
         
-        // Test 1: Tab key (without Ctrl) toggles role filter
+        // Tab key toggles role filter
         let tab_key = KeyEvent::new(KeyCode::Tab, KeyModifiers::empty());
         app.handle_input(tab_key).unwrap();
         assert_eq!(app.state.search.role_filter, Some("user".to_string()));
         
-        // Test 2: Tab key with Ctrl modifier should NOT toggle role filter
-        let ctrl_tab_key = KeyEvent::new(KeyCode::Tab, KeyModifiers::CONTROL);
-        let previous_filter = app.state.search.role_filter.clone();
-        app.handle_input(ctrl_tab_key).unwrap();
-        assert_eq!(app.state.search.role_filter, previous_filter, "Ctrl+Tab should not change role filter");
+        app.handle_input(tab_key).unwrap();
+        assert_eq!(app.state.search.role_filter, Some("assistant".to_string()));
         
-        // Test 3: Ctrl+I should also not toggle role filter
-        let ctrl_i_key = KeyEvent::new(KeyCode::Char('i'), KeyModifiers::CONTROL);
-        let previous_filter2 = app.state.search.role_filter.clone();
-        app.handle_input(ctrl_i_key).unwrap();
-        assert_eq!(app.state.search.role_filter, previous_filter2, "Ctrl+I should not change role filter");
+        app.handle_input(tab_key).unwrap();
+        assert_eq!(app.state.search.role_filter, Some("system".to_string()));
         
-        // Test 4: Verify Ctrl+I doesn't trigger role filter when we have navigation history
-        // but can't go forward (different scenario)
-        app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
-        
-        // Create some navigation history: Search -> ResultDetail -> Search
-        app.handle_message(Message::EnterResultDetail);
-        assert_eq!(app.state.mode, Mode::ResultDetail);
-        
-        app.handle_message(Message::ExitToSearch);
-        assert_eq!(app.state.mode, Mode::Search);
-        
-        // Check current role filter (it may have been restored from navigation)
-        let current_filter = app.state.search.role_filter.clone();
-        
-        // Test that Ctrl+I doesn't toggle role filter even when we have history
-        let ctrl_i_key2 = KeyEvent::new(KeyCode::Char('i'), KeyModifiers::CONTROL);
-        app.handle_input(ctrl_i_key2).unwrap();
-        
-        // Role filter should remain the same (not toggled)
-        assert_eq!(app.state.search.role_filter, current_filter, "Ctrl+I should not toggle role filter");
+        app.handle_input(tab_key).unwrap();
+        assert_eq!(app.state.search.role_filter, None);
     }
 
     /// Test copy feedback messages
