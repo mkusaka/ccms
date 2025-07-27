@@ -219,7 +219,7 @@ impl InteractiveSearch {
 
     fn handle_search_mode_input(&mut self, key: KeyEvent) -> Option<Message> {
         use crossterm::event::KeyModifiers;
-        
+
         match key.code {
             // Skip Tab key processing if Ctrl is pressed (to allow Ctrl+I navigation)
             KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {

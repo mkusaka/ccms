@@ -96,10 +96,10 @@ mod tests {
         state.search.results = vec![create_test_result()];
         state.update(Message::EnterResultDetail);
         assert_eq!(state.navigation_history.len(), 2); // Search + ResultDetail
-        
+
         state.update(Message::EnterSessionViewer);
         assert_eq!(state.navigation_history.len(), 3); // Search + ResultDetail + SessionViewer
-        
+
         state.update(Message::ShowHelp);
         assert_eq!(state.mode, Mode::Help);
         assert_eq!(state.navigation_history.len(), 4); // Search + ResultDetail + SessionViewer + Help
@@ -111,11 +111,11 @@ mod tests {
         // Navigate back to result detail
         state.update(Message::ExitToSearch);
         assert_eq!(state.mode, Mode::ResultDetail);
-        
+
         // Navigate back to search
         state.update(Message::ExitToSearch);
         assert_eq!(state.mode, Mode::Search);
-        
+
         // Should be able to navigate forward
         assert!(state.navigation_history.can_go_forward());
     }
@@ -128,7 +128,7 @@ mod tests {
         state.search.results = vec![create_test_result()];
         state.update(Message::EnterResultDetail);
         assert_eq!(state.navigation_history.len(), 2); // Search + ResultDetail
-        
+
         state.update(Message::EnterSessionViewer);
         assert_eq!(state.mode, Mode::SessionViewer);
         assert_eq!(state.navigation_history.len(), 3); // Search + ResultDetail + SessionViewer

@@ -129,11 +129,11 @@ impl AppState {
                             let initial_state = self.create_navigation_state();
                             self.navigation_history.push(initial_state);
                         }
-                        
+
                         self.ui.selected_result = Some(result);
                         self.ui.detail_scroll_offset = 0;
                         self.mode = Mode::ResultDetail;
-                        
+
                         // Save the new state after transitioning
                         let new_state = self.create_navigation_state();
                         self.navigation_history.push(new_state);
@@ -158,7 +158,7 @@ impl AppState {
                         let initial_state = self.create_navigation_state();
                         self.navigation_history.push(initial_state);
                     }
-                    
+
                     let file = result.file.clone();
                     self.mode = Mode::SessionViewer;
                     self.session.file_path = Some(file.clone());
@@ -166,11 +166,11 @@ impl AppState {
                     self.session.query.clear();
                     self.session.selected_index = 0;
                     self.session.scroll_offset = 0;
-                    
+
                     // Save the new state after transitioning
                     let new_state = self.create_navigation_state();
                     self.navigation_history.push(new_state);
-                    
+
                     Command::LoadSession(file)
                 } else {
                     Command::None
@@ -194,13 +194,13 @@ impl AppState {
                     let initial_state = self.create_navigation_state();
                     self.navigation_history.push(initial_state);
                 }
-                
+
                 self.mode = Mode::Help;
-                
+
                 // Save the new state after transitioning
                 let new_state = self.create_navigation_state();
                 self.navigation_history.push(new_state);
-                
+
                 Command::None
             }
             Message::CloseHelp => {
@@ -353,11 +353,11 @@ impl AppState {
                         let initial_state = self.create_navigation_state();
                         self.navigation_history.push(initial_state);
                     }
-                    
+
                     self.ui.selected_result = Some(result);
                     self.ui.detail_scroll_offset = 0;
                     self.mode = Mode::ResultDetail;
-                    
+
                     // Save the new state after transitioning
                     let new_state = self.create_navigation_state();
                     self.navigation_history.push(new_state);
@@ -366,17 +366,23 @@ impl AppState {
             }
             Message::NavigateBack => {
                 #[cfg(test)]
-                println!("NavigateBack: can_go_back = {}", self.navigation_history.can_go_back());
-                
+                println!(
+                    "NavigateBack: can_go_back = {}",
+                    self.navigation_history.can_go_back()
+                );
+
                 if let Some(previous_state) = self.navigation_history.go_back() {
                     // When we're at position 0 and go back, we go to the initial state
                     // In that case, go_back() returns the state at position 0 (what we saved)
                     // and we should restore that state
                     #[cfg(test)]
-                    println!("NavigateBack: restoring state with mode = {:?}", previous_state.mode);
-                    
+                    println!(
+                        "NavigateBack: restoring state with mode = {:?}",
+                        previous_state.mode
+                    );
+
                     self.restore_navigation_state(&previous_state);
-                    
+
                     // Load session if entering SessionViewer mode
                     if self.mode == Mode::SessionViewer {
                         if let Some(file_path) = &self.session.file_path {
@@ -393,7 +399,7 @@ impl AppState {
                 if self.navigation_history.can_go_forward() {
                     if let Some(next_state) = self.navigation_history.go_forward() {
                         self.restore_navigation_state(&next_state);
-                        
+
                         // Load session if entering SessionViewer mode
                         if self.mode == Mode::SessionViewer {
                             if let Some(file_path) = &self.session.file_path {
@@ -411,7 +417,6 @@ impl AppState {
             _ => Command::None,
         }
     }
-
 
     fn update_session_filter(&mut self) {
         use crate::interactive_ratatui::domain::filter::SessionFilter;
@@ -468,14 +473,14 @@ impl AppState {
     // Restore state from a snapshot
     pub fn restore_navigation_state(&mut self, state: &NavigationState) {
         self.mode = state.mode;
-        
+
         // Restore search state
         self.search.query = state.search_state.query.clone();
         self.search.results = state.search_state.results.clone();
         self.search.selected_index = state.search_state.selected_index;
         self.search.scroll_offset = state.search_state.scroll_offset;
         self.search.role_filter = state.search_state.role_filter.clone();
-        
+
         // Restore session state
         self.session.messages = state.session_state.messages.clone();
         self.session.query = state.session_state.query.clone();
@@ -485,7 +490,7 @@ impl AppState {
         self.session.order = state.session_state.order;
         self.session.file_path = state.session_state.file_path.clone();
         self.session.session_id = state.session_state.session_id.clone();
-        
+
         // Restore UI state
         self.ui.message = state.ui_state.message.clone();
         self.ui.detail_scroll_offset = state.ui_state.detail_scroll_offset;

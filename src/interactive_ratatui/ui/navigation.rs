@@ -45,7 +45,7 @@ pub struct UiStateSnapshot {
 /// Manages navigation history with back/forward capabilities
 pub struct NavigationHistory {
     history: Vec<NavigationState>,
-    current_index: Option<usize>,  // None means we're at the initial state before any navigation
+    current_index: Option<usize>, // None means we're at the initial state before any navigation
     max_history: usize,
 }
 
@@ -81,7 +81,7 @@ impl NavigationHistory {
             self.history.remove(0);
             // Don't update current_index here, it's updated below
         }
-        
+
         // Update current index to point to the new state
         self.current_index = Some(self.history.len() - 1);
     }
@@ -275,7 +275,7 @@ mod tests {
         // Go back twice (from index 2 to 1, then to 0)
         history.go_back();
         history.go_back();
-        
+
         // Current index is now 0
         // Push new state - should truncate forward history after index 0
         history.push(state4.clone());

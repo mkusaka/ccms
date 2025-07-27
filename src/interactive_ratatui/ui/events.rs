@@ -18,7 +18,7 @@ pub enum Message {
     ExitToSearch,
     ShowHelp,
     CloseHelp,
-    
+
     // Navigation history
     NavigateBack,
     NavigateForward,
