@@ -19,6 +19,10 @@ pub enum Message {
     ShowHelp,
     CloseHelp,
 
+    // Navigation history
+    NavigateBack,
+    NavigateForward,
+
     // Session events
     LoadSession(String),
     SessionQueryChanged(String),

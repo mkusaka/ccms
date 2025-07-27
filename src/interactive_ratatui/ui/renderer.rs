@@ -74,7 +74,7 @@ impl Renderer {
             "Full Text"
         };
         let status_text = format!(
-            "Tab: Filter | ↑/↓: Navigate | Enter: Detail | s: Session | Ctrl+T: Toggle [{truncation_status}] | ?: Help | Esc: Exit"
+            "Tab: Filter | ↑/↓: Navigate | Enter: Detail | s: Session | Alt+←/→: History | Ctrl+T: Toggle [{truncation_status}] | ?: Help | Esc: Exit"
         );
         let status_bar = Paragraph::new(status_text).style(Style::default().fg(Color::DarkGray));
         f.render_widget(status_bar, chunks[2]);

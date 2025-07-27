@@ -190,6 +190,15 @@ impl InteractiveSearch {
                 self.handle_message(Message::ToggleTruncation);
                 return Ok(false);
             }
+            // Navigation shortcuts with Alt modifier
+            KeyCode::Left if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.handle_message(Message::NavigateBack);
+                return Ok(false);
+            }
+            KeyCode::Right if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.handle_message(Message::NavigateForward);
+                return Ok(false);
+            }
             _ => {}
         }
 
@@ -209,8 +218,13 @@ impl InteractiveSearch {
     }
 
     fn handle_search_mode_input(&mut self, key: KeyEvent) -> Option<Message> {
+        use crossterm::event::KeyModifiers;
+
         match key.code {
-            KeyCode::Tab => Some(Message::ToggleRoleFilter),
+            // Skip Tab key processing if Ctrl is pressed (to allow Ctrl+I navigation)
+            KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                Some(Message::ToggleRoleFilter)
+            }
             KeyCode::Up
             | KeyCode::Down
             | KeyCode::PageUp

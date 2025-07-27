@@ -2,6 +2,9 @@ use crate::SearchOptions;
 use crate::interactive_ratatui::domain::models::SessionOrder;
 use crate::interactive_ratatui::ui::commands::Command;
 use crate::interactive_ratatui::ui::events::Message;
+use crate::interactive_ratatui::ui::navigation::{
+    NavigationHistory, NavigationState, SearchStateSnapshot, SessionStateSnapshot, UiStateSnapshot,
+};
 use crate::query::condition::{QueryCondition, SearchResult};
 
 // Re-export Mode
@@ -9,7 +12,7 @@ pub use crate::interactive_ratatui::domain::models::Mode;
 
 pub struct AppState {
     pub mode: Mode,
-    pub mode_stack: Vec<Mode>,
+    pub navigation_history: NavigationHistory,
     pub search: SearchState,
     pub session: SessionState,
     pub ui: UiState,
@@ -51,7 +54,7 @@ impl AppState {
     pub fn new(base_options: SearchOptions, max_results: usize) -> Self {
         Self {
             mode: Mode::Search,
-            mode_stack: Vec::new(),
+            navigation_history: NavigationHistory::new(50), // Keep last 50 states
             search: SearchState {
                 query: String::new(),
                 results: Vec::new(),
@@ -118,11 +121,26 @@ impl AppState {
                 Command::None
             }
             Message::EnterResultDetail => {
-                if let Some(result) = self.get_selected_result() {
-                    self.ui.selected_result = Some(result.clone());
-                    self.ui.detail_scroll_offset = 0;
-                    self.mode_stack.push(self.mode);
-                    self.mode = Mode::ResultDetail;
+                if let Some(result) = self.search.results.get(self.search.selected_index).cloned() {
+                    // Only save state if we're actually changing modes
+                    if self.mode != Mode::ResultDetail {
+                        // If this is our first navigation, save the initial state
+                        if self.navigation_history.is_empty() {
+                            let initial_state = self.create_navigation_state();
+                            self.navigation_history.push(initial_state);
+                        }
+
+                        self.ui.selected_result = Some(result);
+                        self.ui.detail_scroll_offset = 0;
+                        self.mode = Mode::ResultDetail;
+
+                        // Save the new state after transitioning
+                        let new_state = self.create_navigation_state();
+                        self.navigation_history.push(new_state);
+                    } else {
+                        self.ui.selected_result = Some(result);
+                        self.ui.detail_scroll_offset = 0;
+                    }
                 }
                 Command::None
             }
@@ -135,37 +153,64 @@ impl AppState {
                 };
 
                 if let Some(result) = result {
+                    // If this is our first navigation, save the initial state
+                    if self.navigation_history.is_empty() {
+                        let initial_state = self.create_navigation_state();
+                        self.navigation_history.push(initial_state);
+                    }
+
                     let file = result.file.clone();
-                    self.mode_stack.push(self.mode);
                     self.mode = Mode::SessionViewer;
                     self.session.file_path = Some(file.clone());
                     self.session.session_id = Some(result.session_id.clone());
                     self.session.query.clear();
                     self.session.selected_index = 0;
                     self.session.scroll_offset = 0;
+
+                    // Save the new state after transitioning
+                    let new_state = self.create_navigation_state();
+                    self.navigation_history.push(new_state);
+
                     Command::LoadSession(file)
                 } else {
                     Command::None
                 }
             }
             Message::ExitToSearch => {
-                // Pop mode from stack if available, otherwise go to Search
-                self.mode = self.mode_stack.pop().unwrap_or(Mode::Search);
-                if self.mode == Mode::Search {
-                    // Only clear session messages when returning to search
+                // Go back in navigation history
+                if let Some(previous_state) = self.navigation_history.go_back() {
+                    self.restore_navigation_state(&previous_state);
+                } else {
+                    // No history, go to Search
+                    self.mode = Mode::Search;
                     self.session.messages.clear();
                 }
                 self.ui.detail_scroll_offset = 0;
                 Command::None
             }
             Message::ShowHelp => {
-                self.mode_stack.push(self.mode);
+                // If this is our first navigation, save the initial state
+                if self.navigation_history.is_empty() {
+                    let initial_state = self.create_navigation_state();
+                    self.navigation_history.push(initial_state);
+                }
+
                 self.mode = Mode::Help;
+
+                // Save the new state after transitioning
+                let new_state = self.create_navigation_state();
+                self.navigation_history.push(new_state);
+
                 Command::None
             }
             Message::CloseHelp => {
-                // Pop mode from stack if available, otherwise go to Search
-                self.mode = self.mode_stack.pop().unwrap_or(Mode::Search);
+                // Go back in navigation history
+                if let Some(previous_state) = self.navigation_history.go_back() {
+                    self.restore_navigation_state(&previous_state);
+                } else {
+                    // No history, go to Search
+                    self.mode = Mode::Search;
+                }
                 Command::None
             }
             Message::ToggleRoleFilter => {
@@ -303,10 +348,65 @@ impl AppState {
                         raw_json: Some(raw_json),    // Store full JSON
                     };
 
+                    // If this is our first navigation, save the initial state
+                    if self.navigation_history.is_empty() {
+                        let initial_state = self.create_navigation_state();
+                        self.navigation_history.push(initial_state);
+                    }
+
                     self.ui.selected_result = Some(result);
                     self.ui.detail_scroll_offset = 0;
-                    self.mode_stack.push(self.mode);
                     self.mode = Mode::ResultDetail;
+
+                    // Save the new state after transitioning
+                    let new_state = self.create_navigation_state();
+                    self.navigation_history.push(new_state);
+                }
+                Command::None
+            }
+            Message::NavigateBack => {
+                #[cfg(test)]
+                println!(
+                    "NavigateBack: can_go_back = {}",
+                    self.navigation_history.can_go_back()
+                );
+
+                if let Some(previous_state) = self.navigation_history.go_back() {
+                    // When we're at position 0 and go back, we go to the initial state
+                    // In that case, go_back() returns the state at position 0 (what we saved)
+                    // and we should restore that state
+                    #[cfg(test)]
+                    println!(
+                        "NavigateBack: restoring state with mode = {:?}",
+                        previous_state.mode
+                    );
+
+                    self.restore_navigation_state(&previous_state);
+
+                    // Load session if entering SessionViewer mode
+                    if self.mode == Mode::SessionViewer {
+                        if let Some(file_path) = &self.session.file_path {
+                            return Command::LoadSession(file_path.clone());
+                        }
+                    }
+                } else {
+                    #[cfg(test)]
+                    println!("NavigateBack: go_back() returned None");
+                }
+                Command::None
+            }
+            Message::NavigateForward => {
+                if self.navigation_history.can_go_forward() {
+                    if let Some(next_state) = self.navigation_history.go_forward() {
+                        self.restore_navigation_state(&next_state);
+
+                        // Load session if entering SessionViewer mode
+                        if self.mode == Mode::SessionViewer {
+                            if let Some(file_path) = &self.session.file_path {
+                                return Command::LoadSession(file_path.clone());
+                            }
+                        }
+                    }
                 }
                 Command::None
             }
@@ -316,10 +416,6 @@ impl AppState {
             }
             _ => Command::None,
         }
-    }
-
-    fn get_selected_result(&self) -> Option<&SearchResult> {
-        self.search.results.get(self.search.selected_index)
     }
 
     fn update_session_filter(&mut self) {
@@ -342,5 +438,63 @@ impl AppState {
             self.session.selected_index = 0;
             self.session.scroll_offset = 0;
         }
+    }
+
+    // Create a snapshot of current state
+    pub fn create_navigation_state(&self) -> NavigationState {
+        NavigationState {
+            mode: self.mode,
+            search_state: SearchStateSnapshot {
+                query: self.search.query.clone(),
+                results: self.search.results.clone(),
+                selected_index: self.search.selected_index,
+                scroll_offset: self.search.scroll_offset,
+                role_filter: self.search.role_filter.clone(),
+            },
+            session_state: SessionStateSnapshot {
+                messages: self.session.messages.clone(),
+                query: self.session.query.clone(),
+                filtered_indices: self.session.filtered_indices.clone(),
+                selected_index: self.session.selected_index,
+                scroll_offset: self.session.scroll_offset,
+                order: self.session.order,
+                file_path: self.session.file_path.clone(),
+                session_id: self.session.session_id.clone(),
+            },
+            ui_state: UiStateSnapshot {
+                message: self.ui.message.clone(),
+                detail_scroll_offset: self.ui.detail_scroll_offset,
+                selected_result: self.ui.selected_result.clone(),
+                truncation_enabled: self.ui.truncation_enabled,
+            },
+        }
+    }
+
+    // Restore state from a snapshot
+    pub fn restore_navigation_state(&mut self, state: &NavigationState) {
+        self.mode = state.mode;
+
+        // Restore search state
+        self.search.query = state.search_state.query.clone();
+        self.search.results = state.search_state.results.clone();
+        self.search.selected_index = state.search_state.selected_index;
+        self.search.scroll_offset = state.search_state.scroll_offset;
+        self.search.role_filter = state.search_state.role_filter.clone();
+
+        // Restore session state
+        self.session.messages = state.session_state.messages.clone();
+        self.session.query = state.session_state.query.clone();
+        self.session.filtered_indices = state.session_state.filtered_indices.clone();
+        self.session.selected_index = state.session_state.selected_index;
+        self.session.scroll_offset = state.session_state.scroll_offset;
+        self.session.order = state.session_state.order;
+        self.session.file_path = state.session_state.file_path.clone();
+        self.session.session_id = state.session_state.session_id.clone();
+
+        // Restore UI state
+        self.ui.message = state.ui_state.message.clone();
+        self.ui.detail_scroll_offset = state.ui_state.detail_scroll_offset;
+        self.ui.selected_result = state.ui_state.selected_result.clone();
+        self.ui.truncation_enabled = state.ui_state.truncation_enabled;
     }
 }
