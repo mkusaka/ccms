@@ -6,7 +6,7 @@ use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::{Block, Borders, Paragraph},
 };
 
 #[derive(Default)]
@@ -126,8 +126,10 @@ impl Component for HelpDialog {
 
         let dialog_area = Rect::new(x, y, width, height);
 
-        // Clear the area behind the dialog
-        f.render_widget(Clear, dialog_area);
+        // Use a block with background instead of Clear widget for better performance
+        let background_block = Block::default()
+            .style(Style::default().bg(Color::Black));
+        f.render_widget(background_block, dialog_area);
 
         let help = Paragraph::new(help_text)
             .block(

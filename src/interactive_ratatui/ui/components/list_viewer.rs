@@ -1,7 +1,7 @@
 use super::list_item::ListItem;
 use ratatui::{
     Frame,
-    layout::Rect,
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, List, ListItem as TuiListItem, Paragraph},
 };
@@ -33,6 +33,19 @@ impl<T: ListItem> Default for ListViewer<T> {
 }
 
 impl<T: ListItem> ListViewer<T> {
+    /// Calculate scroll position for rendering indicators
+    pub fn get_scroll_position(&self) -> (usize, usize, usize) {
+        let total = self.filtered_indices.len();
+        let position = self.selected_index;
+        let viewport_size = if self.truncation_enabled {
+            // Estimate based on typical terminal height
+            20
+        } else {
+            // In full text mode, harder to estimate
+            10
+        };
+        (position, viewport_size, total)
+    }
     pub fn new(title: String, empty_message: String) -> Self {
         Self {
             items: Vec::new(),
@@ -181,8 +194,17 @@ impl<T: ListItem> ListViewer<T> {
             let mut current_height = 0;
             let mut end = start;
 
-            // Calculate available width for text (accounting for timestamp and role)
-            let available_text_width = available_width.saturating_sub(35) as usize;
+            // Use Layout API to calculate available width for text
+            let row_layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Length(19), // Timestamp width
+                    Constraint::Length(11), // Role width with padding
+                    Constraint::Length(5),  // Separators and spacing
+                    Constraint::Min(20),    // Message content (remaining space)
+                ])
+                .split(Rect::new(0, 0, available_width, 1));
+            let available_text_width = row_layout[3].width as usize;
 
             while end < self.filtered_indices.len() && current_height < available_height as usize {
                 if let Some(&item_idx) = self.filtered_indices.get(end) {
@@ -208,44 +230,63 @@ impl<T: ListItem> ListViewer<T> {
         if self.truncation_enabled {
             // In truncated mode, each item takes 1 line
             let visible_count = available_height as usize;
-            if self.selected_index < self.scroll_offset {
-                self.scroll_offset = self.selected_index;
-            } else if self.selected_index >= self.scroll_offset + visible_count {
-                self.scroll_offset = self.selected_index - visible_count + 1;
-            }
+            self.ensure_item_visible_truncated(self.selected_index, visible_count);
         } else {
-            // In full text mode, ensure selected item is visible
+            // In full text mode, use a more efficient algorithm
+            self.ensure_item_visible_full_text(available_height, available_width);
+        }
+    }
 
-            // Calculate which items are visible with current scroll_offset
-            let (start, end) = self.calculate_visible_range(available_height, available_width);
+    fn ensure_item_visible_truncated(&mut self, index: usize, visible_count: usize) {
+        // Simple calculation for truncated mode
+        if index < self.scroll_offset {
+            self.scroll_offset = index;
+        } else if index >= self.scroll_offset + visible_count {
+            self.scroll_offset = index.saturating_sub(visible_count - 1);
+        }
+    }
 
-            // If selected item is not visible, adjust scroll offset
-            if self.selected_index < start {
-                self.scroll_offset = self.selected_index;
-            } else if self.selected_index >= end {
-                // Need to scroll down - find appropriate scroll offset
-                let mut test_offset = self.scroll_offset;
-                while test_offset < self.filtered_indices.len() {
-                    // Temporarily update scroll_offset to test if selected item would be visible
-                    let original_offset = self.scroll_offset;
-                    self.scroll_offset = test_offset;
-                    let (_, test_end) =
-                        self.calculate_visible_range(available_height, available_width);
+    fn ensure_item_visible_full_text(&mut self, available_height: u16, available_width: u16) {
+        // First, check if selected item is already visible
+        let (start, end) = self.calculate_visible_range(available_height, available_width);
+        
+        if self.selected_index >= start && self.selected_index < end {
+            // Already visible, no adjustment needed
+            return;
+        }
 
-                    if self.selected_index < test_end {
-                        // Found the right offset, keep it
-                        break;
-                    }
+        // If scrolling up (selected item is above visible area)
+        if self.selected_index < start {
+            self.scroll_offset = self.selected_index;
+            return;
+        }
 
-                    // Restore original offset and try next
-                    self.scroll_offset = original_offset;
-                    test_offset += 1;
-                }
-
-                // Update to the final test offset
-                self.scroll_offset = test_offset;
+        // If scrolling down (selected item is below visible area)
+        // Use binary search for efficiency
+        let mut low = self.scroll_offset;
+        let mut high = self.selected_index;
+        
+        while low < high {
+            let mid = (low + high) / 2;
+            let original_offset = self.scroll_offset;
+            self.scroll_offset = mid;
+            
+            let (_, test_end) = self.calculate_visible_range(available_height, available_width);
+            
+            if self.selected_index < test_end {
+                // Selected item is visible with this offset
+                high = mid;
+            } else {
+                // Need to scroll further down
+                low = mid + 1;
+            }
+            
+            if mid != low && mid != high {
+                self.scroll_offset = original_offset;
             }
         }
+        
+        self.scroll_offset = low;
     }
 
     pub fn render(&mut self, f: &mut Frame, area: Rect) {
@@ -261,11 +302,26 @@ impl<T: ListItem> ListViewer<T> {
             return;
         }
 
-        let available_height = area.height.saturating_sub(2); // Account for borders
+        // Calculate available height using block configuration
+        let block = Block::default()
+            .title(self.title.clone())
+            .borders(Borders::ALL);
+        let inner_area = block.inner(area);
+        let available_height = inner_area.height;
         self.adjust_scroll_offset(available_height, area.width);
         let (start, end) = self.calculate_visible_range(available_height, area.width);
 
-        let available_text_width = area.width.saturating_sub(35) as usize;
+        // Use Layout API to calculate available width for text
+        let row_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(19), // Timestamp width
+                Constraint::Length(11), // Role width with padding
+                Constraint::Length(5),  // Separators and spacing
+                Constraint::Min(20),    // Message content (remaining space)
+            ])
+            .split(Rect::new(0, 0, area.width, 1));
+        let available_text_width = row_layout[3].width as usize;
 
         let items: Vec<TuiListItem> = (start..end)
             .filter_map(|i| {
