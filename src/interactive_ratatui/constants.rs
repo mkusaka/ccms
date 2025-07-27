@@ -1,7 +1,7 @@
-/// Constants for the interactive TUI module
-/// 
-/// This module centralizes magic numbers and configuration values
-/// to improve maintainability and make the codebase more self-documenting.
+//! Constants for the interactive TUI module
+//! 
+//! This module centralizes magic numbers and configuration values
+//! to improve maintainability and make the codebase more self-documenting.
 
 // Timing constants
 /// Message auto-clear delay in milliseconds
@@ -11,6 +11,7 @@ pub const MESSAGE_CLEAR_DELAY_MS: u64 = 3000;
 pub const EVENT_POLL_INTERVAL_MS: u64 = 50;
 
 /// Search debounce delay in milliseconds
+#[allow(dead_code)]
 pub const SEARCH_DEBOUNCE_DELAY_MS: u64 = 300;
 
 /// Double Ctrl+C timeout in seconds
@@ -24,6 +25,7 @@ pub const SEARCH_BAR_HEIGHT: u16 = 3;
 pub const STATUS_BAR_HEIGHT: u16 = 1;
 
 /// Number of lines to keep visible when scrolling
+#[allow(dead_code)]
 pub const SCROLL_MARGIN: usize = 10;
 
 /// Page size for PageUp/PageDown navigation
@@ -34,6 +36,7 @@ pub const PAGE_SIZE: usize = 10;
 pub const FILE_READ_BUFFER_SIZE: usize = 32 * 1024;
 
 /// Default maximum search results
+#[allow(dead_code)]
 pub const DEFAULT_MAX_RESULTS: usize = 100;
 
 // Help dialog dimensions
