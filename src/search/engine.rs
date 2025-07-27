@@ -338,12 +338,16 @@ impl SearchEngine {
         Ok(results)
     }
 
-    fn apply_filters(&self, results: &mut Vec<SearchResult>, role_filter: Option<String>) -> Result<()> {
+    fn apply_filters(
+        &self,
+        results: &mut Vec<SearchResult>,
+        role_filter: Option<String>,
+    ) -> Result<()> {
         // Apply role filter from interactive UI (if provided)
         if let Some(role) = role_filter {
             results.retain(|r| r.role == role);
         }
-        
+
         // Apply role filter from command line options
         if let Some(role) = &self.options.role {
             results.retain(|r| r.role == *role);

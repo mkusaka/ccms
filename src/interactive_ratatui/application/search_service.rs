@@ -29,7 +29,12 @@ impl SearchService {
         })
     }
 
-    fn execute_search(&self, query: &str, pattern: &str, role_filter: Option<String>) -> Result<Vec<SearchResult>> {
+    fn execute_search(
+        &self,
+        query: &str,
+        pattern: &str,
+        role_filter: Option<String>,
+    ) -> Result<Vec<SearchResult>> {
         let query_condition = if query.trim().is_empty() {
             // Empty query means "match all" - use empty AND condition
             QueryCondition::And { conditions: vec![] }
@@ -37,7 +42,9 @@ impl SearchService {
             parse_query(query)?
         };
 
-        let (mut results, _, _) = self.engine.search_with_role_filter(pattern, query_condition, role_filter)?;
+        let (mut results, _, _) =
+            self.engine
+                .search_with_role_filter(pattern, query_condition, role_filter)?;
 
         // Sort by timestamp descending
         results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));

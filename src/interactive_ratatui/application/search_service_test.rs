@@ -109,7 +109,7 @@ mod tests {
         // Test that role filter is applied before max_results truncation
         // This ensures that when changing role filter, we get up to max_results
         // of the filtered role, not just whatever was in the first max_results
-        
+
         // Create a service with a low max_results for testing
         let options = SearchOptions {
             max_results: Some(5),
@@ -136,7 +136,7 @@ mod tests {
         // Both will return empty due to missing file, but the structure is correct
         let response1 = service.search(request1).unwrap();
         let response2 = service.search(request2).unwrap();
-        
+
         assert_eq!(response1.id, 1);
         assert_eq!(response2.id, 2);
         // In a real scenario with files containing mixed roles,
