@@ -1,3 +1,4 @@
+use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::ui::components::Component;
 use crate::interactive_ratatui::ui::events::Message;
 use crossterm::event::KeyEvent;
@@ -117,8 +118,8 @@ impl Component for HelpDialog {
         let help_text = Self::get_help_text();
 
         // Calculate dimensions for the help dialog
-        let width = 85.min(area.width - 4);
-        let height = (help_text.len() as u16 + 4).min(area.height - 4);
+        let width = HELP_DIALOG_MAX_WIDTH.min(area.width.saturating_sub(HELP_DIALOG_MARGIN));
+        let height = (help_text.len() as u16 + HELP_DIALOG_MARGIN).min(area.height.saturating_sub(HELP_DIALOG_MARGIN));
 
         // Center the dialog
         let x = (area.width - width) / 2;

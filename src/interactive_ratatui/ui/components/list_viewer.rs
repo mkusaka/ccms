@@ -1,3 +1,4 @@
+use crate::interactive_ratatui::constants::*;
 use super::list_item::ListItem;
 use ratatui::{
     Frame,
@@ -137,7 +138,7 @@ impl<T: ListItem> ListViewer<T> {
     }
 
     pub fn page_up(&mut self) -> bool {
-        let new_index = self.selected_index.saturating_sub(10);
+        let new_index = self.selected_index.saturating_sub(PAGE_SIZE);
         if new_index != self.selected_index {
             self.selected_index = new_index;
             true
@@ -148,7 +149,7 @@ impl<T: ListItem> ListViewer<T> {
 
     pub fn page_down(&mut self) -> bool {
         let new_index =
-            (self.selected_index + 10).min(self.filtered_indices.len().saturating_sub(1));
+            (self.selected_index + PAGE_SIZE).min(self.filtered_indices.len().saturating_sub(1));
         if new_index != self.selected_index {
             self.selected_index = new_index;
             true
@@ -198,10 +199,10 @@ impl<T: ListItem> ListViewer<T> {
             let row_layout = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([
-                    Constraint::Length(19), // Timestamp width
-                    Constraint::Length(11), // Role width with padding
-                    Constraint::Length(5),  // Separators and spacing
-                    Constraint::Min(20),    // Message content (remaining space)
+                    Constraint::Length(TIMESTAMP_COLUMN_WIDTH),
+                    Constraint::Length(ROLE_COLUMN_WIDTH),
+                    Constraint::Length(SEPARATOR_WIDTH),
+                    Constraint::Min(MIN_MESSAGE_WIDTH),
                 ])
                 .split(Rect::new(0, 0, available_width, 1));
             let available_text_width = row_layout[3].width as usize;
@@ -315,10 +316,10 @@ impl<T: ListItem> ListViewer<T> {
         let row_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Length(19), // Timestamp width
-                Constraint::Length(11), // Role width with padding
-                Constraint::Length(5),  // Separators and spacing
-                Constraint::Min(20),    // Message content (remaining space)
+                Constraint::Length(TIMESTAMP_COLUMN_WIDTH),
+                Constraint::Length(ROLE_COLUMN_WIDTH),
+                Constraint::Length(SEPARATOR_WIDTH),
+                Constraint::Min(MIN_MESSAGE_WIDTH),
             ])
             .split(Rect::new(0, 0, area.width, 1));
         let available_text_width = row_layout[3].width as usize;

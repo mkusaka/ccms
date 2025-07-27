@@ -160,6 +160,44 @@ While formal benchmarking is pending, the improvements should provide:
 - Better scroll performance with O(log n) algorithm
 - More predictable frame times with structured layout calculations
 
+## Additional Improvements (Phase 4)
+
+### Magic Number Elimination
+
+Created a centralized `constants.rs` module to eliminate magic numbers throughout the codebase:
+
+#### Before:
+```rust
+// Scattered magic numbers
+message_clear_delay: 3000, // 3秒後に消える
+if poll(Duration::from_millis(50))? {
+let reader = std::io::BufReader::with_capacity(32 * 1024, file);
+let width = 85.min(area.width - 4);
+Constraint::Length(3), // Search bar
+```
+
+#### After:
+```rust
+// Centralized constants
+message_clear_delay: MESSAGE_CLEAR_DELAY_MS,
+if poll(Duration::from_millis(EVENT_POLL_INTERVAL_MS))? {
+let reader = std::io::BufReader::with_capacity(FILE_READ_BUFFER_SIZE, file);
+let width = HELP_DIALOG_MAX_WIDTH.min(area.width.saturating_sub(HELP_DIALOG_MARGIN));
+Constraint::Length(SEARCH_BAR_HEIGHT),
+```
+
+### Constants Defined:
+- Timing constants (message clear delay, event polling, debounce)
+- UI Layout constants (component heights, margins)
+- Buffer sizes and limits
+- Navigation and scrolling parameters
+
+This makes the code:
+- More self-documenting
+- Easier to adjust parameters
+- Less prone to inconsistencies
+- More maintainable
+
 ## Migration Guide
 
 For developers working with this code:
@@ -167,7 +205,16 @@ For developers working with this code:
 2. Leverage `block.inner()` for content area calculations
 3. Avoid `Clear` widget; use styled blocks instead
 4. Separate scroll logic for different display modes
+5. Use constants from `constants.rs` instead of magic numbers
+6. Always use `saturating_sub()` to prevent underflows
 
 ## Conclusion
 
-All objectives from issue #74 have been successfully achieved. The codebase is now more maintainable, performant, and ready for future enhancements.
+All objectives from issue #74 have been successfully achieved, plus additional improvements:
+- ✅ Layout API migration (eliminated magic number 35)
+- ✅ Improved scroll management (binary search algorithm)
+- ✅ Rendering optimization (removed Clear widget)
+- ✅ Centralized all magic numbers in constants module
+- ✅ All tests passing with no regressions
+
+The codebase is now more maintainable, performant, and ready for future enhancements.
