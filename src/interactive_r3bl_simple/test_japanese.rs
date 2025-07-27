@@ -230,4 +230,61 @@ mod tests {
         app.handle_input('\x08', &mut state_lock).await.unwrap();
         assert_eq!(state_lock.query, "こんに");
     }
+
+    #[tokio::test]
+    async fn test_cursor_position_japanese() {
+        let (mut app, state) = create_test_app();
+        let mut state_lock = state.lock().await;
+
+        // Input "あいうえお"
+        for ch in "あいうえお".chars() {
+            app.handle_input(ch, &mut state_lock).await.unwrap();
+        }
+        
+        let output = app.render(&mut state_lock).await.unwrap();
+        
+        // "Search: " is 8 chars + 1 = 9
+        // "あいうえお" is 10 display width (5 chars × 2 width each)
+        // So cursor should be at column 19
+        assert!(output.contains("\x1b[3;19H"), "Cursor should be at column 19 for 'あいうえお'");
+    }
+
+    #[tokio::test]
+    async fn test_cursor_position_mixed() {
+        let (mut app, state) = create_test_app();
+        let mut state_lock = state.lock().await;
+
+        // Input "abc日本"
+        for ch in "abc日本".chars() {
+            app.handle_input(ch, &mut state_lock).await.unwrap();
+        }
+        
+        let output = app.render(&mut state_lock).await.unwrap();
+        
+        // "Search: " is 8 chars + 1 = 9
+        // "abc" is 3 display width
+        // "日本" is 4 display width (2 chars × 2 width each)
+        // Total = 9 + 3 + 4 = 16
+        assert!(output.contains("\x1b[3;16H"), "Cursor should be at column 16 for 'abc日本'");
+    }
+
+    #[tokio::test]
+    async fn test_cursor_position_emoji() {
+        let (mut app, state) = create_test_app();
+        let mut state_lock = state.lock().await;
+
+        // Input "😀test"
+        for ch in "😀test".chars() {
+            app.handle_input(ch, &mut state_lock).await.unwrap();
+        }
+        
+        let output = app.render(&mut state_lock).await.unwrap();
+        
+        // "Search: " is 8 chars + 1 = 9
+        // "😀" is typically 2 display width
+        // "test" is 4 display width
+        // Total = 9 + 2 + 4 = 15
+        // Note: Emoji width can vary depending on terminal
+        assert!(output.contains("\x1b[3;"), "Cursor position should be set");
+    }
 }

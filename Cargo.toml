@@ -27,6 +27,7 @@ dirs = "6.0"
 # Regex and string matching
 regex = "1.10"
 lru = "0.16"
+unicode-width = "0.2"
 
 # Parallel processing
 rayon = "1.10"
