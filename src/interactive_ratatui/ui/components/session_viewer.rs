@@ -375,7 +375,16 @@ impl Component for SessionViewer {
                 }
                 KeyCode::Enter => {
                     self.is_searching = false;
-                    None
+                    // Navigate to result detail for selected message
+                    self.list_viewer.get_selected_item().and_then(|item| {
+                        self.file_path.as_ref().map(|path| {
+                            Message::EnterResultDetailFromSession(
+                                item.raw_json.clone(),
+                                path.clone(),
+                                self.session_id.clone(),
+                            )
+                        })
+                    })
                 }
                 KeyCode::Up => {
                     self.list_viewer.move_up();
