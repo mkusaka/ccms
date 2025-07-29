@@ -241,4 +241,89 @@ mod tests {
         let msg = list.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL));
         assert!(msg.is_none());
     }
+
+    #[test]
+    fn test_shortcuts_display_with_wrap() {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        let mut list = ResultList::new();
+        let results = vec![
+            create_test_result("user", "Test message"),
+        ];
+        list.update_results(results, 0);
+
+        // Create test backend with narrow width but enough height to show all shortcuts
+        let backend = TestBackend::new(40, 25);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal.draw(|f| {
+            list.render(f, f.area());
+        }).unwrap();
+
+        let buffer = terminal.backend().buffer();
+        
+        // Convert buffer to string for easier testing
+        let mut content = String::new();
+        for y in 0..buffer.area.height {
+            for x in 0..buffer.area.width {
+                let cell = buffer.cell((x, y)).unwrap();
+                content.push_str(cell.symbol());
+            }
+            content.push('\n');
+        }
+
+        // Check that shortcuts are displayed
+        assert!(content.contains("Shortcuts:"));
+        assert!(content.contains("[↑/↓ or j/k or Ctrl+P/N]"));
+        assert!(content.contains("Navigate"));
+        assert!(content.contains("[Enter]"));
+        assert!(content.contains("View details"));
+        assert!(content.contains("[Ctrl+T]"));
+        assert!(content.contains("Toggle truncation"));
+        assert!(content.contains("[Esc]"));
+        assert!(content.contains("Exit"));
+        
+        // Only check if [?] - Help is present if there's enough room
+        if content.contains("[?]") {
+            assert!(content.contains("Help"));
+        }
+    }
+
+    #[test]
+    fn test_shortcuts_display_wide_screen() {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        let mut list = ResultList::new();
+        let results = vec![
+            create_test_result("user", "Test message"),
+        ];
+        list.update_results(results, 0);
+
+        // Create test backend with wide width
+        let backend = TestBackend::new(120, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal.draw(|f| {
+            list.render(f, f.area());
+        }).unwrap();
+
+        let buffer = terminal.backend().buffer();
+        
+        // Convert buffer to string for easier testing
+        let mut content = String::new();
+        for y in 0..buffer.area.height {
+            for x in 0..buffer.area.width {
+                let cell = buffer.cell((x, y)).unwrap();
+                content.push_str(cell.symbol());
+            }
+            content.push('\n');
+        }
+
+        // Check that shortcuts are displayed properly on wide screen
+        assert!(content.contains("Shortcuts:"));
+        // The shortcuts should not be wrapped on a wide screen
+        assert!(content.contains("[↑/↓ or j/k or Ctrl+P/N] - Navigate"));
+    }
 }
