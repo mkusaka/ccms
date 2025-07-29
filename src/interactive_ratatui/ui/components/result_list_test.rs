@@ -156,7 +156,6 @@ mod tests {
         assert!(msg.is_none());
     }
 
-
     #[test]
     fn test_ctrl_p_n_navigation() {
         let mut list = ResultList::new();
@@ -228,7 +227,7 @@ mod tests {
 
         // Navigate to near the end
         list.update_selection(25);
-        
+
         // Move down with Ctrl+D should go to last item
         let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
         assert!(matches!(msg, Some(Message::SelectResult(_))));
@@ -245,7 +244,7 @@ mod tests {
 
         // Move to position 5
         list.update_selection(5);
-        
+
         // Move up with Ctrl+U should go to first item
         let msg = list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
         assert!(matches!(msg, Some(Message::SelectResult(_))));

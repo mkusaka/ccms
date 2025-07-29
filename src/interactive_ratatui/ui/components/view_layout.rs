@@ -92,9 +92,9 @@ impl ViewLayout {
             // Calculate status bar height based on content and available width
             let status_bar_height = self.calculate_status_bar_height(area.width);
             vec![
-                Constraint::Length(title_bar_height),   // Title bar
-                Constraint::Min(0),                     // Content
-                Constraint::Length(status_bar_height),  // Status bar
+                Constraint::Length(title_bar_height),  // Title bar
+                Constraint::Min(0),                    // Content
+                Constraint::Length(status_bar_height), // Status bar
             ]
         } else {
             vec![

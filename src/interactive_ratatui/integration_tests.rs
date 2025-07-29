@@ -96,9 +96,11 @@ mod tests {
         let mut terminal = Terminal::new(backend).unwrap();
 
         // Add some results to make the UI more realistic
-        app.state.search.results = vec![
-            create_test_result("user", "Test message", "2024-01-01T12:00:00Z"),
-        ];
+        app.state.search.results = vec![create_test_result(
+            "user",
+            "Test message",
+            "2024-01-01T12:00:00Z",
+        )];
 
         // Render the search mode
         app.set_mode(Mode::Search);

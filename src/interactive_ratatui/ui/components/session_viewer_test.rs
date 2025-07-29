@@ -448,7 +448,6 @@ mod tests {
         assert!(buffer_contains(&buffer, "Session Messages"));
     }
 
-
     fn create_key_event_with_modifiers(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
         KeyEvent {
             code,
@@ -1106,7 +1105,6 @@ mod tests {
         assert!(matches!(msg, Some(Message::SessionNavigated)));
         assert_eq!(viewer.list_viewer.selected_index, 0);
     }
-
 
     #[test]
     fn test_role_filter_toggle() {

@@ -156,7 +156,10 @@ mod tests {
                     // The status bar should be taller than 1 line due to wrapping
                     let used_height = full_area.height - content_area.height;
                     // 2 for title bar + at least 2 for wrapped status bar
-                    assert!(used_height >= 4, "Expected wrapped status bar to use more height");
+                    assert!(
+                        used_height >= 4,
+                        "Expected wrapped status bar to use more height"
+                    );
                 });
             })
             .unwrap();
@@ -173,7 +176,7 @@ mod tests {
         // Test with various terminal widths
         let widths = vec![30, 50, 80, 120];
         let long_status = "Tab: Filter | ↑/↓ or Ctrl+P/N: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit";
-        
+
         for width in widths {
             let backend = TestBackend::new(width, 20);
             let mut terminal = Terminal::new(backend).unwrap();
