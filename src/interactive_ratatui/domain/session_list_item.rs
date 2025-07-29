@@ -1,6 +1,4 @@
-use crate::interactive_ratatui::ui::components::list_item::{
-    ListItem, highlight_text, wrap_text,
-};
+use crate::interactive_ratatui::ui::components::list_item::{ListItem, highlight_text, wrap_text};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 

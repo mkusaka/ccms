@@ -150,9 +150,7 @@ pub struct SearchResult {
     pub raw_json: Option<String>,
 }
 
-use crate::interactive_ratatui::ui::components::list_item::{
-    ListItem, wrap_text,
-};
+use crate::interactive_ratatui::ui::components::list_item::{ListItem, wrap_text};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 

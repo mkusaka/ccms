@@ -381,10 +381,7 @@ impl<T: ListItem> ListViewer<T> {
                         };
 
                         if self.truncation_enabled {
-                            TuiListItem::new(
-                                item.create_truncated_line(&self.query),
-                            )
-                            .style(style)
+                            TuiListItem::new(item.create_truncated_line(&self.query)).style(style)
                         } else {
                             TuiListItem::new(
                                 item.create_full_lines(available_text_width, &self.query),
