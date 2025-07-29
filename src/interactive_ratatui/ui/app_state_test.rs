@@ -243,7 +243,7 @@ mod tests {
     fn test_session_order_sorting() {
         let mut state = create_test_state();
         state.mode = Mode::SessionViewer;
-        
+
         // Set up messages with different timestamps
         state.session.messages = vec![
             r#"{"type":"user","message":{"content":"Third message"},"timestamp":"2024-01-03T12:00:00Z"}"#.to_string(),

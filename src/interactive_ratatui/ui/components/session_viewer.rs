@@ -198,15 +198,15 @@ impl SessionViewer {
 
             let search_bar = Paragraph::new(Line::from(search_text)).block(
                 Block::default()
-                    .title(format!("Search in session (Order: {}) | Tab: Role Filter | Ctrl+O: Sort | Esc to cancel | ↑/↓ or Ctrl+P/N to scroll", order_text))
+                    .title(format!("Search in session (Order: {order_text}) | Tab: Role Filter | Ctrl+O: Sort | Esc to cancel | ↑/↓ or Ctrl+P/N to scroll"))
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(ColorScheme::SECONDARY)),
             );
             f.render_widget(search_bar, chunks[0]);
         } else {
             let order_text = Self::format_order(&self.order);
-            let order_part = format!(" | Order: {}", order_text);
-            
+            let order_part = format!(" | Order: {order_text}");
+
             let role_part = if let Some(role) = &self.role_filter {
                 format!(" | Role: {role}")
             } else {
