@@ -86,7 +86,15 @@ impl AsyncSearchEngine {
                 let options = self.options.clone();
 
                 async move {
-                    let _permit = semaphore.acquire().await.unwrap();
+                    let _permit = match semaphore.acquire().await {
+                        Ok(permit) => permit,
+                        Err(e) => {
+                            if options.verbose {
+                                debug!("Failed to acquire semaphore permit for file {:?}: {}", file_path, e);
+                            }
+                            return;
+                        }
+                    };
 
                     if let Ok(file_results) = search_file(&file_path, &query, &options).await {
                         let mut results_guard = results.lock().await;
@@ -107,7 +115,9 @@ impl AsyncSearchEngine {
         tasks.collect::<Vec<_>>().await;
 
         let duration = start.elapsed();
-        let results = Arc::try_unwrap(results).unwrap().into_inner();
+        let results = Arc::try_unwrap(results)
+            .map_err(|_| anyhow::anyhow!("Failed to unwrap results - Arc still has active references"))?
+            .into_inner();
         let total = total_count.load(std::sync::atomic::Ordering::Relaxed);
 
         Ok((results, duration, total))
