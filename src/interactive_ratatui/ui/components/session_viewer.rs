@@ -263,21 +263,18 @@ impl Component for SessionViewer {
 
         let subtitle = subtitle_parts.join("\n");
 
-        // Calculate status bar height based on terminal width
+        // Calculate status bar height based on terminal width using Ratatui's line wrapping
         let status_text = "↑/↓ Ctrl+P/N Ctrl+U/D: Navigate | Tab: Filter | Enter: Detail | Ctrl+O: Sort | c/C: Copy text/JSON | i/f/p: Copy IDs/paths | /: Search | Alt+←/→: History | Esc: Back";
         let status_bar_height = {
-            let text_len = status_text.len();
-            let width = area.width as usize;
-            // Calculate number of lines needed for wrapping
-            // Using manual ceiling division for compatibility
-            #[allow(clippy::manual_div_ceil)]
-            let lines_needed = if width > 0 {
-                (text_len + width - 1) / width
-            } else {
-                1
-            };
+            // Create a temporary paragraph to calculate actual line count
+            let paragraph = Paragraph::new(status_text)
+                .wrap(Wrap { trim: true });
+            
+            // Calculate the actual number of lines with proper text wrapping
+            let lines_needed = paragraph.line_count(area.width) as u16;
+            
             // Ensure minimum of 3 lines, max of 8 lines
-            (lines_needed as u16).clamp(3, 8)
+            lines_needed.clamp(3, 8)
         };
 
         // Check if message is exit prompt
