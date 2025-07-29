@@ -1,10 +1,15 @@
 use crate::interactive_ratatui::ui::components::{
-    Component, list_viewer::ListViewer, view_layout::ViewLayout,
+    Component, list_viewer::ListViewer, view_layout::Styles,
 };
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use ratatui::{Frame, layout::Rect};
+use ratatui::{
+    Frame,
+    layout::{Constraint, Direction, Layout, Rect},
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph, Wrap},
+};
 
 #[derive(Default)]
 pub struct ResultList {
@@ -46,19 +51,68 @@ impl ResultList {
 
 impl Component for ResultList {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        let layout = ViewLayout::new("Search Results".to_string())
-            .with_subtitle(format!(
+        // Split area into title, content (list), shortcuts, and status
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Title
+                Constraint::Min(0),    // Content (list)
+                Constraint::Length(8), // Shortcuts (increased to show all)
+                Constraint::Length(2), // Status
+            ])
+            .split(area);
+
+        // Render title
+        let title_lines = vec![
+            Line::from(vec![Span::styled("Search Results", Styles::title())]),
+            Line::from(vec![Span::raw(format!(
                 "{} results found | Ctrl+T: Toggle truncation",
                 self.list_viewer.filtered_count()
-            ))
-            .with_status_text(
-                "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Esc: Exit | ?: Help"
-                    .to_string(),
-            );
+            ))]),
+        ];
+        let title = Paragraph::new(title_lines).block(Block::default().borders(Borders::BOTTOM));
+        f.render_widget(title, chunks[0]);
 
-        layout.render(f, area, |f, content_area| {
-            self.list_viewer.render(f, content_area);
-        });
+        // Render list
+        self.list_viewer.render(f, chunks[1]);
+
+        // Render shortcuts
+        let shortcuts = vec![
+            Line::from(vec![Span::styled("Shortcuts:", Styles::title())]),
+            Line::from(vec![
+                Span::styled("[↑/↓ or j/k or Ctrl+P/N]", Styles::action_key()),
+                Span::styled(" - Navigate", Styles::action_description()),
+            ]),
+            Line::from(vec![
+                Span::styled("[Enter]", Styles::action_key()),
+                Span::styled(" - View details", Styles::action_description()),
+            ]),
+            Line::from(vec![
+                Span::styled("[Ctrl+T]", Styles::action_key()),
+                Span::styled(" - Toggle truncation", Styles::action_description()),
+            ]),
+            Line::from(vec![
+                Span::styled("[Esc]", Styles::action_key()),
+                Span::styled(" - Exit", Styles::action_description()),
+            ]),
+            Line::from(vec![
+                Span::styled("[?]", Styles::action_key()),
+                Span::styled(" - Help", Styles::action_description()),
+            ]),
+        ];
+
+        let shortcuts_widget = Paragraph::new(shortcuts)
+            .block(Block::default().borders(Borders::ALL))
+            .wrap(Wrap { trim: true });
+        f.render_widget(shortcuts_widget, chunks[2]);
+
+        // Render status bar
+        let status_text =
+            "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Esc: Exit | ?: Help";
+        let status_bar = Paragraph::new(status_text)
+            .style(Styles::dimmed())
+            .alignment(ratatui::layout::Alignment::Center);
+        f.render_widget(status_bar, chunks[3]);
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
