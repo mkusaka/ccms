@@ -39,7 +39,7 @@ pub enum Message {
     SessionScrollDown,
     SessionSelectUp,
     SessionSelectDown,
-    SessionNavigated,
+    SessionNavigated(usize, usize), // (selected_index, scroll_offset)
     ToggleSessionOrder,
     ToggleSessionRoleFilter,
 

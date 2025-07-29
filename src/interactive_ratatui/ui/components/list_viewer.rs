@@ -88,6 +88,13 @@ impl<T: ListItem> ListViewer<T> {
         }
     }
 
+    pub fn set_filtered_position(&mut self, position: usize) {
+        // Set the position directly in the filtered list
+        if position < self.filtered_indices.len() {
+            self.selected_index = position;
+        }
+    }
+
     pub fn set_scroll_offset(&mut self, offset: usize) {
         self.scroll_offset = offset;
     }

@@ -221,11 +221,11 @@ mod tests {
 
         // Test down navigation - should return SessionNavigated message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
 
         // Test up navigation - should return SessionNavigated message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Up, KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
     }
 
     #[test]
@@ -1076,7 +1076,7 @@ mod tests {
             KeyCode::Char('n'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert_eq!(viewer.list_viewer.selected_index, 1);
 
         // Ctrl+N again
@@ -1084,7 +1084,7 @@ mod tests {
             KeyCode::Char('n'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert_eq!(viewer.list_viewer.selected_index, 2);
 
         // Ctrl+P to move up
@@ -1092,7 +1092,7 @@ mod tests {
             KeyCode::Char('p'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert_eq!(viewer.list_viewer.selected_index, 1);
     }
 

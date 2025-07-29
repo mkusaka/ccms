@@ -23,7 +23,8 @@ impl ResultList {
     }
 
     pub fn set_selected_index(&mut self, index: usize) {
-        self.list_viewer.set_selected_index(index);
+        // Use set_filtered_position since we're dealing with filtered indices
+        self.list_viewer.set_filtered_position(index);
     }
 
     pub fn selected_result(&self) -> Option<&SearchResult> {
@@ -40,7 +41,16 @@ impl ResultList {
     }
 
     pub fn update_selection(&mut self, index: usize) {
-        self.list_viewer.set_selected_index(index);
+        // Use set_filtered_position since we're dealing with filtered indices
+        self.list_viewer.set_filtered_position(index);
+    }
+
+    pub fn get_selected_index(&self) -> usize {
+        self.list_viewer.selected_index
+    }
+
+    pub fn get_scroll_offset(&self) -> usize {
+        self.list_viewer.scroll_offset
     }
 }
 
