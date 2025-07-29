@@ -202,7 +202,12 @@ impl Component for SessionViewer {
             let text_len = status_text.len();
             let width = area.width as usize;
             // Calculate number of lines needed for wrapping
-            let lines_needed = text_len.div_ceil(width);
+            // Using manual ceiling division for compatibility
+            let lines_needed = if width > 0 {
+                (text_len + width - 1) / width
+            } else {
+                1
+            };
             // Ensure minimum of 3 lines, max of 8 lines
             (lines_needed as u16).clamp(3, 8)
         };
@@ -212,8 +217,8 @@ impl Component for SessionViewer {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Min(0),    // Main content
-                    Constraint::Length(1), // Message
+                    Constraint::Min(0),                    // Main content
+                    Constraint::Length(1),                 // Message
                     Constraint::Length(status_bar_height), // Status bar with dynamic height
                 ])
                 .split(area)
@@ -221,7 +226,7 @@ impl Component for SessionViewer {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Min(0),    // Main content
+                    Constraint::Min(0),                    // Main content
                     Constraint::Length(status_bar_height), // Status bar with dynamic height
                 ])
                 .split(area)
