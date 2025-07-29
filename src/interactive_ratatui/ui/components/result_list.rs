@@ -76,8 +76,7 @@ impl Component for ResultList {
         self.list_viewer.render(f, chunks[1]);
 
         // Render status bar (updated to include Ctrl+S and Tab: Filter)
-        let status_text =
-            "Tab: Filter | ↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Ctrl+S: View full session | Ctrl+T: Toggle truncation | Esc: Exit | ?: Help";
+        let status_text = "Tab: Filter | ↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Ctrl+S: View full session | Ctrl+T: Toggle truncation | Esc: Exit | ?: Help";
         let status_bar = Paragraph::new(status_text)
             .style(Styles::dimmed())
             .alignment(ratatui::layout::Alignment::Center)
