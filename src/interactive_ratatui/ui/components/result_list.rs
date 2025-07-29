@@ -55,10 +55,10 @@ impl Component for ResultList {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),  // Title
-                Constraint::Min(0),     // Content (list)
-                Constraint::Length(8),  // Shortcuts (increased to show all)
-                Constraint::Length(2),  // Status
+                Constraint::Length(3), // Title
+                Constraint::Min(0),    // Content (list)
+                Constraint::Length(8), // Shortcuts (increased to show all)
+                Constraint::Length(2), // Status
             ])
             .split(area);
 
@@ -70,8 +70,7 @@ impl Component for ResultList {
                 self.list_viewer.filtered_count()
             ))]),
         ];
-        let title = Paragraph::new(title_lines)
-            .block(Block::default().borders(Borders::BOTTOM));
+        let title = Paragraph::new(title_lines).block(Block::default().borders(Borders::BOTTOM));
         f.render_widget(title, chunks[0]);
 
         // Render list
@@ -108,7 +107,8 @@ impl Component for ResultList {
         f.render_widget(shortcuts_widget, chunks[2]);
 
         // Render status bar
-        let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Esc: Exit | ?: Help";
+        let status_text =
+            "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Esc: Exit | ?: Help";
         let status_bar = Paragraph::new(status_text)
             .style(Styles::dimmed())
             .alignment(ratatui::layout::Alignment::Center);

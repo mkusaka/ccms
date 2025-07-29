@@ -244,25 +244,25 @@ mod tests {
 
     #[test]
     fn test_shortcuts_display_with_wrap() {
-        use ratatui::backend::TestBackend;
         use ratatui::Terminal;
+        use ratatui::backend::TestBackend;
 
         let mut list = ResultList::new();
-        let results = vec![
-            create_test_result("user", "Test message"),
-        ];
+        let results = vec![create_test_result("user", "Test message")];
         list.update_results(results, 0);
 
         // Create test backend with narrow width but enough height to show all shortcuts
         let backend = TestBackend::new(40, 25);
         let mut terminal = Terminal::new(backend).unwrap();
 
-        terminal.draw(|f| {
-            list.render(f, f.area());
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                list.render(f, f.area());
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
-        
+
         // Convert buffer to string for easier testing
         let mut content = String::new();
         for y in 0..buffer.area.height {
@@ -283,7 +283,7 @@ mod tests {
         assert!(content.contains("Toggle truncation"));
         assert!(content.contains("[Esc]"));
         assert!(content.contains("Exit"));
-        
+
         // Only check if [?] - Help is present if there's enough room
         if content.contains("[?]") {
             assert!(content.contains("Help"));
@@ -292,25 +292,25 @@ mod tests {
 
     #[test]
     fn test_shortcuts_display_wide_screen() {
-        use ratatui::backend::TestBackend;
         use ratatui::Terminal;
+        use ratatui::backend::TestBackend;
 
         let mut list = ResultList::new();
-        let results = vec![
-            create_test_result("user", "Test message"),
-        ];
+        let results = vec![create_test_result("user", "Test message")];
         list.update_results(results, 0);
 
         // Create test backend with wide width
         let backend = TestBackend::new(120, 30);
         let mut terminal = Terminal::new(backend).unwrap();
 
-        terminal.draw(|f| {
-            list.render(f, f.area());
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                list.render(f, f.area());
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
-        
+
         // Convert buffer to string for easier testing
         let mut content = String::new();
         for y in 0..buffer.area.height {
