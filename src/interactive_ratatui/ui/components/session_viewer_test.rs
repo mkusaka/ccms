@@ -221,11 +221,11 @@ mod tests {
 
         // Test down navigation - should return SessionNavigated message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
 
         // Test up navigation - should return SessionNavigated message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Up, KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
     }
 
     #[test]
@@ -520,24 +520,6 @@ mod tests {
         let buffer = render_component(&mut viewer, 80, 24);
         // Should handle empty filtered results gracefully
         assert!(buffer_contains(&buffer, "Session Messages"));
-    }
-
-    #[test]
-    fn test_vim_navigation() {
-        let mut viewer = SessionViewer::new();
-        viewer.set_messages(vec![
-            r#"{"type":"user","message":{"content":"message 1"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
-            r#"{"type":"user","message":{"content":"message 2"},"timestamp":"2024-01-01T00:00:01Z"}"#.to_string(),
-            r#"{"type":"user","message":{"content":"message 3"},"timestamp":"2024-01-01T00:00:02Z"}"#.to_string(),
-        ]);
-
-        // Test down navigation with 'j' - should return SessionNavigated message
-        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
-
-        // Test up navigation with 'k' - should return SessionNavigated message
-        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
     }
 
     fn create_key_event_with_modifiers(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
@@ -1097,7 +1079,7 @@ mod tests {
             KeyCode::Char('n'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert_eq!(viewer.list_viewer.selected_index, 1);
 
         // Ctrl+N again
@@ -1105,7 +1087,7 @@ mod tests {
             KeyCode::Char('n'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert_eq!(viewer.list_viewer.selected_index, 2);
 
         // Ctrl+P to move up
@@ -1113,8 +1095,89 @@ mod tests {
             KeyCode::Char('p'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert_eq!(viewer.list_viewer.selected_index, 1);
+    }
+
+    #[test]
+    fn test_ctrl_u_d_navigation_normal_mode() {
+        let mut viewer = SessionViewer::new();
+        let mut messages = vec![];
+        for i in 0..30 {
+            messages.push(format!(
+                r#"{{"type":"user","message":{{"content":"message {}"}},"timestamp":"2024-01-01T00:00:{:02}Z"}}"#,
+                i + 1, i
+            ));
+        }
+        viewer.set_messages(messages);
+
+        // Initially at index 0
+        assert_eq!(viewer.list_viewer.selected_index, 0);
+
+        // Ctrl+D to move down half page
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
+        // The exact position depends on viewport height, but should have moved down
+        let first_pos = viewer.list_viewer.selected_index;
+        assert!(first_pos > 0);
+
+        // Ctrl+D again
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
+        let second_pos = viewer.list_viewer.selected_index;
+        assert!(second_pos > first_pos);
+
+        // Navigate near the end
+        viewer.list_viewer.selected_index = 25;
+
+        // Ctrl+D should go to last item
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
+        assert_eq!(viewer.list_viewer.selected_index, 29);
+
+        // Can't move down from last item
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
+        assert_eq!(viewer.list_viewer.selected_index, 29);
+
+        // Ctrl+U to move up half page
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('u'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
+        assert!(viewer.list_viewer.selected_index < 29);
+
+        // Move to position 5
+        viewer.list_viewer.selected_index = 5;
+
+        // Ctrl+U should go to first item
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('u'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
+        assert_eq!(viewer.list_viewer.selected_index, 0);
+
+        // Can't move up from first item
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('u'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
+        assert_eq!(viewer.list_viewer.selected_index, 0);
     }
 
     #[test]
@@ -1220,5 +1283,76 @@ mod tests {
         viewer.set_order(SessionOrder::Descending);
         let buffer = render_component(&mut viewer, 120, 30);
         assert!(buffer_contains(&buffer, "Order: Desc"));
+    }
+
+    #[test]
+    fn test_status_bar_wrapping_narrow_terminal() {
+        let mut viewer = SessionViewer::new();
+
+        // Create a very narrow terminal (40 characters wide) to force wrapping
+        // Increase height to 20 to ensure all wrapped text is visible
+        let buffer = render_component(&mut viewer, 40, 20);
+
+        // The long status text should be wrapped across multiple lines
+        // Check that key parts of the shortcuts are present
+        assert!(buffer_contains(&buffer, "Navigate"));
+        assert!(buffer_contains(&buffer, "Copy"));
+        assert!(buffer_contains(&buffer, "Search"));
+        assert!(buffer_contains(&buffer, "Back"));
+    }
+
+    #[test]
+    fn test_status_bar_wrapping_very_narrow_terminal() {
+        let mut viewer = SessionViewer::new();
+
+        // Create an extremely narrow terminal (20 characters wide)
+        // Increase height to accommodate wrapped text
+        let buffer = render_component(&mut viewer, 20, 25);
+
+        // Even with extreme narrow width, shortcuts should be wrapped and visible
+        assert!(buffer_contains(&buffer, "Navigate"));
+        assert!(buffer_contains(&buffer, "Filter"));
+        assert!(buffer_contains(&buffer, "Copy"));
+    }
+
+    #[test]
+    fn test_status_bar_no_wrapping_wide_terminal() {
+        let mut viewer = SessionViewer::new();
+
+        // Create a wide terminal (200 characters wide) where no wrapping should occur
+        let buffer = render_component(&mut viewer, 200, 10);
+
+        // All shortcuts should be on the same line
+        let content = buffer
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+
+        // Find the status bar content
+        let navigate_pos = content.find("Navigate").expect("Navigate not found");
+        let back_pos = content.find("Back").expect("Back not found");
+
+        // They should be on the same line (200 chars per line)
+        let navigate_line = navigate_pos / 200;
+        let back_line = back_pos / 200;
+        assert_eq!(
+            navigate_line, back_line,
+            "Status bar should be on a single line in wide terminal"
+        );
+    }
+
+    #[test]
+    fn test_status_bar_height_with_message() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_message(Some("✓ Test message".to_string()));
+
+        // Create a narrow terminal to test wrapping with message present
+        let buffer = render_component(&mut viewer, 40, 15);
+
+        // Both message and status bar should be visible
+        assert!(buffer_contains(&buffer, "✓ Test message"));
+        assert!(buffer_contains(&buffer, "Navigate"));
+        assert!(buffer_contains(&buffer, "Back"));
     }
 }

@@ -168,49 +168,6 @@ mod tests {
     }
 
     #[test]
-    fn test_vim_navigation() {
-        let mut list = ResultList::new();
-        let results = vec![
-            create_test_result("user", "First"),
-            create_test_result("assistant", "Second"),
-            create_test_result("user", "Third"),
-        ];
-
-        list.update_results(results, 0);
-
-        // Initially at index 0
-        assert_eq!(list.selected_result().unwrap().text, "First");
-
-        // Move down with 'j'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "Second");
-
-        // Move down again with 'j'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "Third");
-
-        // Can't move down from last item
-        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
-        assert!(msg.is_none());
-
-        // Move up with 'k'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "Second");
-
-        // Move up again with 'k'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "First");
-
-        // Can't move up from first item
-        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
-        assert!(msg.is_none());
-    }
-
-    #[test]
     fn test_ctrl_p_n_navigation() {
         let mut list = ResultList::new();
         let results = vec![
@@ -254,6 +211,62 @@ mod tests {
     }
 
     #[test]
+    fn test_ctrl_u_d_navigation() {
+        let mut list = ResultList::new();
+        let mut results = vec![];
+        for i in 0..30 {
+            results.push(create_test_result("user", &format!("Message {i}")));
+        }
+
+        list.update_results(results, 0);
+
+        // Initially at index 0
+        assert_eq!(list.selected_result().unwrap().text, "Message 0");
+
+        // Move down with Ctrl+D (half page down)
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        // The exact position depends on the viewport height, but it should have moved down
+        let first_pos = list.selected_result().unwrap().text.clone();
+        assert_ne!(first_pos, "Message 0");
+
+        // Move down again with Ctrl+D
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        let second_pos = list.selected_result().unwrap().text.clone();
+        assert_ne!(second_pos, first_pos);
+
+        // Navigate to near the end
+        list.update_selection(25);
+
+        // Move down with Ctrl+D should go to last item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Message 29");
+
+        // Can't move down from last item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(msg.is_none());
+
+        // Move up with Ctrl+U (half page up)
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_ne!(list.selected_result().unwrap().text, "Message 29");
+
+        // Move to position 5
+        list.update_selection(5);
+
+        // Move up with Ctrl+U should go to first item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Message 0");
+
+        // Can't move up from first item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert!(msg.is_none());
+    }
+
+    #[test]
     fn test_shortcuts_display_with_wrap() {
         use ratatui::Terminal;
         use ratatui::backend::TestBackend;
@@ -284,21 +297,15 @@ mod tests {
             content.push('\n');
         }
 
-        // Check that shortcuts are displayed
-        assert!(content.contains("Shortcuts:"));
-        assert!(content.contains("[↑/↓ or j/k or Ctrl+P/N]"));
+        // Check that shortcuts are displayed in the status bar
+        // With a narrow terminal (40 chars), the status bar will wrap
+        // We can see from the output that it shows:
+        // "   ↑/↓ or j/k or Ctrl+P/N: Navigate |   "
+        // " Enter: View details | Ctrl+S: View full"
+        // So we check for partial text that we know is visible
         assert!(content.contains("Navigate"));
-        assert!(content.contains("[Enter]"));
         assert!(content.contains("View details"));
-        assert!(content.contains("[Ctrl+T]"));
-        assert!(content.contains("Toggle truncation"));
-        assert!(content.contains("[Esc]"));
-        assert!(content.contains("Exit"));
-
-        // Only check if [?] - Help is present if there's enough room
-        if content.contains("[?]") {
-            assert!(content.contains("Help"));
-        }
+        assert!(content.contains("Ctrl+S"));
     }
 
     #[test]
@@ -332,9 +339,8 @@ mod tests {
             content.push('\n');
         }
 
-        // Check that shortcuts are displayed properly on wide screen
-        assert!(content.contains("Shortcuts:"));
-        // The shortcuts should not be wrapped on a wide screen
-        assert!(content.contains("[↑/↓ or j/k or Ctrl+P/N] - Navigate"));
+        // Check that shortcuts are displayed properly on wide screen in the status bar
+        assert!(content.contains("↑/↓ or j/k or Ctrl+P/N: Navigate"));
+        assert!(content.contains("Ctrl+S: View full session"));
     }
 }

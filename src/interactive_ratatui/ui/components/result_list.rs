@@ -28,7 +28,8 @@ impl ResultList {
     }
 
     pub fn set_selected_index(&mut self, index: usize) {
-        self.list_viewer.set_selected_index(index);
+        // Use set_filtered_position since we're dealing with filtered indices
+        self.list_viewer.set_filtered_position(index);
     }
 
     pub fn selected_result(&self) -> Option<&SearchResult> {
@@ -45,19 +46,27 @@ impl ResultList {
     }
 
     pub fn update_selection(&mut self, index: usize) {
-        self.list_viewer.set_selected_index(index);
+        // Use set_filtered_position since we're dealing with filtered indices
+        self.list_viewer.set_filtered_position(index);
+    }
+
+    pub fn get_selected_index(&self) -> usize {
+        self.list_viewer.selected_index
+    }
+
+    pub fn get_scroll_offset(&self) -> usize {
+        self.list_viewer.scroll_offset
     }
 }
 
 impl Component for ResultList {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        // Split area into title, content (list), shortcuts, and status
+        // Split area into title, content (list), and status
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(3), // Title
                 Constraint::Min(0),    // Content (list)
-                Constraint::Length(8), // Shortcuts (increased to show all)
                 Constraint::Length(2), // Status
             ])
             .split(area);
@@ -76,43 +85,13 @@ impl Component for ResultList {
         // Render list
         self.list_viewer.render(f, chunks[1]);
 
-        // Render shortcuts
-        let shortcuts = vec![
-            Line::from(vec![Span::styled("Shortcuts:", Styles::title())]),
-            Line::from(vec![
-                Span::styled("[↑/↓ or j/k or Ctrl+P/N]", Styles::action_key()),
-                Span::styled(" - Navigate", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[Enter]", Styles::action_key()),
-                Span::styled(" - View details", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[Ctrl+T]", Styles::action_key()),
-                Span::styled(" - Toggle truncation", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[Esc]", Styles::action_key()),
-                Span::styled(" - Exit", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[?]", Styles::action_key()),
-                Span::styled(" - Help", Styles::action_description()),
-            ]),
-        ];
-
-        let shortcuts_widget = Paragraph::new(shortcuts)
-            .block(Block::default().borders(Borders::ALL))
-            .wrap(Wrap { trim: true });
-        f.render_widget(shortcuts_widget, chunks[2]);
-
-        // Render status bar
-        let status_text =
-            "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Esc: Exit | ?: Help";
+        // Render status bar (updated to include Ctrl+S and Tab: Filter)
+        let status_text = "Tab: Filter | ↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Ctrl+S: View full session | Ctrl+T: Toggle truncation | Esc: Exit | ?: Help";
         let status_bar = Paragraph::new(status_text)
             .style(Styles::dimmed())
-            .alignment(ratatui::layout::Alignment::Center);
-        f.render_widget(status_bar, chunks[3]);
+            .alignment(ratatui::layout::Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(status_bar, chunks[2]);
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
@@ -168,6 +147,20 @@ impl Component for ResultList {
             }
             KeyCode::End => {
                 if self.list_viewer.move_to_end() {
+                    Some(Message::SelectResult(self.list_viewer.selected_index()))
+                } else {
+                    None
+                }
+            }
+            KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                if self.list_viewer.half_page_up() {
+                    Some(Message::SelectResult(self.list_viewer.selected_index()))
+                } else {
+                    None
+                }
+            }
+            KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                if self.list_viewer.half_page_down() {
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
                     None

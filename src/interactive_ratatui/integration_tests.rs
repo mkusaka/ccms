@@ -88,6 +88,40 @@ mod tests {
             .unwrap();
     }
 
+    /// Test that status bar is not duplicated
+    #[test]
+    fn test_no_duplicate_status_bar() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        // Add some results to make the UI more realistic
+        app.state.search.results = vec![create_test_result(
+            "user",
+            "Test message",
+            "2024-01-01T12:00:00Z",
+        )];
+
+        // Render the search mode
+        app.set_mode(Mode::Search);
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content = buffer_to_string(buffer);
+
+        // Count occurrences of key status bar elements
+        let navigate_count = content.matches("Navigate").count();
+        let filter_count = content.matches("Tab: Filter").count();
+        let help_count = content.matches("?: Help").count();
+
+        // Each element should appear exactly once
+        assert_eq!(navigate_count, 1, "Navigate should appear exactly once");
+        assert_eq!(filter_count, 1, "Tab: Filter should appear exactly once");
+        assert_eq!(help_count, 1, "?: Help should appear exactly once");
+    }
+
     /// Test error handling in various scenarios
     #[test]
     fn test_error_handling_scenarios() {
@@ -225,6 +259,21 @@ mod tests {
             }
         }
         false
+    }
+
+    fn buffer_to_string(buffer: &Buffer) -> String {
+        let content = buffer.area.x..buffer.area.x + buffer.area.width;
+        let lines = buffer.area.y..buffer.area.y + buffer.area.height;
+        let mut result = String::new();
+
+        for y in lines {
+            for x in content.clone() {
+                let cell = &buffer[(x, y)];
+                result.push_str(cell.symbol());
+            }
+            result.push('\n');
+        }
+        result
     }
 
     /// Test that initial search query doesn't show pattern in search bar

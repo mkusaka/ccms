@@ -1,5 +1,5 @@
 use crate::interactive_ratatui::ui::components::{
-    Component,
+    Component, is_exit_prompt,
     view_layout::{Styles, ViewLayout},
 };
 use crate::interactive_ratatui::ui::events::{CopyContent, Message};
@@ -8,7 +8,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::Modifier,
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
 };
@@ -48,16 +48,31 @@ impl ResultDetail {
             return;
         };
 
-        // Split the main area into header, message, and actions
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(8),  // Header (fixed)
-                Constraint::Min(5),     // Message content (scrollable)
-                Constraint::Length(10), // Actions (fixed)
-                Constraint::Length(2),  // Status/Message (fixed)
-            ])
-            .split(area);
+        // Check if message is exit prompt
+        let is_exit = is_exit_prompt(&self.message);
+        let non_exit_message = if is_exit { None } else { self.message.clone() };
+
+        // Split the main area into header, message, shortcuts, and optionally status/exit prompt
+        let chunks = if is_exit || non_exit_message.is_some() {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(8), // Header (fixed)
+                    Constraint::Min(5),    // Message content (scrollable)
+                    Constraint::Length(2), // Shortcuts (fixed)
+                    Constraint::Length(1), // Status/Exit prompt at bottom
+                ])
+                .split(area)
+        } else {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(8), // Header (fixed)
+                    Constraint::Min(5),    // Message content (scrollable)
+                    Constraint::Length(2), // Shortcuts (fixed)
+                ])
+                .split(area)
+        };
 
         // Format timestamp
         let timestamp = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&result.timestamp) {
@@ -155,7 +170,7 @@ impl ResultDetail {
         let total_lines = message_lines.len();
         let message_widget = Paragraph::new(display_lines)
             .block(Block::default().borders(Borders::ALL).title(format!(
-                "Message (↑/↓ or j/k to scroll, line {}-{} of {})",
+                "Message (↑/↓ to scroll, line {}-{} of {})",
                 if total_lines > 0 {
                     self.scroll_offset + 1
                 } else {
@@ -171,53 +186,16 @@ impl ResultDetail {
             .wrap(Wrap { trim: true });
         f.render_widget(message_widget, chunks[1]);
 
-        // Actions
-        let actions = vec![
-            Line::from(vec![Span::styled("Actions:", Styles::title())]),
-            Line::from(vec![
-                Span::styled("[S]", Styles::action_key()),
-                Span::styled(" - View full session", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[F]", Styles::action_key()),
-                Span::styled(" - Copy file path", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[I]", Styles::action_key()),
-                Span::styled(" - Copy session ID", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[P]", Styles::action_key()),
-                Span::styled(" - Copy project path", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[M]", Styles::action_key()),
-                Span::styled(" - Copy message text", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[R]", Styles::action_key()),
-                Span::styled(" - Copy raw JSON", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[Esc]", Styles::action_key()),
-                Span::styled(" - Back to search", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[Alt+←/→]", Styles::action_key()),
-                Span::styled(" - Navigate history", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[↑/↓ or j/k]", Styles::action_key()),
-                Span::styled(" - Scroll message", Styles::action_description()),
-            ]),
-        ];
+        // Render shortcuts bar (similar to Session Viewer style)
+        let shortcuts_text = "↑/↓ or j/k: Scroll | Ctrl+S: View full session | F: Copy file path | I: Copy session ID | P: Copy project path | M: Copy message text | R: Copy raw JSON | Alt+←/→: Navigate history | Esc: Back";
+        let shortcuts_bar = Paragraph::new(shortcuts_text)
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(ratatui::layout::Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(shortcuts_bar, chunks[2]);
 
-        let actions_widget =
-            Paragraph::new(actions).block(Block::default().borders(Borders::ALL).title("Actions"));
-        f.render_widget(actions_widget, chunks[2]);
-
-        // Show message if any
-        if let Some(ref msg) = self.message {
+        // Show non-exit message if any
+        if let Some(ref msg) = non_exit_message {
             let style = if msg.starts_with('✓') {
                 Styles::success()
             } else if msg.starts_with('⚠') {
@@ -230,6 +208,18 @@ impl ResultDetail {
                 .style(style)
                 .alignment(ratatui::layout::Alignment::Center);
             f.render_widget(message_widget, chunks[3]);
+        }
+
+        // Render exit prompt at the very bottom if needed
+        if is_exit {
+            let exit_prompt = Paragraph::new("Press Ctrl+C again to exit")
+                .style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .alignment(ratatui::layout::Alignment::Center);
+            f.render_widget(exit_prompt, chunks[3]);
         }
     }
 }
@@ -249,13 +239,13 @@ impl Component for ResultDetail {
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
+            KeyCode::Up => {
                 if self.scroll_offset > 0 {
                     self.scroll_offset -= 1;
                 }
                 None
             }
-            KeyCode::Down | KeyCode::Char('j') => {
+            KeyCode::Down => {
                 // Only scroll if there's content to scroll
                 if let Some(result) = &self.result {
                     if !result.text.is_empty() {

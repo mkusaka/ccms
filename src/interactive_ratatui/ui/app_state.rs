@@ -130,6 +130,13 @@ impl AppState {
                         if self.navigation_history.is_empty() {
                             let initial_state = self.create_navigation_state();
                             self.navigation_history.push(initial_state);
+                        } else if self.mode == Mode::Search {
+                            // Update the current search state before transitioning
+                            // This ensures the current selection is saved
+                            if let Some(_current_pos) = self.navigation_history.current_position() {
+                                self.navigation_history
+                                    .update_current(self.create_navigation_state());
+                            }
                         }
 
                         self.ui.selected_result = Some(result);
@@ -159,6 +166,13 @@ impl AppState {
                     if self.navigation_history.is_empty() {
                         let initial_state = self.create_navigation_state();
                         self.navigation_history.push(initial_state);
+                    } else if self.mode == Mode::Search {
+                        // Update the current search state before transitioning
+                        // This ensures the current selection is saved
+                        if let Some(_current_pos) = self.navigation_history.current_position() {
+                            self.navigation_history
+                                .update_current(self.create_navigation_state());
+                        }
                     }
 
                     let file = result.file.clone();
@@ -247,8 +261,10 @@ impl AppState {
                 // Deprecated: Navigation is now handled internally by SessionViewer
                 Command::None
             }
-            Message::SessionNavigated => {
-                // Navigation is handled internally by SessionViewer's ListViewer
+            Message::SessionNavigated(selected_index, scroll_offset) => {
+                // Update session state with the current navigation position
+                self.session.selected_index = selected_index;
+                self.session.scroll_offset = scroll_offset;
                 Command::None
             }
             Message::ToggleSessionOrder => {
@@ -376,6 +392,12 @@ impl AppState {
                 Command::None
             }
             Message::NavigateBack => {
+                // Update the current state in history before going back
+                if let Some(_current_pos) = self.navigation_history.current_position() {
+                    self.navigation_history
+                        .update_current(self.create_navigation_state());
+                }
+
                 #[cfg(test)]
                 println!(
                     "NavigateBack: can_go_back = {}",
@@ -407,6 +429,12 @@ impl AppState {
                 Command::None
             }
             Message::NavigateForward => {
+                // Update the current state in history before going forward
+                if let Some(_current_pos) = self.navigation_history.current_position() {
+                    self.navigation_history
+                        .update_current(self.create_navigation_state());
+                }
+
                 if self.navigation_history.can_go_forward() {
                     if let Some(next_state) = self.navigation_history.go_forward() {
                         self.restore_navigation_state(&next_state);

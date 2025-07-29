@@ -206,8 +206,8 @@ mod tests {
         assert!(msg.is_none());
         assert_eq!(detail.scroll_offset, 1);
 
-        // Test scroll down with 'j'
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::empty()));
+        // Test scroll down again
+        let msg = detail.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
         assert!(msg.is_none());
         assert_eq!(detail.scroll_offset, 2);
 
@@ -216,8 +216,8 @@ mod tests {
         assert!(msg.is_none());
         assert_eq!(detail.scroll_offset, 1);
 
-        // Test scroll up with 'k'
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::empty()));
+        // Test scroll up again
+        let msg = detail.handle_key(KeyEvent::new(KeyCode::Up, KeyModifiers::empty()));
         assert!(msg.is_none());
         assert_eq!(detail.scroll_offset, 0);
 
@@ -557,10 +557,9 @@ mod tests {
         assert!(content.contains("UUID: 12345678-1234-5678-1234-567812345678"));
         assert!(content.contains("Session: session-123"));
 
-        // Actions should also be visible
-        assert!(content.contains("Actions:"));
-        assert!(content.contains("[S] - View full session"));
-        assert!(content.contains("[F] - Copy file path"));
+        // Shortcuts should be visible in the status bar
+        assert!(content.contains("Ctrl+S: View full session"));
+        assert!(content.contains("F: Copy file path"));
     }
 
     #[test]

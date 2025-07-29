@@ -4,10 +4,10 @@ use crate::interactive_ratatui::ui::events::Message;
 use crossterm::event::KeyEvent;
 use ratatui::{
     Frame,
-    layout::{Alignment, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph},
 };
 
 #[derive(Default)]
@@ -45,8 +45,9 @@ impl HelpDialog {
                     .add_modifier(Modifier::BOLD),
             )]),
             Line::from("  ↑/↓         - Navigate results"),
+            Line::from("  Ctrl+u/d    - Half-page scrolling (up/down)"),
             Line::from("  Enter       - View result details"),
-            Line::from("  Ctrl+S      - View full session"),
+            Line::from("  Ctrl+S      - Jump directly to session viewer"),
             Line::from("  Tab         - Toggle role filter (user/assistant/system)"),
             Line::from("  Esc         - Quit"),
             Line::from(""),
@@ -75,7 +76,8 @@ impl HelpDialog {
                     .add_modifier(Modifier::BOLD),
             )]),
             Line::from("  ↑/↓         - Scroll content"),
-            Line::from("  Ctrl+S      - View full session"),
+            Line::from("  Ctrl+u/d    - Half-page scrolling (up/down)"),
+            Line::from("  Ctrl+S      - Jump to session viewer"),
             Line::from("  c           - Copy message content to clipboard"),
             Line::from("  C           - Copy message as JSON to clipboard"),
             Line::from("  Backspace   - Back to search results"),
@@ -88,6 +90,8 @@ impl HelpDialog {
                     .add_modifier(Modifier::BOLD),
             )]),
             Line::from("  ↑/↓         - Navigate messages"),
+            Line::from("  Ctrl+u/d    - Half-page scrolling (up/down)"),
+            Line::from("  Tab         - Toggle role filter (user/assistant/system)"),
             Line::from("  /           - Search within session"),
             Line::from("  c           - Copy selected message to clipboard"),
             Line::from("  C           - Copy all filtered messages to clipboard"),
@@ -117,27 +121,42 @@ impl Component for HelpDialog {
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let help_text = Self::get_help_text();
 
-        // Calculate dimensions for the help dialog
-        let width = HELP_DIALOG_MAX_WIDTH.min(area.width.saturating_sub(HELP_DIALOG_MARGIN));
-        let height = (help_text.len() as u16 + HELP_DIALOG_MARGIN)
+        // Calculate dialog dimensions using constraints
+        let dialog_width = HELP_DIALOG_MAX_WIDTH.min(area.width.saturating_sub(HELP_DIALOG_MARGIN));
+        let dialog_height = (help_text.len() as u16 + HELP_DIALOG_MARGIN)
             .min(area.height.saturating_sub(HELP_DIALOG_MARGIN));
 
-        // Center the dialog
-        let x = (area.width - width) / 2;
-        let y = (area.height - height) / 2;
+        // Create centered layout using ratatui's Layout system
+        let vertical_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length((area.height - dialog_height) / 2),
+                Constraint::Length(dialog_height),
+                Constraint::Min(0),
+            ])
+            .split(area);
 
-        let dialog_area = Rect::new(x, y, width, height);
+        let horizontal_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length((area.width - dialog_width) / 2),
+                Constraint::Length(dialog_width),
+                Constraint::Min(0),
+            ])
+            .split(vertical_chunks[1]);
 
-        // Use a block with background instead of Clear widget for better performance
-        let background_block = Block::default().style(Style::default().bg(Color::Black));
-        f.render_widget(background_block, dialog_area);
+        let dialog_area = horizontal_chunks[1];
+
+        // Clear the background area
+        f.render_widget(Clear, dialog_area);
 
         let help = Paragraph::new(help_text)
             .block(
                 Block::default()
                     .title(" Help ")
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Cyan)),
+                    .border_style(Style::default().fg(Color::Cyan))
+                    .style(Style::default().bg(Color::Black)),
             )
             .style(Style::default().fg(Color::White))
             .alignment(Alignment::Left);
