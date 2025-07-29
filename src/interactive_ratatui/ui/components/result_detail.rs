@@ -8,7 +8,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::Modifier,
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
 };
@@ -48,14 +48,14 @@ impl ResultDetail {
             return;
         };
 
-        // Split the main area into header, message, and actions
+        // Split the main area into header, message, status/message, and shortcuts
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(8),  // Header (fixed)
-                Constraint::Min(5),     // Message content (scrollable)
-                Constraint::Length(10), // Actions (fixed)
-                Constraint::Length(2),  // Status/Message (fixed)
+                Constraint::Length(8), // Header (fixed)
+                Constraint::Min(5),    // Message content (scrollable)
+                Constraint::Length(1), // Status/Message (fixed)
+                Constraint::Length(2), // Shortcuts (fixed)
             ])
             .split(area);
 
@@ -171,51 +171,6 @@ impl ResultDetail {
             .wrap(Wrap { trim: true });
         f.render_widget(message_widget, chunks[1]);
 
-        // Actions
-        let actions = vec![
-            Line::from(vec![Span::styled("Actions:", Styles::title())]),
-            Line::from(vec![
-                Span::styled("[S]", Styles::action_key()),
-                Span::styled(" - View full session", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[F]", Styles::action_key()),
-                Span::styled(" - Copy file path", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[I]", Styles::action_key()),
-                Span::styled(" - Copy session ID", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[P]", Styles::action_key()),
-                Span::styled(" - Copy project path", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[M]", Styles::action_key()),
-                Span::styled(" - Copy message text", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[R]", Styles::action_key()),
-                Span::styled(" - Copy raw JSON", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[Esc]", Styles::action_key()),
-                Span::styled(" - Back to search", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[Alt+←/→]", Styles::action_key()),
-                Span::styled(" - Navigate history", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[↑/↓ or j/k]", Styles::action_key()),
-                Span::styled(" - Scroll message", Styles::action_description()),
-            ]),
-        ];
-
-        let actions_widget =
-            Paragraph::new(actions).block(Block::default().borders(Borders::ALL).title("Actions"));
-        f.render_widget(actions_widget, chunks[2]);
-
         // Show message if any
         if let Some(ref msg) = self.message {
             let style = if msg.starts_with('✓') {
@@ -229,8 +184,16 @@ impl ResultDetail {
             let message_widget = Paragraph::new(msg.clone())
                 .style(style)
                 .alignment(ratatui::layout::Alignment::Center);
-            f.render_widget(message_widget, chunks[3]);
+            f.render_widget(message_widget, chunks[2]);
         }
+
+        // Render shortcuts bar (similar to Session Viewer style)
+        let shortcuts_text = "↑/↓ or j/k: Scroll | Ctrl+S: View full session | F: Copy file path | I: Copy session ID | P: Copy project path | M: Copy message text | R: Copy raw JSON | Alt+←/→: Navigate history | Esc: Back";
+        let shortcuts_bar = Paragraph::new(shortcuts_text)
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(ratatui::layout::Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(shortcuts_bar, chunks[3]);
     }
 }
 

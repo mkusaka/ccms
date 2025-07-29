@@ -284,21 +284,15 @@ mod tests {
             content.push('\n');
         }
 
-        // Check that shortcuts are displayed
-        assert!(content.contains("Shortcuts:"));
-        assert!(content.contains("[↑/↓ or j/k or Ctrl+P/N]"));
+        // Check that shortcuts are displayed in the status bar
+        // With a narrow terminal (40 chars), the status bar will wrap
+        // We can see from the output that it shows:
+        // "   ↑/↓ or j/k or Ctrl+P/N: Navigate |   "
+        // " Enter: View details | Ctrl+S: View full"
+        // So we check for partial text that we know is visible
         assert!(content.contains("Navigate"));
-        assert!(content.contains("[Enter]"));
         assert!(content.contains("View details"));
-        assert!(content.contains("[Ctrl+T]"));
-        assert!(content.contains("Toggle truncation"));
-        assert!(content.contains("[Esc]"));
-        assert!(content.contains("Exit"));
-
-        // Only check if [?] - Help is present if there's enough room
-        if content.contains("[?]") {
-            assert!(content.contains("Help"));
-        }
+        assert!(content.contains("Ctrl+S"));
     }
 
     #[test]
@@ -332,9 +326,8 @@ mod tests {
             content.push('\n');
         }
 
-        // Check that shortcuts are displayed properly on wide screen
-        assert!(content.contains("Shortcuts:"));
-        // The shortcuts should not be wrapped on a wide screen
-        assert!(content.contains("[↑/↓ or j/k or Ctrl+P/N] - Navigate"));
+        // Check that shortcuts are displayed properly on wide screen in the status bar
+        assert!(content.contains("↑/↓ or j/k or Ctrl+P/N: Navigate"));
+        assert!(content.contains("Ctrl+S: View full session"));
     }
 }

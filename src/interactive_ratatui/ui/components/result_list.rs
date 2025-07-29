@@ -51,13 +51,12 @@ impl ResultList {
 
 impl Component for ResultList {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        // Split area into title, content (list), shortcuts, and status
+        // Split area into title, content (list), and status
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(3), // Title
                 Constraint::Min(0),    // Content (list)
-                Constraint::Length(8), // Shortcuts (increased to show all)
                 Constraint::Length(2), // Status
             ])
             .split(area);
@@ -76,43 +75,13 @@ impl Component for ResultList {
         // Render list
         self.list_viewer.render(f, chunks[1]);
 
-        // Render shortcuts
-        let shortcuts = vec![
-            Line::from(vec![Span::styled("Shortcuts:", Styles::title())]),
-            Line::from(vec![
-                Span::styled("[↑/↓ or j/k or Ctrl+P/N]", Styles::action_key()),
-                Span::styled(" - Navigate", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[Enter]", Styles::action_key()),
-                Span::styled(" - View details", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[Ctrl+T]", Styles::action_key()),
-                Span::styled(" - Toggle truncation", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[Esc]", Styles::action_key()),
-                Span::styled(" - Exit", Styles::action_description()),
-            ]),
-            Line::from(vec![
-                Span::styled("[?]", Styles::action_key()),
-                Span::styled(" - Help", Styles::action_description()),
-            ]),
-        ];
-
-        let shortcuts_widget = Paragraph::new(shortcuts)
-            .block(Block::default().borders(Borders::ALL))
-            .wrap(Wrap { trim: true });
-        f.render_widget(shortcuts_widget, chunks[2]);
-
-        // Render status bar
-        let status_text =
-            "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Esc: Exit | ?: Help";
+        // Render status bar (updated to include Ctrl+S)
+        let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Ctrl+S: View full session | Ctrl+T: Toggle truncation | Esc: Exit | ?: Help";
         let status_bar = Paragraph::new(status_text)
             .style(Styles::dimmed())
-            .alignment(ratatui::layout::Alignment::Center);
-        f.render_widget(status_bar, chunks[3]);
+            .alignment(ratatui::layout::Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(status_bar, chunks[2]);
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {

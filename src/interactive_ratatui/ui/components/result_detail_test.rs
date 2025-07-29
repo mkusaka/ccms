@@ -557,10 +557,9 @@ mod tests {
         assert!(content.contains("UUID: 12345678-1234-5678-1234-567812345678"));
         assert!(content.contains("Session: session-123"));
 
-        // Actions should also be visible
-        assert!(content.contains("Actions:"));
-        assert!(content.contains("[S] - View full session"));
-        assert!(content.contains("[F] - Copy file path"));
+        // Shortcuts should be visible in the status bar
+        assert!(content.contains("Ctrl+S: View full session"));
+        assert!(content.contains("F: Copy file path"));
     }
 
     #[test]
