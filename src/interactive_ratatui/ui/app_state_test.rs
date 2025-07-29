@@ -311,23 +311,23 @@ mod tests {
     #[test]
     fn test_filter_persistence_across_mode_transitions() {
         let mut state = create_test_state();
-        
+
         // Set initial search filter and order
         state.search.role_filter = Some("user".to_string());
         state.search.order = SearchOrder::Ascending;
-        
+
         // Add test results
         let results = vec![create_test_result()];
         state.search.results = results.clone();
-        
+
         // Navigate to ResultDetail
         state.update(Message::EnterResultDetail);
         assert_eq!(state.mode, Mode::ResultDetail);
-        
+
         // Navigate back to Search
         state.update(Message::ExitToSearch);
         assert_eq!(state.mode, Mode::Search);
-        
+
         // Verify filters are preserved
         assert_eq!(state.search.role_filter, Some("user".to_string()));
         assert_eq!(state.search.order, SearchOrder::Ascending);
@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn test_session_filter_persistence() {
         let mut state = create_test_state();
-        
+
         // Set up session with initial state
         state.mode = Mode::SessionViewer;
         state.session.messages = vec![
@@ -346,20 +346,20 @@ mod tests {
         state.session.role_filter = Some("assistant".to_string());
         state.session.order = SessionOrder::Descending;
         state.update_session_filter();
-        
+
         // Navigate to ResultDetail from session
         let raw_json = state.session.messages[0].clone();
         state.update(Message::EnterResultDetailFromSession(
             raw_json,
             "test.jsonl".to_string(),
-            Some("session-id".to_string())
+            Some("session-id".to_string()),
         ));
         assert_eq!(state.mode, Mode::ResultDetail);
-        
+
         // Navigate back to SessionViewer
         state.update(Message::ExitToSearch);
         assert_eq!(state.mode, Mode::SessionViewer);
-        
+
         // Verify session filters are preserved
         assert_eq!(state.session.role_filter, Some("assistant".to_string()));
         assert_eq!(state.session.order, SessionOrder::Descending);
@@ -368,28 +368,28 @@ mod tests {
     #[test]
     fn test_filter_changes_update_navigation_history() {
         let mut state = create_test_state();
-        
+
         // Add test results to enable navigation
         state.search.results = vec![create_test_result()];
-        
+
         // Navigate to ResultDetail to establish navigation history
         state.update(Message::EnterResultDetail);
-        
+
         // Go back to Search
         state.update(Message::ExitToSearch);
         assert_eq!(state.mode, Mode::Search);
-        
+
         // Change filter
         state.update(Message::ToggleRoleFilter);
         assert_eq!(state.search.role_filter, Some("user".to_string()));
-        
+
         // Change order too
         state.update(Message::ToggleSearchOrder);
         assert_eq!(state.search.order, SearchOrder::Ascending);
-        
+
         // Navigate to ResultDetail again
         state.update(Message::EnterResultDetail);
-        
+
         // Go back - should see both updated filter and order
         state.update(Message::ExitToSearch);
         assert_eq!(state.search.role_filter, Some("user".to_string()));
