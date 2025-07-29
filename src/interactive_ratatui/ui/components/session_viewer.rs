@@ -103,7 +103,8 @@ impl SessionViewer {
     }
 
     pub fn set_selected_index(&mut self, index: usize) {
-        self.list_viewer.set_selected_index(index);
+        // Use set_filtered_position since we're dealing with filtered indices
+        self.list_viewer.set_filtered_position(index);
     }
 
     pub fn set_scroll_offset(&mut self, offset: usize) {
@@ -120,6 +121,14 @@ impl SessionViewer {
 
     pub fn set_role_filter(&mut self, role_filter: Option<String>) {
         self.role_filter = role_filter;
+    }
+
+    pub fn get_selected_index(&self) -> usize {
+        self.list_viewer.selected_index
+    }
+
+    pub fn get_scroll_offset(&self) -> usize {
+        self.list_viewer.scroll_offset
     }
 
     pub fn start_search(&mut self) {
@@ -306,19 +315,31 @@ impl Component for SessionViewer {
                 }
                 KeyCode::Up => {
                     self.list_viewer.move_up();
-                    Some(Message::SessionNavigated)
+                    Some(Message::SessionNavigated(
+                        self.list_viewer.selected_index,
+                        self.list_viewer.scroll_offset,
+                    ))
                 }
                 KeyCode::Down => {
                     self.list_viewer.move_down();
-                    Some(Message::SessionNavigated)
+                    Some(Message::SessionNavigated(
+                        self.list_viewer.selected_index,
+                        self.list_viewer.scroll_offset,
+                    ))
                 }
                 KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
                     self.list_viewer.move_up();
-                    Some(Message::SessionNavigated)
+                    Some(Message::SessionNavigated(
+                        self.list_viewer.selected_index,
+                        self.list_viewer.scroll_offset,
+                    ))
                 }
                 KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
                     self.list_viewer.move_down();
-                    Some(Message::SessionNavigated)
+                    Some(Message::SessionNavigated(
+                        self.list_viewer.selected_index,
+                        self.list_viewer.scroll_offset,
+                    ))
                 }
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(Message::ToggleSessionRoleFilter)
@@ -338,19 +359,31 @@ impl Component for SessionViewer {
             match key.code {
                 KeyCode::Up | KeyCode::Char('k') => {
                     self.list_viewer.move_up();
-                    Some(Message::SessionNavigated)
+                    Some(Message::SessionNavigated(
+                        self.list_viewer.selected_index,
+                        self.list_viewer.scroll_offset,
+                    ))
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     self.list_viewer.move_down();
-                    Some(Message::SessionNavigated)
+                    Some(Message::SessionNavigated(
+                        self.list_viewer.selected_index,
+                        self.list_viewer.scroll_offset,
+                    ))
                 }
                 KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
                     self.list_viewer.move_up();
-                    Some(Message::SessionNavigated)
+                    Some(Message::SessionNavigated(
+                        self.list_viewer.selected_index,
+                        self.list_viewer.scroll_offset,
+                    ))
                 }
                 KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
                     self.list_viewer.move_down();
-                    Some(Message::SessionNavigated)
+                    Some(Message::SessionNavigated(
+                        self.list_viewer.selected_index,
+                        self.list_viewer.scroll_offset,
+                    ))
                 }
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(Message::ToggleSessionRoleFilter)

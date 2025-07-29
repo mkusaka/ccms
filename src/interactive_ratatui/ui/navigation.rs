@@ -161,6 +161,20 @@ impl NavigationHistory {
     pub fn position(&self) -> usize {
         self.current_index.unwrap_or(0)
     }
+
+    /// Get current position as Option
+    pub fn current_position(&self) -> Option<usize> {
+        self.current_index
+    }
+
+    /// Update the current state without changing position
+    pub fn update_current(&mut self, state: NavigationState) {
+        if let Some(idx) = self.current_index {
+            if let Some(current) = self.history.get_mut(idx) {
+                *current = state;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
