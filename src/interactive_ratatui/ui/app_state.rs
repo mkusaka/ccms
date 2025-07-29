@@ -383,6 +383,13 @@ impl AppState {
                     if self.navigation_history.is_empty() {
                         let initial_state = self.create_navigation_state();
                         self.navigation_history.push(initial_state);
+                    } else if self.mode == Mode::SessionViewer {
+                        // Update the current session state before transitioning
+                        // This ensures the current selection is saved
+                        if let Some(_current_pos) = self.navigation_history.current_position() {
+                            self.navigation_history
+                                .update_current(self.create_navigation_state());
+                        }
                     }
 
                     self.ui.selected_result = Some(result);
