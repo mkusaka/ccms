@@ -14,7 +14,6 @@ pub enum Mode {
 pub enum SessionOrder {
     Ascending,
     Descending,
-    Original,
 }
 
 pub struct CachedFile {

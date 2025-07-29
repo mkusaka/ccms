@@ -19,7 +19,6 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 
-#[derive(Default)]
 pub struct SessionViewer {
     #[cfg(test)]
     pub list_viewer: ListViewer<SessionListItem>,
@@ -27,7 +26,7 @@ pub struct SessionViewer {
     list_viewer: ListViewer<SessionListItem>,
     raw_messages: Vec<String>,
     text_input: TextInput,
-    order: Option<SessionOrder>,
+    order: SessionOrder,
     is_searching: bool,
     file_path: Option<String>,
     project_path: Option<String>,
@@ -35,6 +34,12 @@ pub struct SessionViewer {
     messages_hash: u64,
     message: Option<String>,
     role_filter: Option<String>,
+}
+
+impl Default for SessionViewer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SessionViewer {
@@ -46,7 +51,7 @@ impl SessionViewer {
             ),
             raw_messages: Vec::new(),
             text_input: TextInput::new(),
-            order: None,
+            order: SessionOrder::Ascending,
             is_searching: false,
             file_path: None,
             project_path: None,
@@ -88,7 +93,7 @@ impl SessionViewer {
         self.list_viewer.set_query(query);
     }
 
-    pub fn set_order(&mut self, order: Option<SessionOrder>) {
+    pub fn set_order(&mut self, order: SessionOrder) {
         self.order = order;
     }
 
@@ -146,6 +151,13 @@ impl SessionViewer {
         self.text_input.text()
     }
 
+    fn format_order(order: &SessionOrder) -> &'static str {
+        match order {
+            SessionOrder::Ascending => "Asc",
+            SessionOrder::Descending => "Desc",
+        }
+    }
+
     fn extract_project_path(file_path: &str) -> Option<String> {
         // Extract project path from file path
         // Format: ~/.claude/projects/{encoded-project-path}/{session-id}.jsonl
@@ -182,30 +194,31 @@ impl SessionViewer {
         // Render search bar
         if self.is_searching {
             let search_text = self.text_input.render_cursor_spans();
+            let order_text = Self::format_order(&self.order);
 
             let search_bar = Paragraph::new(Line::from(search_text)).block(
                 Block::default()
-                    .title("Search in session (Tab: Role Filter | Esc to cancel | ↑/↓ or Ctrl+P/N to scroll)")
+                    .title(format!("Search in session (Order: {}) | Tab: Role Filter | Ctrl+O: Sort | Esc to cancel | ↑/↓ or Ctrl+P/N to scroll", order_text))
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(ColorScheme::SECONDARY)),
             );
             f.render_widget(search_bar, chunks[0]);
         } else {
+            let order_text = Self::format_order(&self.order);
+            let order_part = format!(" | Order: {}", order_text);
+            
+            let role_part = if let Some(role) = &self.role_filter {
+                format!(" | Role: {role}")
+            } else {
+                String::new()
+            };
+
             let info_text = format!(
-                "Messages: {} (filtered: {}) | Order: {} {} | Press '/' to search",
+                "Messages: {} (filtered: {}){}{} | Press '/' to search",
                 self.list_viewer.items_count(),
                 self.list_viewer.filtered_count(),
-                match self.order {
-                    Some(SessionOrder::Ascending) => "Ascending",
-                    Some(SessionOrder::Descending) => "Descending",
-                    Some(SessionOrder::Original) => "Original",
-                    None => "Default",
-                },
-                if let Some(role) = &self.role_filter {
-                    format!("| Role: {role}")
-                } else {
-                    String::new()
-                }
+                order_part,
+                role_part
             );
             let info_bar = Paragraph::new(info_text).block(Block::default().borders(Borders::ALL));
             f.render_widget(info_bar, chunks[0]);
@@ -284,7 +297,7 @@ impl Component for SessionViewer {
         // Render status bar
         let status_idx = if self.message.is_some() { 2 } else { 1 };
         if chunks.len() > status_idx {
-            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
+            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Tab: Role Filter | Enter: View Detail | o/Ctrl+O: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
             let status_bar = Paragraph::new(status_text)
                 .style(Style::default().fg(Color::DarkGray))
                 .alignment(ratatui::layout::Alignment::Center);
@@ -323,6 +336,9 @@ impl Component for SessionViewer {
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(Message::ToggleSessionRoleFilter)
                 }
+                KeyCode::Char('o') if key.modifiers == KeyModifiers::CONTROL => {
+                    Some(Message::ToggleSessionOrder)
+                }
                 _ => {
                     let changed = self.text_input.handle_key(key);
                     if changed {
@@ -359,7 +375,12 @@ impl Component for SessionViewer {
                     self.is_searching = true;
                     None
                 }
-                KeyCode::Char('o') => Some(Message::ToggleSessionOrder),
+                KeyCode::Char('o') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    Some(Message::ToggleSessionOrder)
+                }
+                KeyCode::Char('o') if key.modifiers == KeyModifiers::CONTROL => {
+                    Some(Message::ToggleSessionOrder)
+                }
                 KeyCode::Char('c') => self.list_viewer.get_selected_item().map(|item| {
                     Message::CopyToClipboard(CopyContent::JsonData(item.raw_json.clone()))
                 }),

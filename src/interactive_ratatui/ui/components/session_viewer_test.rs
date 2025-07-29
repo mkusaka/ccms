@@ -379,6 +379,14 @@ mod tests {
     }
 
     #[test]
+    fn test_toggle_order_with_ctrl() {
+        let mut viewer = SessionViewer::new();
+
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::ToggleSessionOrder)));
+    }
+
+    #[test]
     fn test_exit_to_search() {
         let mut viewer = SessionViewer::new();
 
@@ -412,22 +420,17 @@ mod tests {
     #[test]
     fn test_order_display() {
         let mut viewer = SessionViewer::new();
-        viewer.set_order(Some(SessionOrder::Ascending));
-
+        // Default should be Ascending
         let buffer = render_component(&mut viewer, 80, 24);
-        assert!(buffer_contains(&buffer, "Order: Ascending"));
+        assert!(buffer_contains(&buffer, "Order: Asc"));
 
-        viewer.set_order(Some(SessionOrder::Descending));
+        viewer.set_order(SessionOrder::Descending);
         let buffer = render_component(&mut viewer, 80, 24);
-        assert!(buffer_contains(&buffer, "Order: Descending"));
+        assert!(buffer_contains(&buffer, "Order: Desc"));
 
-        viewer.set_order(Some(SessionOrder::Original));
+        viewer.set_order(SessionOrder::Ascending);
         let buffer = render_component(&mut viewer, 80, 24);
-        assert!(buffer_contains(&buffer, "Order: Original"));
-
-        viewer.set_order(None);
-        let buffer = render_component(&mut viewer, 80, 24);
-        assert!(buffer_contains(&buffer, "Order: Default"));
+        assert!(buffer_contains(&buffer, "Order: Asc"));
     }
 
     #[test]
@@ -1187,5 +1190,35 @@ mod tests {
 
         let buffer = render_component(&mut viewer, 100, 30);
         assert!(buffer_contains(&buffer, "Tab: Role Filter"));
+    }
+
+    #[test]
+    fn test_toggle_order_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+
+        // Enter search mode
+        viewer.start_search();
+
+        // Ctrl+O should work in search mode
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::ToggleSessionOrder)));
+    }
+
+    #[test]
+    fn test_search_mode_order_help_text() {
+        let mut viewer = SessionViewer::new();
+
+        // Enter search mode
+        viewer.handle_key(KeyEvent::new(KeyCode::Char('/'), KeyModifiers::empty()));
+
+        let buffer = render_component(&mut viewer, 120, 30);
+        assert!(buffer_contains(&buffer, "Ctrl+O: Sort"));
+        // Default order should be Ascending
+        assert!(buffer_contains(&buffer, "Order: Asc"));
+
+        // Test with different order
+        viewer.set_order(SessionOrder::Descending);
+        let buffer = render_component(&mut viewer, 120, 30);
+        assert!(buffer_contains(&buffer, "Order: Desc"));
     }
 }

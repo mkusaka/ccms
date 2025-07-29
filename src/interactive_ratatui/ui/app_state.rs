@@ -34,7 +34,7 @@ pub struct SessionState {
     pub filtered_indices: Vec<usize>,
     pub selected_index: usize,
     pub scroll_offset: usize,
-    pub order: Option<SessionOrder>,
+    pub order: SessionOrder,
     pub file_path: Option<String>,
     pub session_id: Option<String>,
     pub role_filter: Option<String>,
@@ -73,7 +73,7 @@ impl AppState {
                 filtered_indices: Vec::new(),
                 selected_index: 0,
                 scroll_offset: 0,
-                order: None,
+                order: SessionOrder::Ascending,
                 file_path: None,
                 session_id: None,
                 role_filter: None,
@@ -253,10 +253,8 @@ impl AppState {
             }
             Message::ToggleSessionOrder => {
                 self.session.order = match self.session.order {
-                    None => Some(SessionOrder::Ascending),
-                    Some(SessionOrder::Ascending) => Some(SessionOrder::Descending),
-                    Some(SessionOrder::Descending) => Some(SessionOrder::Original),
-                    Some(SessionOrder::Original) => None,
+                    SessionOrder::Ascending => SessionOrder::Descending,
+                    SessionOrder::Descending => SessionOrder::Ascending,
                 };
                 // Re-apply filter with new order
                 self.update_session_filter();
@@ -445,6 +443,36 @@ impl AppState {
 
         self.session.filtered_indices =
             SessionFilter::filter_messages(&items, &self.session.query, &self.session.role_filter);
+
+        // Apply ordering
+        match self.session.order {
+            SessionOrder::Ascending => {
+                // Sort indices by timestamp (ascending)
+                // Empty timestamps come first
+                self.session.filtered_indices.sort_by(|&a, &b| {
+                    let a_time = &items[a].timestamp;
+                    let b_time = &items[b].timestamp;
+                    match (a_time.is_empty(), b_time.is_empty()) {
+                        (true, false) => std::cmp::Ordering::Less,
+                        (false, true) => std::cmp::Ordering::Greater,
+                        _ => a_time.cmp(b_time),
+                    }
+                });
+            }
+            SessionOrder::Descending => {
+                // Sort indices by timestamp (descending)
+                // Empty timestamps come first (at the top)
+                self.session.filtered_indices.sort_by(|&a, &b| {
+                    let a_time = &items[a].timestamp;
+                    let b_time = &items[b].timestamp;
+                    match (a_time.is_empty(), b_time.is_empty()) {
+                        (true, false) => std::cmp::Ordering::Less,
+                        (false, true) => std::cmp::Ordering::Greater,
+                        _ => b_time.cmp(a_time),
+                    }
+                });
+            }
+        }
 
         // Reset selection if current selection is out of bounds
         if self.session.selected_index >= self.session.filtered_indices.len() {

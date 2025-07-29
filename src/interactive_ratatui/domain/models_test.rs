@@ -15,14 +15,12 @@ mod tests {
         let orders = vec![
             SessionOrder::Ascending,
             SessionOrder::Descending,
-            SessionOrder::Original,
         ];
 
         for order in orders {
             match order {
                 SessionOrder::Ascending => {}
                 SessionOrder::Descending => {}
-                SessionOrder::Original => {}
             }
         }
     }
