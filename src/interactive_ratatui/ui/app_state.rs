@@ -423,7 +423,7 @@ impl AppState {
                 }
                 Command::None
             }
-            Message::CopyToClipboard(text) => Command::CopyToClipboard(text),
+            Message::CopyToClipboard(content) => Command::CopyToClipboard(content),
             Message::Quit => {
                 Command::None // Handle in main loop
             }
