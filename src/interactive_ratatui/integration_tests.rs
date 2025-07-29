@@ -254,7 +254,11 @@ mod tests {
 
         // Start in search mode with results
         app.state.mode = Mode::Search;
-        app.state.search.results = vec![create_test_result("user", "test message", "2024-01-01T00:00:00Z")];
+        app.state.search.results = vec![create_test_result(
+            "user",
+            "test message",
+            "2024-01-01T00:00:00Z",
+        )];
         app.state.search.selected_index = 0;
 
         // Press Ctrl+S
