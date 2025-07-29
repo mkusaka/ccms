@@ -38,7 +38,7 @@ pub trait ListItem: Clone {
     }
 
     /// Creates the display lines for truncated mode
-    fn create_truncated_line(&self, max_width: usize, query: &str) -> Line<'static>;
+    fn create_truncated_line(&self, query: &str) -> Line<'static>;
 
     /// Creates the display lines for full text mode
     fn create_full_lines(&self, max_width: usize, query: &str) -> Vec<Line<'static>>;

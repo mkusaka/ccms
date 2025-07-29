@@ -351,8 +351,8 @@ impl<T: ListItem> ListViewer<T> {
         let inner_area = block.inner(area);
         let available_height = inner_area.height;
         self.last_viewport_height = available_height;
-        self.adjust_scroll_offset(available_height, area.width);
-        let (start, end) = self.calculate_visible_range(available_height, area.width);
+        self.adjust_scroll_offset(available_height, inner_area.width);
+        let (start, end) = self.calculate_visible_range(available_height, inner_area.width);
 
         // Use Layout API to calculate available width for text
         let row_layout = Layout::default()
@@ -363,7 +363,7 @@ impl<T: ListItem> ListViewer<T> {
                 Constraint::Length(SEPARATOR_WIDTH),
                 Constraint::Min(MIN_MESSAGE_WIDTH),
             ])
-            .split(Rect::new(0, 0, area.width, 1));
+            .split(Rect::new(0, 0, inner_area.width, 1));
         let available_text_width = row_layout[3].width as usize;
 
         let items: Vec<TuiListItem> = (start..end)
@@ -381,10 +381,7 @@ impl<T: ListItem> ListViewer<T> {
                         };
 
                         if self.truncation_enabled {
-                            TuiListItem::new(
-                                item.create_truncated_line(available_text_width, &self.query),
-                            )
-                            .style(style)
+                            TuiListItem::new(item.create_truncated_line(&self.query)).style(style)
                         } else {
                             TuiListItem::new(
                                 item.create_full_lines(available_text_width, &self.query),

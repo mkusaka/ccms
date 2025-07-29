@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use super::super::list_item::{ListItem, truncate_message, wrap_text};
+    use super::super::list_item::{ListItem, wrap_text};
     use super::super::list_viewer::ListViewer;
     use ratatui::text::Line;
 
@@ -25,8 +25,9 @@ mod tests {
             &self.content
         }
 
-        fn create_truncated_line(&self, max_width: usize, _query: &str) -> Line<'static> {
-            let content = truncate_message(self.get_content(), max_width);
+        fn create_truncated_line(&self, _query: &str) -> Line<'static> {
+            // Let ratatui handle truncation
+            let content = self.get_content().replace('\n', " ");
             Line::from(content)
         }
 
