@@ -28,6 +28,30 @@ impl HelpDialog {
             )]),
             Line::from(""),
             Line::from(vec![Span::styled(
+                "Navigation (All Scrollable Views):",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )]),
+            Line::from("  ↑/↓         - Move up/down"),
+            Line::from("  Ctrl+P/N    - Previous/Next (Emacs style)"),
+            Line::from("  Ctrl+U/D    - Half page up/down"),
+            Line::from("  PageUp/Down - Page navigation"),
+            Line::from("  Home/End    - Jump to start/end (Search mode only)"),
+            Line::from(""),
+            Line::from(vec![Span::styled(
+                "Copy Operations (Unified Across Modes):",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )]),
+            Line::from("  c           - Copy content/text"),
+            Line::from("  C           - Copy as JSON"),
+            Line::from("  i           - Copy ID (session ID)"),
+            Line::from("  f           - Copy file path"),
+            Line::from("  p           - Copy project path"),
+            Line::from(""),
+            Line::from(vec![Span::styled(
                 "Global Shortcuts:",
                 Style::default()
                     .fg(Color::Yellow)
@@ -81,6 +105,9 @@ impl HelpDialog {
             Line::from("  Ctrl+S      - Jump to session viewer"),
             Line::from("  c           - Copy message content to clipboard"),
             Line::from("  C           - Copy message as JSON to clipboard"),
+            Line::from("  i           - Copy session ID to clipboard"),
+            Line::from("  f           - Copy file path to clipboard"),
+            Line::from("  p           - Copy project path to clipboard"),
             Line::from("  Backspace   - Back to search results"),
             Line::from("  Esc         - Back to search results"),
             Line::from(""),
@@ -94,8 +121,11 @@ impl HelpDialog {
             Line::from("  Ctrl+u/d    - Half-page scrolling (up/down)"),
             Line::from("  Tab         - Toggle role filter (user/assistant/system)"),
             Line::from("  /           - Search within session"),
-            Line::from("  c           - Copy selected message to clipboard"),
-            Line::from("  C           - Copy all filtered messages to clipboard"),
+            Line::from("  c           - Copy message content to clipboard"),
+            Line::from("  C           - Copy message as JSON to clipboard"),
+            Line::from("  i           - Copy session ID to clipboard"),
+            Line::from("  f           - Copy file path to clipboard"),
+            Line::from("  p           - Copy project path to clipboard"),
             Line::from("  Ctrl+O      - Toggle sort order (ascending/descending)"),
             Line::from("  Backspace   - Back to search results (or clear search)"),
             Line::from("  Esc         - Back to search results"),

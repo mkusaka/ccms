@@ -88,16 +88,17 @@ Session: [session_id]
 [Scrollable with ↑/↓ arrows and Ctrl+u/d half-page scrolling]
 ────────────────────────────────────────────────────────────────────────────────
 
-Actions:
-  [S] - View full session
-  [F] - Copy file path
-  [I] - Copy session ID
-  [P] - Copy project path
-  [M] - Copy message text
-  [R] - Copy raw JSON
+Copy Operations (Unified across modes):
+  [c] - Copy content/text
+  [C] - Copy as JSON
+  [i] - Copy session ID
+  [f] - Copy file path
+  [p] - Copy project path
+
+Navigation:
   [↑/↓] - Scroll up/down
-  [Ctrl+u] - Scroll up half page  
-  [Ctrl+d] - Scroll down half page
+  [Ctrl+P/N] - Previous/Next
+  [Ctrl+U/D] - Half-page up/down
   [PageDown] - Scroll down 10 lines
   [PageUp] - Scroll up 10 lines
   [Alt+←/→] - Navigate history
@@ -133,7 +134,7 @@ When 'S' is pressed in the full result view:
 │                                                                                │
 │ Showing X-Y of Z messages ↑/↓ to scroll                                        │
 └────────────────────────────────────────────────────────────────────────────────┘
-Enter: View | ↑/↓: Navigate | Ctrl+u/d: Half-page | Tab: Role Filter | /: Search | I: Copy Session ID | O: Sort | C: Copy All | Esc: Back
+Enter: View | ↑/↓ or Ctrl+P/N: Navigate | Ctrl+U/D: Half-page | Tab: Role Filter | /: Search | c/C/i/f/p: Copy | Ctrl+O: Sort | Esc: Back
 ```
 
 **Navigation**: Pressing Esc returns to the previous screen (typically ResultDetail), not directly to Search.
@@ -155,16 +156,18 @@ Enter: View | ↑/↓: Navigate | Ctrl+u/d: Half-page | Tab: Role Filter | /: Se
    - **Tab key in search mode**: Role filter can be toggled even while typing search queries
 
 3. **Navigation and Actions**:
-   - ↑/↓: Move selection through messages
-   - Ctrl+u/d: Half-page scrolling (up/down)
+   - ↑/↓ or Ctrl+P/N: Move selection through messages
+   - Ctrl+U/D: Half-page scrolling (up/down)
    - PageUp/PageDown: Jump 10 messages at a time
    - Enter: View full message in detail view
    - /: Start search mode (interactive filtering)
    - Tab: Cycle through role filters: None → user → assistant → system → None
-   - O: Toggle sort order (Ascending/Descending/Original)
-   - C: Copy selected message
-   - Shift+C: Copy all visible (filtered) messages
-   - I: Copy session ID
+   - Ctrl+O: Toggle sort order (Ascending/Descending/Original)
+   - c: Copy message content
+   - C: Copy as JSON
+   - i: Copy session ID
+   - f: Copy file path
+   - p: Copy project path
    - Alt+←/→: Navigate back/forward through history
    - Esc/Backspace: Return to previous screen
    - Maintains scroll position and selection state
@@ -283,13 +286,13 @@ Applied before other filters in the search pipeline.
 - **Linux**: `xclip -selection clipboard` (fallback to `xsel --clipboard --input`)
 - **Windows**: `clip`
 
-### Copyable Fields
+### Copyable Fields (Unified Shortcuts)
 
-- File path (F)
-- Session ID (I)
-- Project path (P)
-- Message text (M)
-- Raw JSON (R) - if available
+- Content/text (c)
+- As JSON (C)
+- Session ID (i)
+- File path (f)
+- Project path (p)
 
 ### Copy Feedback
 

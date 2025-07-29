@@ -300,7 +300,7 @@ mod tests {
         // Check that shortcuts are displayed in the status bar
         // With a narrow terminal (40 chars), the status bar will wrap
         // We can see from the output that it shows:
-        // "   ↑/↓ or j/k or Ctrl+P/N: Navigate |   "
+        // "   ↑/↓ or Ctrl+P/N: Navigate |   "
         // " Enter: View details | Ctrl+S: View full"
         // So we check for partial text that we know is visible
         assert!(content.contains("Navigate"));
@@ -340,7 +340,7 @@ mod tests {
         }
 
         // Check that shortcuts are displayed properly on wide screen in the status bar
-        assert!(content.contains("↑/↓ or j/k or Ctrl+P/N: Navigate"));
+        assert!(content.contains("↑/↓ or Ctrl+P/N: Navigate"));
         assert!(content.contains("Ctrl+S: View full session"));
     }
 }

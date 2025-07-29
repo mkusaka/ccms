@@ -257,7 +257,7 @@ impl Component for SessionViewer {
         let subtitle = subtitle_parts.join("\n");
 
         // Calculate status bar height based on terminal width
-        let status_text = "↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Tab: Role Filter | Enter: View Detail | Ctrl+O: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
+        let status_text = "↑/↓ Ctrl+P/N Ctrl+U/D: Navigate | Tab: Filter | Enter: Detail | Ctrl+O: Sort | c/C: Copy text/JSON | i/f/p: Copy IDs/paths | /: Search | Alt+←/→: History | Esc: Back";
         let status_bar_height = {
             let text_len = status_text.len();
             let width = area.width as usize;
@@ -473,33 +473,25 @@ impl Component for SessionViewer {
                 KeyCode::Char('o') if key.modifiers == KeyModifiers::CONTROL => {
                     Some(Message::ToggleSessionOrder)
                 }
+                // Unified copy operations
                 KeyCode::Char('c') => self.list_viewer.get_selected_item().map(|item| {
+                    Message::CopyToClipboard(CopyContent::MessageContent(item.content.clone()))
+                }),
+                KeyCode::Char('C') => self.list_viewer.get_selected_item().map(|item| {
                     Message::CopyToClipboard(CopyContent::JsonData(item.raw_json.clone()))
                 }),
-                KeyCode::Char('C') => {
-                    // Copy all raw messages for now
-                    // TODO: Add method to ListViewer to get filtered items
-                    Some(Message::CopyToClipboard(CopyContent::JsonData(
-                        self.raw_messages.join("\n\n"),
-                    )))
-                }
-                KeyCode::Char('i') | KeyCode::Char('I') => self
+                KeyCode::Char('i') => self
                     .session_id
                     .clone()
                     .map(|id| Message::CopyToClipboard(CopyContent::SessionId(id))),
-                KeyCode::Char('p') | KeyCode::Char('P') => self
+                KeyCode::Char('p') => self
                     .project_path
                     .clone()
                     .map(|path| Message::CopyToClipboard(CopyContent::ProjectPath(path))),
-                KeyCode::Char('f') | KeyCode::Char('F') => self
+                KeyCode::Char('f') => self
                     .file_path
                     .clone()
                     .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path))),
-                KeyCode::Char('m') | KeyCode::Char('M') => {
-                    self.list_viewer.get_selected_item().map(|item| {
-                        Message::CopyToClipboard(CopyContent::MessageContent(item.content.clone()))
-                    })
-                }
                 KeyCode::Enter => self.list_viewer.get_selected_item().and_then(|item| {
                     self.file_path.as_ref().map(|path| {
                         Message::EnterResultDetailFromSession(

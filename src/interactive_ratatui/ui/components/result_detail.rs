@@ -187,7 +187,7 @@ impl ResultDetail {
         f.render_widget(message_widget, chunks[1]);
 
         // Render shortcuts bar (similar to Session Viewer style)
-        let shortcuts_text = "↑/↓ or j/k: Scroll | Ctrl+S: View full session | F: Copy file path | I: Copy session ID | P: Copy project path | M: Copy message text | R: Copy raw JSON | Alt+←/→: Navigate history | Esc: Back";
+        let shortcuts_text = "↑/↓: Scroll | Ctrl+S: View full session | c: Copy message text | C: Copy as JSON | i: Copy session ID | f: Copy file path | p: Copy project path | Alt+←/→: Navigate history | Esc: Back";
         let shortcuts_bar = Paragraph::new(shortcuts_text)
             .style(Style::default().fg(Color::DarkGray))
             .alignment(ratatui::layout::Alignment::Center)
@@ -267,23 +267,27 @@ impl Component for ResultDetail {
                 }
                 None
             }
+            KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                self.scroll_offset = self.scroll_offset.saturating_sub(10);
+                None
+            }
+            KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                // Only scroll if there's content to scroll
+                if let Some(result) = &self.result {
+                    if !result.text.is_empty() {
+                        self.scroll_offset += 10;
+                    }
+                }
+                None
+            }
             KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
                 Some(Message::EnterSessionViewer) // Ctrl+S
             }
-            KeyCode::Char('f') | KeyCode::Char('F') => self
-                .result
-                .as_ref()
-                .map(|result| Message::CopyToClipboard(CopyContent::FilePath(result.file.clone()))),
-            KeyCode::Char('i') | KeyCode::Char('I') => self.result.as_ref().map(|result| {
-                Message::CopyToClipboard(CopyContent::SessionId(result.session_id.clone()))
-            }),
-            KeyCode::Char('p') | KeyCode::Char('P') => self.result.as_ref().map(|result| {
-                Message::CopyToClipboard(CopyContent::ProjectPath(result.project_path.clone()))
-            }),
-            KeyCode::Char('m') | KeyCode::Char('M') => self.result.as_ref().map(|result| {
+            // Unified copy operations
+            KeyCode::Char('c') => self.result.as_ref().map(|result| {
                 Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))
             }),
-            KeyCode::Char('r') | KeyCode::Char('R') => {
+            KeyCode::Char('C') => {
                 if let Some(result) = &self.result {
                     if let Some(raw_json) = &result.raw_json {
                         Some(Message::CopyToClipboard(CopyContent::JsonData(
@@ -308,8 +312,15 @@ impl Component for ResultDetail {
                     None
                 }
             }
-            KeyCode::Char('c') | KeyCode::Char('C') => self.result.as_ref().map(|result| {
-                Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))
+            KeyCode::Char('i') => self.result.as_ref().map(|result| {
+                Message::CopyToClipboard(CopyContent::SessionId(result.session_id.clone()))
+            }),
+            KeyCode::Char('f') => self
+                .result
+                .as_ref()
+                .map(|result| Message::CopyToClipboard(CopyContent::FilePath(result.file.clone()))),
+            KeyCode::Char('p') => self.result.as_ref().map(|result| {
+                Message::CopyToClipboard(CopyContent::ProjectPath(result.project_path.clone()))
             }),
             KeyCode::Esc => Some(Message::ExitToSearch),
             _ => None,
