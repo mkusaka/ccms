@@ -59,7 +59,7 @@ impl MessageDetail {
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Length(MESSAGE_DETAIL_HEADER_HEIGHT), // Header (fixed)
-                    Constraint::Min(5),    // Message content (scrollable)
+                    Constraint::Min(5), // Message content (scrollable)
                     Constraint::Length(MESSAGE_DETAIL_SHORTCUTS_HEIGHT), // Shortcuts (fixed)
                     Constraint::Length(MESSAGE_DETAIL_STATUS_HEIGHT), // Status/Exit prompt at bottom
                 ])
@@ -69,7 +69,7 @@ impl MessageDetail {
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Length(MESSAGE_DETAIL_HEADER_HEIGHT), // Header (fixed)
-                    Constraint::Min(5),    // Message content (scrollable)
+                    Constraint::Min(5), // Message content (scrollable)
                     Constraint::Length(MESSAGE_DETAIL_SHORTCUTS_HEIGHT), // Shortcuts (fixed)
                 ])
                 .split(area)
