@@ -239,6 +239,11 @@ impl AppState {
                     Some(r) if r == "assistant" => Some("system".to_string()),
                     _ => None,
                 };
+                // Update navigation history to preserve filter state
+                if self.navigation_history.current_position().is_some() {
+                    self.navigation_history
+                        .update_current(self.create_navigation_state());
+                }
                 Command::ExecuteSearch
             }
             Message::ToggleSearchOrder => {
@@ -246,6 +251,11 @@ impl AppState {
                     SearchOrder::Descending => SearchOrder::Ascending,
                     SearchOrder::Ascending => SearchOrder::Descending,
                 };
+                // Update navigation history to preserve sort order
+                if self.navigation_history.current_position().is_some() {
+                    self.navigation_history
+                        .update_current(self.create_navigation_state());
+                }
                 // Re-execute the search with the new order to get different results
                 Command::ExecuteSearch
             }
@@ -285,6 +295,11 @@ impl AppState {
                 };
                 // Re-apply filter with new order
                 self.update_session_filter();
+                // Update navigation history to preserve sort order
+                if self.navigation_history.current_position().is_some() {
+                    self.navigation_history
+                        .update_current(self.create_navigation_state());
+                }
                 Command::None
             }
             Message::ToggleSessionRoleFilter => {
@@ -296,6 +311,11 @@ impl AppState {
                 };
                 // Re-apply filter with new role
                 self.update_session_filter();
+                // Update navigation history to preserve filter state
+                if self.navigation_history.current_position().is_some() {
+                    self.navigation_history
+                        .update_current(self.create_navigation_state());
+                }
                 Command::None
             }
             Message::SetStatus(msg) => {
