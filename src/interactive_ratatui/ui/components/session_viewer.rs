@@ -202,9 +202,9 @@ impl Component for SessionViewer {
             let text_len = status_text.len();
             let width = area.width as usize;
             // Calculate number of lines needed for wrapping
-            let lines_needed = (text_len + width - 1) / width; // Ceiling division
+            let lines_needed = text_len.div_ceil(width);
             // Ensure minimum of 3 lines, max of 8 lines
-            std::cmp::min(std::cmp::max(lines_needed as u16, 3), 8)
+            (lines_needed as u16).clamp(3, 8)
         };
 
         // Layout with message area
