@@ -17,9 +17,6 @@ pub const DOUBLE_CTRL_C_TIMEOUT_SECS: u64 = 1;
 /// Height of the search bar component
 pub const SEARCH_BAR_HEIGHT: u16 = 3;
 
-/// Height of the status bar
-pub const STATUS_BAR_HEIGHT: u16 = 1;
-
 /// Page size for PageUp/PageDown navigation
 pub const PAGE_SIZE: usize = 10;
 

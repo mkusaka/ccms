@@ -65,6 +65,22 @@ impl ViewLayout {
         content_height + 1
     }
 
+    fn calculate_status_bar_height(&self, width: u16) -> u16 {
+        let status_text = self
+            .status_text
+            .as_deref()
+            .unwrap_or("↑/↓ or j/k: Navigate | Enter: Select | Esc: Back | ?: Help");
+
+        let paragraph = Paragraph::new(status_text).wrap(Wrap { trim: true });
+
+        // Use ratatui's line_count method to get the actual height needed
+        // Status bar doesn't have borders, so width is full
+        let content_height = paragraph.line_count(width) as u16;
+
+        // Ensure at least 1 line, max 3 lines for status bar
+        content_height.clamp(1, 3)
+    }
+
     pub fn render<F>(&self, f: &mut Frame, area: Rect, render_content: F)
     where
         F: FnOnce(&mut Frame, Rect),
@@ -73,10 +89,12 @@ impl ViewLayout {
         let title_bar_height = self.calculate_title_bar_height(area.width);
 
         let constraints = if self.show_status_bar {
+            // Calculate status bar height based on content and available width
+            let status_bar_height = self.calculate_status_bar_height(area.width);
             vec![
-                Constraint::Length(title_bar_height), // Title bar
-                Constraint::Min(0),                   // Content
-                Constraint::Length(2),                // Status bar
+                Constraint::Length(title_bar_height),   // Title bar
+                Constraint::Min(0),                     // Content
+                Constraint::Length(status_bar_height),  // Status bar
             ]
         } else {
             vec![
@@ -136,7 +154,8 @@ impl ViewLayout {
 
         let status_bar = Paragraph::new(status_text)
             .style(Style::default().fg(Color::DarkGray))
-            .alignment(ratatui::layout::Alignment::Center);
+            .alignment(ratatui::layout::Alignment::Center)
+            .wrap(Wrap { trim: true });
 
         f.render_widget(status_bar, area);
     }

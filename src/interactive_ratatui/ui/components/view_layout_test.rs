@@ -139,6 +139,61 @@ mod tests {
     }
 
     #[test]
+    fn test_view_layout_with_long_status_text_wrapping() {
+        // Use a narrow terminal to test status bar wrapping
+        let backend = TestBackend::new(50, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        // Create a long status text that should wrap
+        let long_status = "Tab: Filter | ↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit";
+
+        terminal
+            .draw(|f| {
+                let layout = ViewLayout::new("Test Title".to_string())
+                    .with_status_text(long_status.to_string());
+                let full_area = f.area();
+                layout.render(f, full_area, |_f, content_area| {
+                    // The status bar should be taller than 1 line due to wrapping
+                    let used_height = full_area.height - content_area.height;
+                    // 2 for title bar + at least 2 for wrapped status bar
+                    assert!(used_height >= 4, "Expected wrapped status bar to use more height");
+                });
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        // Check that key parts of the status text are rendered
+        assert!(buffer_contains_text(buffer, "Tab: Filter"));
+        assert!(buffer_contains_text(buffer, "Navigate"));
+        assert!(buffer_contains_text(buffer, "Esc: Exit"));
+    }
+
+    #[test]
+    fn test_view_layout_status_bar_height_calculation() {
+        // Test with various terminal widths
+        let widths = vec![30, 50, 80, 120];
+        let long_status = "Tab: Filter | ↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit";
+        
+        for width in widths {
+            let backend = TestBackend::new(width, 20);
+            let mut terminal = Terminal::new(backend).unwrap();
+
+            terminal
+                .draw(|f| {
+                    let layout = ViewLayout::new("Test".to_string())
+                        .with_status_text(long_status.to_string());
+                    layout.render(f, f.area(), |_f, _area| {
+                        // Just render to test height calculation
+                    });
+                })
+                .unwrap();
+
+            // The test passes if it renders without panic
+            // Height calculation should adapt to terminal width
+        }
+    }
+
+    #[test]
     fn test_styles() {
         // Test title style
         let title_style = Styles::title();
