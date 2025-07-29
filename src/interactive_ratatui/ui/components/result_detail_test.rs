@@ -2,7 +2,7 @@
 mod tests {
     use super::super::result_detail::ResultDetail;
     use crate::interactive_ratatui::ui::components::Component;
-    use crate::interactive_ratatui::ui::events::Message;
+    use crate::interactive_ratatui::ui::events::{CopyContent, Message};
     use crate::query::condition::{QueryCondition, SearchResult};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use ratatui::{Terminal, backend::TestBackend, buffer::Buffer};
@@ -254,31 +254,37 @@ mod tests {
         // Test copy file path (F)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()));
         assert!(
-            matches!(msg, Some(Message::CopyToClipboard(text)) if text == "/path/to/test.jsonl")
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::FilePath(path))) if path == "/path/to/test.jsonl")
         );
 
         // Test copy session ID (I)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(text)) if text == "session-123"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
+        );
 
         // Test copy project path (P)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(text)) if text == "/path/to/project"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::ProjectPath(path))) if path == "/path/to/project")
+        );
 
         // Test copy message text (M)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty()));
         assert!(
-            matches!(msg, Some(Message::CopyToClipboard(text)) if text == "This is a test message")
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::MessageContent(text))) if text == "This is a test message")
         );
 
         // Test copy raw JSON (R)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(text)) if text.contains("user")));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::JsonData(json))) if json.contains("user"))
+        );
 
         // Test copy with 'c' (should copy message text)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::empty()));
         assert!(
-            matches!(msg, Some(Message::CopyToClipboard(text)) if text == "This is a test message")
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::MessageContent(text))) if text == "This is a test message")
         );
     }
 
@@ -383,11 +389,13 @@ mod tests {
         // Test uppercase variants of shortcuts
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('F'), KeyModifiers::empty()));
         assert!(
-            matches!(msg, Some(Message::CopyToClipboard(text)) if text == "/path/to/test.jsonl")
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::FilePath(path))) if path == "/path/to/test.jsonl")
         );
 
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('I'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(text)) if text == "session-123"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
+        );
 
         // S key no longer triggers session viewer - need Ctrl+S instead
     }
@@ -417,13 +425,18 @@ mod tests {
 
         // Should create a formatted string when raw_json is None
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::empty()));
-        if let Some(Message::CopyToClipboard(text)) = msg {
-            assert!(text.contains("File: /path/to/test.jsonl"));
-            assert!(text.contains("UUID: 12345678-1234-5678-1234-567812345678"));
-            assert!(text.contains("Session ID: session-123"));
-            assert!(text.contains("Role: user"));
-            assert!(text.contains("Text: This is a test message"));
-            assert!(text.contains("Project: /path/to/project"));
+        if let Some(Message::CopyToClipboard(content)) = msg {
+            match content {
+                CopyContent::FullResultDetails(text) => {
+                    assert!(text.contains("File: /path/to/test.jsonl"));
+                    assert!(text.contains("UUID: 12345678-1234-5678-1234-567812345678"));
+                    assert!(text.contains("Session ID: session-123"));
+                    assert!(text.contains("Role: user"));
+                    assert!(text.contains("Text: This is a test message"));
+                    assert!(text.contains("Project: /path/to/project"));
+                }
+                _ => panic!("Expected FullResultDetails variant"),
+            }
         } else {
             panic!("Expected CopyToClipboard message");
         }

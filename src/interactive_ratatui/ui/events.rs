@@ -1,6 +1,16 @@
 use crate::query::condition::SearchResult;
 
 #[derive(Clone, Debug)]
+pub enum CopyContent {
+    FilePath(String),
+    ProjectPath(String),
+    SessionId(String),
+    MessageContent(String),
+    JsonData(String),
+    FullResultDetails(String),
+}
+
+#[derive(Clone, Debug)]
 pub enum Message {
     // Search events
     QueryChanged(String),
@@ -40,7 +50,7 @@ pub enum Message {
     ToggleTruncation,
 
     // Clipboard
-    CopyToClipboard(String),
+    CopyToClipboard(CopyContent),
 
     // Async events
     SearchStarted(u64),

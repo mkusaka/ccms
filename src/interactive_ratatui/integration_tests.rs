@@ -2,7 +2,7 @@
 mod tests {
     use super::super::*;
     use crate::interactive_ratatui::domain::models::Mode;
-    use crate::interactive_ratatui::ui::events::Message;
+    use crate::interactive_ratatui::ui::events::{CopyContent, Message};
     use crate::interactive_ratatui::ui::navigation::{
         NavigationHistory, NavigationState, SearchStateSnapshot, SessionStateSnapshot,
         UiStateSnapshot,
@@ -631,7 +631,9 @@ mod tests {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
         // Test file path copy feedback
-        app.execute_command(Command::CopyToClipboard("/path/to/file.jsonl".to_string()));
+        app.execute_command(Command::CopyToClipboard(CopyContent::FilePath(
+            "/path/to/file.jsonl".to_string(),
+        )));
         // In CI environment, clipboard might fail
         if let Some(msg) = &app.state.ui.message {
             assert!(
@@ -642,9 +644,9 @@ mod tests {
 
         // Test session ID copy feedback
         app.state.ui.message = None;
-        app.execute_command(Command::CopyToClipboard(
+        app.execute_command(Command::CopyToClipboard(CopyContent::SessionId(
             "12345678-1234-5678-1234-567812345678".to_string(),
-        ));
+        )));
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied session ID" || msg.starts_with("Failed to copy:"),
@@ -654,7 +656,9 @@ mod tests {
 
         // Test short text copy feedback
         app.state.ui.message = None;
-        app.execute_command(Command::CopyToClipboard("short text".to_string()));
+        app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(
+            "short text".to_string(),
+        )));
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied: short text" || msg.starts_with("Failed to copy:"),
@@ -665,7 +669,9 @@ mod tests {
         // Test long message copy feedback
         app.state.ui.message = None;
         let long_text = "a".repeat(200);
-        app.execute_command(Command::CopyToClipboard(long_text));
+        app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(
+            long_text,
+        )));
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied message text" || msg.starts_with("Failed to copy:"),
@@ -791,8 +797,8 @@ mod tests {
             ('F', "✓ Copied file path"),
             ('i', "✓ Copied session ID"),
             ('I', "✓ Copied session ID"),
-            ('p', "✓ Copied file path"), // project path
-            ('P', "✓ Copied file path"),
+            ('p', "✓ Copied project path"), // project path
+            ('P', "✓ Copied project path"),
             ('m', "✓ Copied: Test message"), // short text shows the actual text
             ('M', "✓ Copied: Test message"),
         ];
@@ -851,7 +857,9 @@ mod tests {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
         // Execute copy command to show message
-        app.execute_command(Command::CopyToClipboard("test-id-1234".to_string()));
+        app.execute_command(Command::CopyToClipboard(CopyContent::SessionId(
+            "test-id-1234".to_string(),
+        )));
 
         // Message should be displayed
         assert!(app.state.ui.message.is_some());
