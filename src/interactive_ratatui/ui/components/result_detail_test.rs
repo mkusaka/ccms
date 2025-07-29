@@ -285,7 +285,6 @@ mod tests {
         assert!(
             matches!(msg, Some(Message::CopyToClipboard(CopyContent::JsonData(json))) if json.contains("user"))
         );
-
     }
 
     #[test]
@@ -377,7 +376,6 @@ mod tests {
         assert_eq!(buffer.area.width, 40);
         assert_eq!(buffer.area.height, 20);
     }
-
 
     #[test]
     fn test_render_without_result() {

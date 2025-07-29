@@ -274,13 +274,11 @@ mod tests {
             matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
         );
 
-
         // Test copy file path
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()));
         assert!(
             matches!(msg, Some(Message::CopyToClipboard(CopyContent::FilePath(path))) if path == "/path/to/session.jsonl")
         );
-
     }
 
     #[test]
@@ -1313,7 +1311,7 @@ mod tests {
         assert!(buffer_contains(&buffer, "Filter"));
         assert!(buffer_contains(&buffer, "Copy"));
         assert!(buffer_contains(&buffer, "Back"));
-        
+
         // The exact line positioning may vary based on terminal rendering,
         // so we just verify all elements are visible
     }
