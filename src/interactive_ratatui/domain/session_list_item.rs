@@ -1,4 +1,5 @@
 use crate::interactive_ratatui::ui::components::list_item::{ListItem, highlight_text, wrap_text};
+use crate::schemas::session_message::SessionMessage;
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 
@@ -19,60 +20,11 @@ impl SessionListItem {
     }
 
     pub fn from_json_line(json_line: &str) -> Option<Self> {
-        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(json_line) {
-            // Extract role/type
-            let role = json_value
-                .get("type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string();
-
-            // Extract timestamp
-            let timestamp = json_value
-                .get("timestamp")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-
-            // Extract content based on message type
-            let content = match role.as_str() {
-                "summary" => json_value
-                    .get("summary")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string(),
-                "system" => json_value
-                    .get("content")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string(),
-                _ => {
-                    // For user and assistant messages
-                    if let Some(content) = json_value
-                        .get("message")
-                        .and_then(|m| m.get("content"))
-                        .and_then(|c| c.as_str())
-                    {
-                        content.to_string()
-                    } else if let Some(arr) = json_value
-                        .get("message")
-                        .and_then(|m| m.get("content"))
-                        .and_then(|c| c.as_array())
-                    {
-                        let texts: Vec<String> = arr
-                            .iter()
-                            .filter_map(|item| {
-                                item.get("text")
-                                    .and_then(|t| t.as_str())
-                                    .map(|s| s.to_string())
-                            })
-                            .collect();
-                        texts.join(" ")
-                    } else {
-                        String::new()
-                    }
-                }
-            };
+        // Try to parse as SessionMessage to leverage its get_content_text() method
+        if let Ok(session_msg) = serde_json::from_str::<SessionMessage>(json_line) {
+            let role = session_msg.get_type().to_string();
+            let timestamp = session_msg.get_timestamp().unwrap_or("").to_string();
+            let content = session_msg.get_content_text();
 
             Some(Self {
                 raw_json: json_line.to_string(),
@@ -81,7 +33,152 @@ impl SessionListItem {
                 content,
             })
         } else {
-            None
+            // Fallback to original parsing logic for tests and backward compatibility
+            if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(json_line) {
+                // Extract role/type
+                let role = json_value
+                    .get("type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+
+                // Extract timestamp
+                let timestamp = json_value
+                    .get("timestamp")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                // Extract content based on message type
+                let content = match role.as_str() {
+                    "summary" => json_value
+                        .get("summary")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    "system" => json_value
+                        .get("content")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    _ => {
+                        // For user and assistant messages
+                        if let Some(content) = json_value
+                            .get("message")
+                            .and_then(|m| m.get("content"))
+                            .and_then(|c| c.as_str())
+                        {
+                            content.to_string()
+                        } else if let Some(arr) = json_value
+                            .get("message")
+                            .and_then(|m| m.get("content"))
+                            .and_then(|c| c.as_array())
+                        {
+                            let mut content_parts: Vec<String> = Vec::new();
+
+                            for item in arr {
+                                if let Some(item_type) = item.get("type").and_then(|t| t.as_str()) {
+                                    match item_type {
+                                        "text" => {
+                                            if let Some(text) =
+                                                item.get("text").and_then(|t| t.as_str())
+                                            {
+                                                content_parts.push(text.to_string());
+                                            }
+                                        }
+                                        "thinking" => {
+                                            if let Some(thinking) =
+                                                item.get("thinking").and_then(|t| t.as_str())
+                                            {
+                                                content_parts.push(thinking.to_string());
+                                            }
+                                        }
+                                        "tool_use" => {
+                                            if let Some(name) =
+                                                item.get("name").and_then(|n| n.as_str())
+                                            {
+                                                if let Some(id) =
+                                                    item.get("id").and_then(|i| i.as_str())
+                                                {
+                                                    content_parts
+                                                        .push(format!("[Tool Use: {name} ({id})]"));
+                                                }
+                                            }
+                                        }
+                                        "tool_result" => {
+                                            if let Some(tool_use_id) =
+                                                item.get("tool_use_id").and_then(|i| i.as_str())
+                                            {
+                                                let is_error = item
+                                                    .get("is_error")
+                                                    .and_then(|e| e.as_bool())
+                                                    .unwrap_or(false);
+                                                let prefix = if is_error {
+                                                    "Tool Error"
+                                                } else {
+                                                    "Tool Result"
+                                                };
+
+                                                if let Some(content) = item.get("content") {
+                                                    if let Some(text) = content.as_str() {
+                                                        content_parts.push(format!(
+                                                            "[{prefix}: {tool_use_id}: {text}]"
+                                                        ));
+                                                    } else if let Some(arr) = content.as_array() {
+                                                        let texts: Vec<String> = arr
+                                                            .iter()
+                                                            .filter_map(|c| {
+                                                                c.get("text")
+                                                                    .and_then(|t| t.as_str())
+                                                            })
+                                                            .map(|s| s.to_string())
+                                                            .collect();
+                                                        if !texts.is_empty() {
+                                                            content_parts.push(format!(
+                                                                "[{prefix}: {tool_use_id}: {}]",
+                                                                texts.join(" ")
+                                                            ));
+                                                        } else {
+                                                            content_parts.push(format!("[{prefix}: {tool_use_id}: (empty result)]"));
+                                                        }
+                                                    } else {
+                                                        content_parts.push(format!("[{prefix}: {tool_use_id}: (non-string value)]"));
+                                                    }
+                                                } else {
+                                                    content_parts.push(format!(
+                                                        "[{prefix}: {tool_use_id}: (no content)]"
+                                                    ));
+                                                }
+                                            }
+                                        }
+                                        "image" => {
+                                            content_parts.push("[Image]".to_string());
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+
+                            if content_parts.is_empty() {
+                                String::new()
+                            } else {
+                                content_parts.join(" ")
+                            }
+                        } else {
+                            String::new()
+                        }
+                    }
+                };
+
+                Some(Self {
+                    raw_json: json_line.to_string(),
+                    role,
+                    timestamp,
+                    content,
+                })
+            } else {
+                None
+            }
         }
     }
 }
