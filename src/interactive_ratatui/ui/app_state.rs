@@ -1,5 +1,5 @@
 use crate::interactive_ratatui::constants::*;
-use crate::interactive_ratatui::domain::models::{SessionOrder, SearchOrder};
+use crate::interactive_ratatui::domain::models::{SearchOrder, SessionOrder};
 use crate::interactive_ratatui::ui::commands::Command;
 use crate::interactive_ratatui::ui::events::Message;
 use crate::interactive_ratatui::ui::navigation::{
@@ -618,5 +618,4 @@ impl AppState {
         self.mode = mode;
         self.initialize_mode()
     }
-
 }

@@ -1,4 +1,4 @@
-use crate::interactive_ratatui::domain::models::{Mode, SessionOrder, SearchOrder};
+use crate::interactive_ratatui::domain::models::{Mode, SearchOrder, SessionOrder};
 use crate::query::condition::SearchResult;
 
 /// Represents a complete navigation state that can be restored

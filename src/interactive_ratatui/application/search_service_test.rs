@@ -2,7 +2,7 @@
 mod tests {
     use super::super::search_service::*;
     use crate::SearchOptions;
-    use crate::interactive_ratatui::domain::models::{SearchRequest, SearchOrder};
+    use crate::interactive_ratatui::domain::models::{SearchOrder, SearchRequest};
 
     #[test]
     fn test_search_service_creation() {

@@ -3,7 +3,7 @@ mod tests {
     use super::super::app_state::*;
     use super::super::commands::Command;
     use super::super::events::{CopyContent, Message};
-    use crate::interactive_ratatui::domain::models::{Mode, SessionOrder, SearchOrder};
+    use crate::interactive_ratatui::domain::models::{Mode, SearchOrder, SessionOrder};
     use crate::query::condition::{QueryCondition, SearchResult};
 
     fn create_test_state() -> AppState {
@@ -269,15 +269,15 @@ mod tests {
     #[test]
     fn test_toggle_search_order() {
         let mut state = create_test_state();
-        
+
         // Default should be Descending (newest first)
         assert_eq!(state.search.order, SearchOrder::Descending);
-        
+
         // Toggle to Ascending (oldest first)
         let command = state.update(Message::ToggleSearchOrder);
         assert_eq!(command, Command::ExecuteSearch); // Should trigger new search
         assert_eq!(state.search.order, SearchOrder::Ascending);
-        
+
         // Toggle back to Descending
         let command = state.update(Message::ToggleSearchOrder);
         assert_eq!(command, Command::ExecuteSearch); // Should trigger new search
@@ -287,21 +287,21 @@ mod tests {
     #[test]
     fn test_search_completed_respects_engine_order() {
         let mut state = create_test_state();
-        
+
         // Create test results already sorted by the engine
         let mut result1 = create_test_result();
         result1.timestamp = "2024-01-01T12:00:00Z".to_string();
-        
+
         let mut result2 = create_test_result();
         result2.timestamp = "2024-01-02T12:00:00Z".to_string();
-        
+
         let mut result3 = create_test_result();
         result3.timestamp = "2024-01-03T12:00:00Z".to_string();
-        
+
         // Results come pre-sorted from the engine
         let results = vec![result3.clone(), result2.clone(), result1.clone()]; // Descending order
         state.update(Message::SearchCompleted(results));
-        
+
         // Should maintain the order from the engine
         assert_eq!(state.search.results[0].timestamp, "2024-01-03T12:00:00Z");
         assert_eq!(state.search.results[1].timestamp, "2024-01-02T12:00:00Z");

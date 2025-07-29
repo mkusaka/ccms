@@ -16,7 +16,12 @@ impl SearchService {
     }
 
     pub fn search(&self, request: SearchRequest) -> Result<SearchResponse> {
-        let results = self.execute_search(&request.query, &request.pattern, request.role_filter, request.order)?;
+        let results = self.execute_search(
+            &request.query,
+            &request.pattern,
+            request.role_filter,
+            request.order,
+        )?;
 
         Ok(SearchResponse {
             id: request.id,
@@ -38,9 +43,12 @@ impl SearchService {
             parse_query(query)?
         };
 
-        let (results, _, _) =
-            self.engine
-                .search_with_role_filter_and_order(pattern, query_condition, role_filter, order)?;
+        let (results, _, _) = self.engine.search_with_role_filter_and_order(
+            pattern,
+            query_condition,
+            role_filter,
+            order,
+        )?;
 
         // Results are already sorted by the engine based on the order
         Ok(results)

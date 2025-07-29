@@ -72,14 +72,14 @@ impl Component for SearchBar {
         if let Some(role) = &self.role_filter {
             title.push_str(&format!(" [role:{role}]"));
         }
-        
+
         // Add order info
         let order_text = match self.search_order {
             SearchOrder::Descending => "Desc",
             SearchOrder::Ascending => "Asc",
         };
         title.push_str(&format!(" [order:{order_text}]"));
-        
+
         if let Some(msg) = &self.message {
             title.push_str(&format!(" - {msg}"));
         }
