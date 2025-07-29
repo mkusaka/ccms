@@ -72,9 +72,10 @@ impl Component for ResultList {
             .split(area);
 
         // Render title
-        let title_lines = vec![
-            Line::from(vec![Span::styled("Search Results", Styles::title())]),
-        ];
+        let title_lines = vec![Line::from(vec![Span::styled(
+            "Search Results",
+            Styles::title(),
+        )])];
         let title = Paragraph::new(title_lines).block(Block::default().borders(Borders::BOTTOM));
         f.render_widget(title, chunks[0]);
 
