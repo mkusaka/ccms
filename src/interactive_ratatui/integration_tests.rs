@@ -712,7 +712,7 @@ mod tests {
         )));
         if let Some(msg) = &app.state.ui.message {
             assert!(
-                msg == "✓ Copied: short text" || msg.starts_with("Failed to copy:"),
+                msg == "✓ Copied message text" || msg.starts_with("Failed to copy:"),
                 "Unexpected message: {msg}"
             );
         }
@@ -845,13 +845,9 @@ mod tests {
         // Test all copy shortcuts
         let shortcuts = vec![
             ('f', "✓ Copied file path"),
-            ('F', "✓ Copied file path"),
             ('i', "✓ Copied session ID"),
-            ('I', "✓ Copied session ID"),
             ('p', "✓ Copied project path"), // project path
-            ('P', "✓ Copied project path"),
-            ('m', "✓ Copied: Test message"), // short text shows the actual text
-            ('M', "✓ Copied: Test message"),
+            ('c', "✓ Copied message text"),
         ];
 
         for (key, expected_feedback) in shortcuts {

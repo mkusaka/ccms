@@ -274,22 +274,16 @@ mod tests {
             matches!(msg, Some(Message::CopyToClipboard(CopyContent::ProjectPath(path))) if path == "/path/to/project")
         );
 
-        // Test copy message text (M)
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty()));
-        assert!(
-            matches!(msg, Some(Message::CopyToClipboard(CopyContent::MessageContent(text))) if text == "This is a test message")
-        );
-
-        // Test copy raw JSON (R)
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::empty()));
-        assert!(
-            matches!(msg, Some(Message::CopyToClipboard(CopyContent::JsonData(json))) if json.contains("user"))
-        );
-
-        // Test copy with 'c' (should copy message text)
+        // Test copy message text with 'c'
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::empty()));
         assert!(
             matches!(msg, Some(Message::CopyToClipboard(CopyContent::MessageContent(text))) if text == "This is a test message")
+        );
+
+        // Test copy raw JSON with 'C'
+        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('C'), KeyModifiers::empty()));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::JsonData(json))) if json.contains("user"))
         );
     }
 
@@ -384,26 +378,6 @@ mod tests {
     }
 
     #[test]
-    fn test_uppercase_shortcuts() {
-        let mut detail = ResultDetail::new();
-        let result = create_test_result();
-        detail.set_result(result);
-
-        // Test uppercase variants of shortcuts
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('F'), KeyModifiers::empty()));
-        assert!(
-            matches!(msg, Some(Message::CopyToClipboard(CopyContent::FilePath(path))) if path == "/path/to/test.jsonl")
-        );
-
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('I'), KeyModifiers::empty()));
-        assert!(
-            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
-        );
-
-        // S key no longer triggers session viewer - need Ctrl+S instead
-    }
-
-    #[test]
     fn test_render_without_result() {
         let mut detail = ResultDetail::new();
 
@@ -427,7 +401,7 @@ mod tests {
         detail.set_result(result);
 
         // Should create a formatted string when raw_json is None
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::empty()));
+        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('C'), KeyModifiers::empty()));
         if let Some(Message::CopyToClipboard(content)) = msg {
             match content {
                 CopyContent::FullResultDetails(text) => {
@@ -559,7 +533,7 @@ mod tests {
 
         // Shortcuts should be visible in the status bar
         assert!(content.contains("Ctrl+S: View full session"));
-        assert!(content.contains("F: Copy file path"));
+        assert!(content.contains("f: Copy file path"));
     }
 
     #[test]

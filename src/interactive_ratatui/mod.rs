@@ -283,15 +283,10 @@ impl InteractiveSearch {
                         (id, "✓ Copied session ID".to_string())
                     }
                     ui::events::CopyContent::MessageContent(msg) => {
-                        let message = if msg.len() < 100 {
-                            format!("✓ Copied: {}", msg.chars().take(50).collect::<String>())
-                        } else {
-                            "✓ Copied message text".to_string()
-                        };
-                        (msg, message)
+                        (msg, "✓ Copied message text".to_string())
                     }
                     ui::events::CopyContent::JsonData(json) => {
-                        (json, "✓ Copied JSON data".to_string())
+                        (json, "✓ Copied as JSON".to_string())
                     }
                     ui::events::CopyContent::FullResultDetails(details) => {
                         (details, "✓ Copied full result details".to_string())
