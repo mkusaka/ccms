@@ -135,7 +135,9 @@ ccms -i -n 100                               # Adjust result limit
 **Interactive Mode Controls:**
 - Type to search in real-time
 - `↑/↓` - Navigate results
+- `Ctrl+u/d` - Half-page scrolling (up/down) 
 - `Enter` - View full message
+- `Ctrl+S` - Jump directly to session viewer
 - `Tab` - Cycle role filters (all → user → assistant → system → summary)
 - `Ctrl+R` - Clear cache and reload files
 - `Ctrl+T` - Toggle message truncation (Truncated/Full Text)
@@ -152,6 +154,7 @@ ccms -i -n 100                               # Adjust result limit
 
 **Result Actions:**
 - `S` - View full session (Session Viewer)
+- `Ctrl+S` - Jump directly to session viewer
 - `F` - Copy file path to clipboard
 - `I` - Copy session ID to clipboard
 - `P` - Copy project path to clipboard
@@ -159,7 +162,8 @@ ccms -i -n 100                               # Adjust result limit
 - `R` - Copy raw JSON to clipboard
 
 **Session Viewer Controls:**
-- `↑/↓` or `j/k` - Navigate messages
+- `↑/↓` - Navigate messages
+- `Ctrl+u/d` - Half-page scrolling (up/down)
 - `Tab` - Cycle role filters (all → user → assistant → system)
 - `/` - Search within session (Tab works in search mode too)
 - `O` - Toggle sort order
