@@ -65,7 +65,7 @@ impl Component for ResultList {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Title
+                Constraint::Length(2), // Title
                 Constraint::Min(0),    // Content (list)
                 Constraint::Length(2), // Status
             ])
@@ -74,10 +74,6 @@ impl Component for ResultList {
         // Render title
         let title_lines = vec![
             Line::from(vec![Span::styled("Search Results", Styles::title())]),
-            Line::from(vec![Span::raw(format!(
-                "{} results found",
-                self.list_viewer.filtered_count()
-            ))]),
         ];
         let title = Paragraph::new(title_lines).block(Block::default().borders(Borders::BOTTOM));
         f.render_widget(title, chunks[0]);
