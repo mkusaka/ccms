@@ -150,12 +150,12 @@ impl SessionViewer {
         // Extract project path from file path
         // Format: ~/.claude/projects/{encoded-project-path}/{session-id}.jsonl
         let path = Path::new(file_path);
-        
+
         // Check if this is a Claude project path
         if !file_path.contains(".claude/projects/") {
             return None;
         }
-        
+
         if let Some(parent) = path.parent() {
             if let Some(project_name) = parent.file_name() {
                 if let Some(project_str) = project_name.to_str() {
@@ -219,19 +219,19 @@ impl SessionViewer {
 impl Component for SessionViewer {
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let mut subtitle_parts = Vec::new();
-        
+
         if let Some(project) = &self.project_path {
             subtitle_parts.push(format!("Project: {project}"));
         }
-        
+
         if let Some(session) = &self.session_id {
             subtitle_parts.push(format!("Session: {session}"));
         }
-        
+
         if let Some(file) = &self.file_path {
             subtitle_parts.push(format!("File: {file}"));
         }
-        
+
         let subtitle = subtitle_parts.join("\n");
 
         // Layout with message area
@@ -360,28 +360,33 @@ impl Component for SessionViewer {
                     None
                 }
                 KeyCode::Char('o') => Some(Message::ToggleSessionOrder),
-                KeyCode::Char('c') => self
-                    .list_viewer
-                    .get_selected_item()
-                    .map(|item| Message::CopyToClipboard(CopyContent::JsonData(item.raw_json.clone()))),
+                KeyCode::Char('c') => self.list_viewer.get_selected_item().map(|item| {
+                    Message::CopyToClipboard(CopyContent::JsonData(item.raw_json.clone()))
+                }),
                 KeyCode::Char('C') => {
                     // Copy all raw messages for now
                     // TODO: Add method to ListViewer to get filtered items
-                    Some(Message::CopyToClipboard(CopyContent::JsonData(self.raw_messages.join("\n\n"))))
+                    Some(Message::CopyToClipboard(CopyContent::JsonData(
+                        self.raw_messages.join("\n\n"),
+                    )))
                 }
-                KeyCode::Char('i') | KeyCode::Char('I') => {
-                    self.session_id.clone().map(|id| Message::CopyToClipboard(CopyContent::SessionId(id)))
+                KeyCode::Char('i') | KeyCode::Char('I') => self
+                    .session_id
+                    .clone()
+                    .map(|id| Message::CopyToClipboard(CopyContent::SessionId(id))),
+                KeyCode::Char('p') | KeyCode::Char('P') => self
+                    .project_path
+                    .clone()
+                    .map(|path| Message::CopyToClipboard(CopyContent::ProjectPath(path))),
+                KeyCode::Char('f') | KeyCode::Char('F') => self
+                    .file_path
+                    .clone()
+                    .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path))),
+                KeyCode::Char('m') | KeyCode::Char('M') => {
+                    self.list_viewer.get_selected_item().map(|item| {
+                        Message::CopyToClipboard(CopyContent::MessageContent(item.content.clone()))
+                    })
                 }
-                KeyCode::Char('p') | KeyCode::Char('P') => {
-                    self.project_path.clone().map(|path| Message::CopyToClipboard(CopyContent::ProjectPath(path)))
-                }
-                KeyCode::Char('f') | KeyCode::Char('F') => {
-                    self.file_path.clone().map(|path| Message::CopyToClipboard(CopyContent::FilePath(path)))
-                }
-                KeyCode::Char('m') | KeyCode::Char('M') => self
-                    .list_viewer
-                    .get_selected_item()
-                    .map(|item| Message::CopyToClipboard(CopyContent::MessageContent(item.content.clone()))),
                 KeyCode::Enter => self.list_viewer.get_selected_item().and_then(|item| {
                     self.file_path.as_ref().map(|path| {
                         Message::EnterResultDetailFromSession(

@@ -250,22 +250,21 @@ impl Component for ResultDetail {
                 .result
                 .as_ref()
                 .map(|result| Message::CopyToClipboard(CopyContent::FilePath(result.file.clone()))),
-            KeyCode::Char('i') | KeyCode::Char('I') => self
-                .result
-                .as_ref()
-                .map(|result| Message::CopyToClipboard(CopyContent::SessionId(result.session_id.clone()))),
-            KeyCode::Char('p') | KeyCode::Char('P') => self
-                .result
-                .as_ref()
-                .map(|result| Message::CopyToClipboard(CopyContent::ProjectPath(result.project_path.clone()))),
-            KeyCode::Char('m') | KeyCode::Char('M') => self
-                .result
-                .as_ref()
-                .map(|result| Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))),
+            KeyCode::Char('i') | KeyCode::Char('I') => self.result.as_ref().map(|result| {
+                Message::CopyToClipboard(CopyContent::SessionId(result.session_id.clone()))
+            }),
+            KeyCode::Char('p') | KeyCode::Char('P') => self.result.as_ref().map(|result| {
+                Message::CopyToClipboard(CopyContent::ProjectPath(result.project_path.clone()))
+            }),
+            KeyCode::Char('m') | KeyCode::Char('M') => self.result.as_ref().map(|result| {
+                Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))
+            }),
             KeyCode::Char('r') | KeyCode::Char('R') => {
                 if let Some(result) = &self.result {
                     if let Some(raw_json) = &result.raw_json {
-                        Some(Message::CopyToClipboard(CopyContent::JsonData(raw_json.clone())))
+                        Some(Message::CopyToClipboard(CopyContent::JsonData(
+                            raw_json.clone(),
+                        )))
                     } else {
                         let formatted = format!(
                             "File: {}\nUUID: {}\nTimestamp: {}\nSession ID: {}\nRole: {}\nText: {}\nProject: {}",
@@ -277,16 +276,17 @@ impl Component for ResultDetail {
                             result.text,
                             result.project_path
                         );
-                        Some(Message::CopyToClipboard(CopyContent::FullResultDetails(formatted)))
+                        Some(Message::CopyToClipboard(CopyContent::FullResultDetails(
+                            formatted,
+                        )))
                     }
                 } else {
                     None
                 }
             }
-            KeyCode::Char('c') | KeyCode::Char('C') => self
-                .result
-                .as_ref()
-                .map(|result| Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))),
+            KeyCode::Char('c') | KeyCode::Char('C') => self.result.as_ref().map(|result| {
+                Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))
+            }),
             KeyCode::Esc => Some(Message::ExitToSearch),
             _ => None,
         }

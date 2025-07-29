@@ -257,9 +257,15 @@ impl InteractiveSearch {
             }
             Command::CopyToClipboard(content) => {
                 let (text, copy_message) = match content {
-                    ui::events::CopyContent::FilePath(path) => (path, "✓ Copied file path".to_string()),
-                    ui::events::CopyContent::ProjectPath(path) => (path, "✓ Copied project path".to_string()),
-                    ui::events::CopyContent::SessionId(id) => (id, "✓ Copied session ID".to_string()),
+                    ui::events::CopyContent::FilePath(path) => {
+                        (path, "✓ Copied file path".to_string())
+                    }
+                    ui::events::CopyContent::ProjectPath(path) => {
+                        (path, "✓ Copied project path".to_string())
+                    }
+                    ui::events::CopyContent::SessionId(id) => {
+                        (id, "✓ Copied session ID".to_string())
+                    }
                     ui::events::CopyContent::MessageContent(msg) => {
                         let message = if msg.len() < 100 {
                             format!("✓ Copied: {}", msg.chars().take(50).collect::<String>())
@@ -268,8 +274,12 @@ impl InteractiveSearch {
                         };
                         (msg, message)
                     }
-                    ui::events::CopyContent::JsonData(json) => (json, "✓ Copied JSON data".to_string()),
-                    ui::events::CopyContent::FullResultDetails(details) => (details, "✓ Copied full result details".to_string()),
+                    ui::events::CopyContent::JsonData(json) => {
+                        (json, "✓ Copied JSON data".to_string())
+                    }
+                    ui::events::CopyContent::FullResultDetails(details) => {
+                        (details, "✓ Copied full result details".to_string())
+                    }
                 };
 
                 if let Err(e) = self.copy_to_clipboard(&text) {

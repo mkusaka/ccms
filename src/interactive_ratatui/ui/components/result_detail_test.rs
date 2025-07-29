@@ -259,11 +259,15 @@ mod tests {
 
         // Test copy session ID (I)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
+        );
 
         // Test copy project path (P)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(CopyContent::ProjectPath(path))) if path == "/path/to/project"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::ProjectPath(path))) if path == "/path/to/project")
+        );
 
         // Test copy message text (M)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty()));
@@ -273,7 +277,9 @@ mod tests {
 
         // Test copy raw JSON (R)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(CopyContent::JsonData(json))) if json.contains("user")));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::JsonData(json))) if json.contains("user"))
+        );
 
         // Test copy with 'c' (should copy message text)
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::empty()));
@@ -387,7 +393,9 @@ mod tests {
         );
 
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('I'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
+        );
 
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('S'), KeyModifiers::empty()));
         assert!(matches!(msg, Some(Message::EnterSessionViewer)));

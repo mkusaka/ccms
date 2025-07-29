@@ -256,19 +256,29 @@ mod tests {
 
         // Test copy single message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(CopyContent::JsonData(_)))));
+        assert!(matches!(
+            msg,
+            Some(Message::CopyToClipboard(CopyContent::JsonData(_)))
+        ));
 
         // Test copy all messages
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('C'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(CopyContent::JsonData(_)))));
+        assert!(matches!(
+            msg,
+            Some(Message::CopyToClipboard(CopyContent::JsonData(_)))
+        ));
 
         // Test copy session ID
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
+        );
 
         // Test copy session ID with uppercase
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('I'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
+        );
 
         // Test copy file path
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()));
@@ -289,7 +299,9 @@ mod tests {
         viewer.set_messages(vec![
             r#"{"type":"user","message":{"content":"test"}}"#.to_string(),
         ]);
-        viewer.set_file_path(Some("/Users/masatomokusaka/.claude/projects/-Users-project-name/session.jsonl".to_string()));
+        viewer.set_file_path(Some(
+            "/Users/masatomokusaka/.claude/projects/-Users-project-name/session.jsonl".to_string(),
+        ));
 
         // Test copy project path
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::empty()));
@@ -316,18 +328,23 @@ mod tests {
     #[test]
     fn test_extract_project_path() {
         let mut viewer = SessionViewer::new();
-        
+
         // Test with typical Claude project path
         viewer.set_file_path(Some("/Users/masatomokusaka/.claude/projects/-Users-masatomokusaka-src-github-com-clerk-clerk-playwright-nextjs/fb101a01-0e24-4a45-9e42-74117ebc20e6.jsonl".to_string()));
-        
+
         let buffer = render_component(&mut viewer, 180, 24);
-        assert!(buffer_contains(&buffer, "Project: /Users/masatomokusaka/src/github/com/clerk/clerk/playwright/nextjs"));
-        
+        assert!(buffer_contains(
+            &buffer,
+            "Project: /Users/masatomokusaka/src/github/com/clerk/clerk/playwright/nextjs"
+        ));
+
         // Test with shorter path
-        viewer.set_file_path(Some("/home/user/.claude/projects/-tmp-test/session.jsonl".to_string()));
+        viewer.set_file_path(Some(
+            "/home/user/.claude/projects/-tmp-test/session.jsonl".to_string(),
+        ));
         let buffer = render_component(&mut viewer, 100, 24);
         assert!(buffer_contains(&buffer, "Project: /tmp/test"));
-        
+
         // Test with no project path (invalid format)
         viewer.set_file_path(Some("/invalid/path/file.jsonl".to_string()));
         let buffer = render_component(&mut viewer, 100, 24);
@@ -430,7 +447,9 @@ mod tests {
 
         // Test session ID copy
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
+        );
 
         // Simulate the message being set after copy
         viewer.set_message(Some("✓ Copied session ID".to_string()));

@@ -599,7 +599,9 @@ mod tests {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
         // Test file path copy feedback
-        app.execute_command(Command::CopyToClipboard(CopyContent::FilePath("/path/to/file.jsonl".to_string())));
+        app.execute_command(Command::CopyToClipboard(CopyContent::FilePath(
+            "/path/to/file.jsonl".to_string(),
+        )));
         // In CI environment, clipboard might fail
         if let Some(msg) = &app.state.ui.message {
             assert!(
@@ -622,7 +624,9 @@ mod tests {
 
         // Test short text copy feedback
         app.state.ui.message = None;
-        app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent("short text".to_string())));
+        app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(
+            "short text".to_string(),
+        )));
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied: short text" || msg.starts_with("Failed to copy:"),
@@ -633,7 +637,9 @@ mod tests {
         // Test long message copy feedback
         app.state.ui.message = None;
         let long_text = "a".repeat(200);
-        app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(long_text)));
+        app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(
+            long_text,
+        )));
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied message text" || msg.starts_with("Failed to copy:"),
@@ -819,7 +825,9 @@ mod tests {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
         // Execute copy command to show message
-        app.execute_command(Command::CopyToClipboard(CopyContent::SessionId("test-id-1234".to_string())));
+        app.execute_command(Command::CopyToClipboard(CopyContent::SessionId(
+            "test-id-1234".to_string(),
+        )));
 
         // Message should be displayed
         assert!(app.state.ui.message.is_some());
