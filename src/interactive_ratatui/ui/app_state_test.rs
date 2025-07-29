@@ -3,6 +3,7 @@ mod tests {
     use super::super::app_state::*;
     use super::super::commands::Command;
     use super::super::events::{CopyContent, Message};
+    use crate::interactive_ratatui::domain::models::{Mode, SessionOrder};
     use crate::query::condition::{QueryCondition, SearchResult};
 
     fn create_test_state() -> AppState {
@@ -217,5 +218,51 @@ mod tests {
             Some("Message display: Truncated".to_string())
         );
         assert!(matches!(command, Command::None));
+    }
+
+    #[test]
+    fn test_toggle_session_order() {
+        let mut state = create_test_state();
+        state.mode = Mode::SessionViewer;
+
+        // Initial state should be Ascending (default)
+        assert_eq!(state.session.order, SessionOrder::Ascending);
+
+        // Toggle to Descending
+        let command = state.update(Message::ToggleSessionOrder);
+        assert_eq!(state.session.order, SessionOrder::Descending);
+        assert!(matches!(command, Command::None));
+
+        // Toggle back to Ascending
+        let command = state.update(Message::ToggleSessionOrder);
+        assert_eq!(state.session.order, SessionOrder::Ascending);
+        assert!(matches!(command, Command::None));
+    }
+
+    #[test]
+    fn test_session_order_sorting() {
+        let mut state = create_test_state();
+        state.mode = Mode::SessionViewer;
+
+        // Set up messages with different timestamps
+        state.session.messages = vec![
+            r#"{"type":"user","message":{"content":"Third message"},"timestamp":"2024-01-03T12:00:00Z"}"#.to_string(),
+            r#"{"type":"assistant","message":{"content":"First message"},"timestamp":"2024-01-01T12:00:00Z"}"#.to_string(),
+            r#"{"type":"user","message":{"content":"Second message"},"timestamp":"2024-01-02T12:00:00Z"}"#.to_string(),
+        ];
+
+        // Default is Ascending, so should already be sorted
+        state.update(Message::SessionQueryChanged("".to_string()));
+        assert_eq!(state.session.filtered_indices, vec![1, 2, 0]); // Sorted by timestamp ascending
+
+        // Set to Descending order
+        state.session.order = SessionOrder::Descending;
+        state.update(Message::SessionQueryChanged("".to_string()));
+        assert_eq!(state.session.filtered_indices, vec![0, 2, 1]); // Sorted by timestamp descending
+
+        // Set back to Ascending order
+        state.session.order = SessionOrder::Ascending;
+        state.update(Message::SessionQueryChanged("".to_string()));
+        assert_eq!(state.session.filtered_indices, vec![1, 2, 0]); // Back to ascending
     }
 }

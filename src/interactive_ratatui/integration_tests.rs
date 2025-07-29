@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use crate::interactive_ratatui::domain::models::Mode;
+    use crate::interactive_ratatui::domain::models::{Mode, SessionOrder};
     use crate::interactive_ratatui::ui::events::{CopyContent, Message};
     use crate::interactive_ratatui::ui::navigation::{
         NavigationHistory, NavigationState, SearchStateSnapshot, SessionStateSnapshot,
@@ -427,7 +427,7 @@ mod tests {
                 filtered_indices: Vec::new(),
                 selected_index: 0,
                 scroll_offset: 0,
-                order: None,
+                order: SessionOrder::Ascending,
                 file_path: None,
                 session_id: None,
                 role_filter: None,
@@ -462,7 +462,7 @@ mod tests {
                 filtered_indices: Vec::new(),
                 selected_index: 0,
                 scroll_offset: 0,
-                order: None,
+                order: SessionOrder::Ascending,
                 file_path: None,
                 session_id: None,
                 role_filter: None,

@@ -12,17 +12,12 @@ mod tests {
     #[test]
     fn test_session_order_variants() {
         // Ensure all variants are constructible
-        let orders = vec![
-            SessionOrder::Ascending,
-            SessionOrder::Descending,
-            SessionOrder::Original,
-        ];
+        let orders = vec![SessionOrder::Ascending, SessionOrder::Descending];
 
         for order in orders {
             match order {
                 SessionOrder::Ascending => {}
                 SessionOrder::Descending => {}
-                SessionOrder::Original => {}
             }
         }
     }
