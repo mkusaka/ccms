@@ -16,6 +16,7 @@ pub struct ListViewer<T: ListItem> {
     pub title: String,
     pub empty_message: String,
     query: String,
+    last_viewport_height: u16,
 }
 
 impl<T: ListItem> Default for ListViewer<T> {
@@ -29,6 +30,7 @@ impl<T: ListItem> Default for ListViewer<T> {
             title: String::new(),
             empty_message: String::new(),
             query: String::new(),
+            last_viewport_height: 10,
         }
     }
 }
@@ -57,6 +59,7 @@ impl<T: ListItem> ListViewer<T> {
             title,
             empty_message,
             query: String::new(),
+            last_viewport_height: 10,
         }
     }
 
@@ -93,8 +96,16 @@ impl<T: ListItem> ListViewer<T> {
         self.truncation_enabled = enabled;
     }
 
+    pub fn is_truncation_enabled(&self) -> bool {
+        self.truncation_enabled
+    }
+
     pub fn set_query(&mut self, query: String) {
         self.query = query;
+    }
+
+    pub fn set_last_viewport_height(&mut self, height: u16) {
+        self.last_viewport_height = height;
     }
 
     pub fn get_selected_item(&self) -> Option<&T> {
@@ -150,6 +161,29 @@ impl<T: ListItem> ListViewer<T> {
     pub fn page_down(&mut self) -> bool {
         let new_index =
             (self.selected_index + PAGE_SIZE).min(self.filtered_indices.len().saturating_sub(1));
+        if new_index != self.selected_index {
+            self.selected_index = new_index;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn half_page_up(&mut self) -> bool {
+        let half_page = (self.last_viewport_height as usize) / 2;
+        let new_index = self.selected_index.saturating_sub(half_page);
+        if new_index != self.selected_index {
+            self.selected_index = new_index;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn half_page_down(&mut self) -> bool {
+        let half_page = (self.last_viewport_height as usize) / 2;
+        let new_index =
+            (self.selected_index + half_page).min(self.filtered_indices.len().saturating_sub(1));
         if new_index != self.selected_index {
             self.selected_index = new_index;
             true
@@ -309,6 +343,7 @@ impl<T: ListItem> ListViewer<T> {
             .borders(Borders::ALL);
         let inner_area = block.inner(area);
         let available_height = inner_area.height;
+        self.last_viewport_height = available_height;
         self.adjust_scroll_offset(available_height, area.width);
         let (start, end) = self.calculate_visible_range(available_height, area.width);
 

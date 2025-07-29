@@ -155,7 +155,7 @@ impl ResultDetail {
         let total_lines = message_lines.len();
         let message_widget = Paragraph::new(display_lines)
             .block(Block::default().borders(Borders::ALL).title(format!(
-                "Message (↑/↓ or j/k to scroll, line {}-{} of {})",
+                "Message (↑/↓ to scroll, line {}-{} of {})",
                 if total_lines > 0 {
                     self.scroll_offset + 1
                 } else {
@@ -170,7 +170,6 @@ impl ResultDetail {
             )))
             .wrap(Wrap { trim: true });
         f.render_widget(message_widget, chunks[1]);
-
         // Show message if any
         if let Some(ref msg) = self.message {
             let style = if msg.starts_with('✓') {
@@ -212,13 +211,13 @@ impl Component for ResultDetail {
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
+            KeyCode::Up => {
                 if self.scroll_offset > 0 {
                     self.scroll_offset -= 1;
                 }
                 None
             }
-            KeyCode::Down | KeyCode::Char('j') => {
+            KeyCode::Down => {
                 // Only scroll if there's content to scroll
                 if let Some(result) = &self.result {
                     if !result.text.is_empty() {

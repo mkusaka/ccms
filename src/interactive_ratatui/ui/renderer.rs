@@ -7,8 +7,6 @@ use crate::interactive_ratatui::ui::components::{
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Style},
-    widgets::Paragraph,
 };
 
 #[derive(Default)]
@@ -46,7 +44,6 @@ impl Renderer {
             .constraints([
                 Constraint::Length(SEARCH_BAR_HEIGHT), // Search bar
                 Constraint::Min(0),                    // Results
-                Constraint::Length(STATUS_BAR_HEIGHT), // Status bar
             ])
             .split(f.area());
 
@@ -67,18 +64,6 @@ impl Renderer {
         // Render components
         self.search_bar.render(f, chunks[0]);
         self.result_list.render(f, chunks[1]);
-
-        // Render status bar
-        let truncation_status = if state.ui.truncation_enabled {
-            "Truncated"
-        } else {
-            "Full Text"
-        };
-        let status_text = format!(
-            "Tab: Filter | ↑/↓: Navigate | Enter: Detail | s: Session | Alt+←/→: History | Ctrl+T: Toggle [{truncation_status}] | ?: Help | Esc: Exit"
-        );
-        let status_bar = Paragraph::new(status_text).style(Style::default().fg(Color::DarkGray));
-        f.render_widget(status_bar, chunks[2]);
     }
 
     fn render_detail_mode(&mut self, f: &mut Frame, state: &AppState) {

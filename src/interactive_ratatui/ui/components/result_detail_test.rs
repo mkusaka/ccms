@@ -206,8 +206,8 @@ mod tests {
         assert!(msg.is_none());
         assert_eq!(detail.scroll_offset, 1);
 
-        // Test scroll down with 'j'
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::empty()));
+        // Test scroll down again
+        let msg = detail.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
         assert!(msg.is_none());
         assert_eq!(detail.scroll_offset, 2);
 
@@ -216,8 +216,8 @@ mod tests {
         assert!(msg.is_none());
         assert_eq!(detail.scroll_offset, 1);
 
-        // Test scroll up with 'k'
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::empty()));
+        // Test scroll up again
+        let msg = detail.handle_key(KeyEvent::new(KeyCode::Up, KeyModifiers::empty()));
         assert!(msg.is_none());
         assert_eq!(detail.scroll_offset, 0);
 
