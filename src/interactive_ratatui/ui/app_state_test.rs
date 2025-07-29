@@ -2,7 +2,7 @@
 mod tests {
     use super::super::app_state::*;
     use super::super::commands::Command;
-    use super::super::events::Message;
+    use super::super::events::{CopyContent, Message};
     use crate::query::condition::{QueryCondition, SearchResult};
 
     fn create_test_state() -> AppState {
@@ -157,9 +157,13 @@ mod tests {
         let mut state = create_test_state();
         let text = "Copy this text".to_string();
 
-        let command = state.update(Message::CopyToClipboard(text.clone()));
+        let command = state.update(Message::CopyToClipboard(CopyContent::MessageContent(
+            text.clone(),
+        )));
 
-        assert!(matches!(command, Command::CopyToClipboard(t) if t == text));
+        assert!(
+            matches!(command, Command::CopyToClipboard(CopyContent::MessageContent(t)) if t == text)
+        );
     }
 
     #[test]

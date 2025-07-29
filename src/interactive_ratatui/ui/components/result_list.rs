@@ -58,7 +58,7 @@ impl Component for ResultList {
                 truncation_status
             ))
             .with_status_text(
-                "Tab: Filter | ↑/↓ or Ctrl+P/N: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit"
+                "Tab: Filter | ↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit"
                     .to_string(),
             );
 
@@ -140,6 +140,9 @@ impl Component for ResultList {
                 }
             }
             KeyCode::Enter => Some(Message::EnterResultDetail),
+            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+                Some(Message::EnterSessionViewer) // Ctrl+S
+            }
             _ => None,
         }
     }

@@ -2,9 +2,9 @@ use crate::interactive_ratatui::ui::components::{
     Component,
     view_layout::{Styles, ViewLayout},
 };
-use crate::interactive_ratatui::ui::events::Message;
+use crate::interactive_ratatui::ui::events::{CopyContent, Message};
 use crate::query::condition::SearchResult;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -245,27 +245,28 @@ impl Component for ResultDetail {
                 self.scroll_offset += 10;
                 None
             }
-            KeyCode::Char('s') | KeyCode::Char('S') => Some(Message::EnterSessionViewer),
+            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+                Some(Message::EnterSessionViewer) // Ctrl+S
+            }
             KeyCode::Char('f') | KeyCode::Char('F') => self
                 .result
                 .as_ref()
-                .map(|result| Message::CopyToClipboard(result.file.clone())),
-            KeyCode::Char('i') | KeyCode::Char('I') => self
-                .result
-                .as_ref()
-                .map(|result| Message::CopyToClipboard(result.session_id.clone())),
-            KeyCode::Char('p') | KeyCode::Char('P') => self
-                .result
-                .as_ref()
-                .map(|result| Message::CopyToClipboard(result.project_path.clone())),
-            KeyCode::Char('m') | KeyCode::Char('M') => self
-                .result
-                .as_ref()
-                .map(|result| Message::CopyToClipboard(result.text.clone())),
+                .map(|result| Message::CopyToClipboard(CopyContent::FilePath(result.file.clone()))),
+            KeyCode::Char('i') | KeyCode::Char('I') => self.result.as_ref().map(|result| {
+                Message::CopyToClipboard(CopyContent::SessionId(result.session_id.clone()))
+            }),
+            KeyCode::Char('p') | KeyCode::Char('P') => self.result.as_ref().map(|result| {
+                Message::CopyToClipboard(CopyContent::ProjectPath(result.project_path.clone()))
+            }),
+            KeyCode::Char('m') | KeyCode::Char('M') => self.result.as_ref().map(|result| {
+                Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))
+            }),
             KeyCode::Char('r') | KeyCode::Char('R') => {
                 if let Some(result) = &self.result {
                     if let Some(raw_json) = &result.raw_json {
-                        Some(Message::CopyToClipboard(raw_json.clone()))
+                        Some(Message::CopyToClipboard(CopyContent::JsonData(
+                            raw_json.clone(),
+                        )))
                     } else {
                         let formatted = format!(
                             "File: {}\nUUID: {}\nTimestamp: {}\nSession ID: {}\nRole: {}\nText: {}\nProject: {}",
@@ -277,16 +278,17 @@ impl Component for ResultDetail {
                             result.text,
                             result.project_path
                         );
-                        Some(Message::CopyToClipboard(formatted))
+                        Some(Message::CopyToClipboard(CopyContent::FullResultDetails(
+                            formatted,
+                        )))
                     }
                 } else {
                     None
                 }
             }
-            KeyCode::Char('c') | KeyCode::Char('C') => self
-                .result
-                .as_ref()
-                .map(|result| Message::CopyToClipboard(result.text.clone())),
+            KeyCode::Char('c') | KeyCode::Char('C') => self.result.as_ref().map(|result| {
+                Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))
+            }),
             KeyCode::Esc => Some(Message::ExitToSearch),
             _ => None,
         }
