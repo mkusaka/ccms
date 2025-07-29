@@ -289,8 +289,8 @@ mod tests {
         let result = create_test_result();
         detail.set_result(result);
 
-        // Test enter session viewer (S)
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::empty()));
+        // Test enter session viewer (Ctrl+S)
+        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
         assert!(matches!(msg, Some(Message::EnterSessionViewer)));
 
         // Test exit to search (Esc)
@@ -384,8 +384,7 @@ mod tests {
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('I'), KeyModifiers::empty()));
         assert!(matches!(msg, Some(Message::CopyToClipboard(text)) if text == "session-123"));
 
-        let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('S'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::EnterSessionViewer)));
+        // S key no longer triggers session viewer - need Ctrl+S instead
     }
 
     #[test]
