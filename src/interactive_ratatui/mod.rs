@@ -226,6 +226,10 @@ impl InteractiveSearch {
             KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                 Some(Message::ToggleRoleFilter)
             }
+            // Handle Ctrl+S specifically for session viewer
+            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+                self.renderer.get_result_list_mut().handle_key(key)
+            }
             KeyCode::Up
             | KeyCode::Down
             | KeyCode::PageUp

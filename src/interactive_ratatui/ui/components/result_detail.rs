@@ -4,7 +4,7 @@ use crate::interactive_ratatui::ui::components::{
 };
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -245,7 +245,9 @@ impl Component for ResultDetail {
                 self.scroll_offset += 10;
                 None
             }
-            KeyCode::Char('s') | KeyCode::Char('S') => Some(Message::EnterSessionViewer),
+            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+                Some(Message::EnterSessionViewer) // Ctrl+S
+            }
             KeyCode::Char('f') | KeyCode::Char('F') => self
                 .result
                 .as_ref()

@@ -120,6 +120,9 @@ impl Component for ResultList {
                 }
             }
             KeyCode::Enter => Some(Message::EnterResultDetail),
+            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+                Some(Message::EnterSessionViewer) // Ctrl+S
+            }
             _ => None,
         }
     }

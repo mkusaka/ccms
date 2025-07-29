@@ -142,6 +142,17 @@ mod tests {
     }
 
     #[test]
+    fn test_s_key_session_viewer() {
+        let mut list = ResultList::new();
+        let results = vec![create_test_result("user", "Test")];
+        list.update_results(results, 0);
+
+        // Ctrl+S should open session viewer
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::EnterSessionViewer)));
+    }
+
+    #[test]
     fn test_empty_results() {
         let mut list = ResultList::new();
         list.update_results(vec![], 0);
