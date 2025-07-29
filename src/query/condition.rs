@@ -171,7 +171,14 @@ impl ListItem for SearchResult {
 
     fn create_truncated_line(&self, max_width: usize, _query: &str) -> Line<'static> {
         let timestamp = self.format_timestamp();
-        let content = truncate_message(self.get_content(), max_width);
+        let content_raw = self.get_content().replace('\n', " ");
+        
+        // Only truncate if the content is actually longer than available width
+        let content = if content_raw.chars().count() > max_width {
+            truncate_message(&content_raw, max_width)
+        } else {
+            content_raw.clone()
+        };
 
         let mut spans = vec![
             Span::styled(
