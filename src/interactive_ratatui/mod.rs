@@ -226,6 +226,10 @@ impl InteractiveSearch {
             KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                 Some(Message::ToggleRoleFilter)
             }
+            // Handle Ctrl+S specifically for session viewer
+            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+                self.renderer.get_result_list_mut().handle_key(key)
+            }
             KeyCode::Up
             | KeyCode::Down
             | KeyCode::PageUp
@@ -233,6 +237,14 @@ impl InteractiveSearch {
             | KeyCode::Home
             | KeyCode::End
             | KeyCode::Enter => self.renderer.get_result_list_mut().handle_key(key),
+            // Ctrl+P/N navigation
+            KeyCode::Char('p') | KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
+                self.renderer.get_result_list_mut().handle_key(key)
+            }
+            // Handle Ctrl+u/d for half-page scrolling
+            KeyCode::Char('u') | KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                self.renderer.get_result_list_mut().handle_key(key)
+            }
             _ => self.renderer.get_search_bar_mut().handle_key(key),
         }
     }
@@ -255,26 +267,37 @@ impl InteractiveSearch {
             Command::LoadSession(file_path) => {
                 self.load_session_messages(&file_path);
             }
-            Command::CopyToClipboard(text) => {
+            Command::CopyToClipboard(content) => {
+                let (text, copy_message) = match content {
+                    ui::events::CopyContent::FilePath(path) => {
+                        (path, "✓ Copied file path".to_string())
+                    }
+                    ui::events::CopyContent::ProjectPath(path) => {
+                        (path, "✓ Copied project path".to_string())
+                    }
+                    ui::events::CopyContent::SessionId(id) => {
+                        (id, "✓ Copied session ID".to_string())
+                    }
+                    ui::events::CopyContent::MessageContent(msg) => {
+                        let message = if msg.len() < 100 {
+                            format!("✓ Copied: {}", msg.chars().take(50).collect::<String>())
+                        } else {
+                            "✓ Copied message text".to_string()
+                        };
+                        (msg, message)
+                    }
+                    ui::events::CopyContent::JsonData(json) => {
+                        (json, "✓ Copied JSON data".to_string())
+                    }
+                    ui::events::CopyContent::FullResultDetails(details) => {
+                        (details, "✓ Copied full result details".to_string())
+                    }
+                };
+
                 if let Err(e) = self.copy_to_clipboard(&text) {
                     self.state.ui.message = Some(format!("Failed to copy: {e}"));
                 } else {
-                    // Determine what was copied for better feedback
-                    let copy_message = if text.starts_with("File: ") && text.contains("\nUUID: ") {
-                        "✓ Copied full result details"
-                    } else if text.starts_with('/')
-                        && (text.ends_with(".jsonl") || text.contains('/'))
-                    {
-                        "✓ Copied file path"
-                    } else if text.len() == 36 && text.chars().filter(|&c| c == '-').count() == 4 {
-                        // UUID format check
-                        "✓ Copied session ID"
-                    } else if text.len() < 100 {
-                        &format!("✓ Copied: {}", text.chars().take(50).collect::<String>())
-                    } else {
-                        "✓ Copied message text"
-                    };
-                    self.state.ui.message = Some(copy_message.to_string());
+                    self.state.ui.message = Some(copy_message);
 
                     // Schedule message clear after delay
                     self.message_timer = Some(std::time::Instant::now());

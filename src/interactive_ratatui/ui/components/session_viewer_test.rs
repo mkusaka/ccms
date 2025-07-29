@@ -3,7 +3,7 @@ mod tests {
     use super::super::session_viewer::SessionViewer;
     use crate::interactive_ratatui::domain::models::SessionOrder;
     use crate::interactive_ratatui::ui::components::Component;
-    use crate::interactive_ratatui::ui::events::Message;
+    use crate::interactive_ratatui::ui::events::{CopyContent, Message};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use ratatui::{Terminal, backend::TestBackend, buffer::Buffer};
 
@@ -256,31 +256,100 @@ mod tests {
 
         // Test copy single message
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(_))));
+        assert!(matches!(
+            msg,
+            Some(Message::CopyToClipboard(CopyContent::JsonData(_)))
+        ));
 
         // Test copy all messages
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('C'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(_))));
+        assert!(matches!(
+            msg,
+            Some(Message::CopyToClipboard(CopyContent::JsonData(_)))
+        ));
 
         // Test copy session ID
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(id)) if id == "session-123"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
+        );
 
         // Test copy session ID with uppercase
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('I'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(id)) if id == "session-123"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
+        );
 
         // Test copy file path
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()));
         assert!(
-            matches!(msg, Some(Message::CopyToClipboard(path)) if path == "/path/to/session.jsonl")
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::FilePath(path))) if path == "/path/to/session.jsonl")
         );
 
         // Test copy file path with uppercase
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('F'), KeyModifiers::empty()));
         assert!(
-            matches!(msg, Some(Message::CopyToClipboard(path)) if path == "/path/to/session.jsonl")
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::FilePath(path))) if path == "/path/to/session.jsonl")
         );
+    }
+
+    #[test]
+    fn test_copy_project_path() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_messages(vec![
+            r#"{"type":"user","message":{"content":"test"}}"#.to_string(),
+        ]);
+        viewer.set_file_path(Some(
+            "/Users/masatomokusaka/.claude/projects/-Users-project-name/session.jsonl".to_string(),
+        ));
+
+        // Test copy project path
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::empty()));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::ProjectPath(path))) if path == "/Users/project/name")
+        );
+
+        // Test copy project path with uppercase
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('P'), KeyModifiers::empty()));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::ProjectPath(path))) if path == "/Users/project/name")
+        );
+    }
+
+    #[test]
+    fn test_copy_project_path_without_path() {
+        let mut viewer = SessionViewer::new();
+
+        // No project path set (no file path)
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::empty()));
+        assert!(msg.is_none());
+    }
+
+    #[test]
+    fn test_extract_project_path() {
+        let mut viewer = SessionViewer::new();
+
+        // Test with typical Claude project path
+        viewer.set_file_path(Some("/Users/masatomokusaka/.claude/projects/-Users-masatomokusaka-src-github-com-clerk-clerk-playwright-nextjs/fb101a01-0e24-4a45-9e42-74117ebc20e6.jsonl".to_string()));
+
+        let buffer = render_component(&mut viewer, 180, 24);
+        assert!(buffer_contains(
+            &buffer,
+            "Project: /Users/masatomokusaka/src/github/com/clerk/clerk/playwright/nextjs"
+        ));
+
+        // Test with shorter path
+        viewer.set_file_path(Some(
+            "/home/user/.claude/projects/-tmp-test/session.jsonl".to_string(),
+        ));
+        let buffer = render_component(&mut viewer, 100, 24);
+        assert!(buffer_contains(&buffer, "Project: /tmp/test"));
+
+        // Test with no project path (invalid format)
+        viewer.set_file_path(Some("/invalid/path/file.jsonl".to_string()));
+        let buffer = render_component(&mut viewer, 100, 24);
+        // Should not show Project: line when extraction fails
+        assert!(!buffer_contains(&buffer, "Project:"));
     }
 
     #[test]
@@ -378,7 +447,9 @@ mod tests {
 
         // Test session ID copy
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::CopyToClipboard(id)) if id == "session-123"));
+        assert!(
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::SessionId(id))) if id == "session-123")
+        );
 
         // Simulate the message being set after copy
         viewer.set_message(Some("✓ Copied session ID".to_string()));
@@ -388,7 +459,7 @@ mod tests {
         // Test file path copy
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty()));
         assert!(
-            matches!(msg, Some(Message::CopyToClipboard(path)) if path == "/path/to/file.jsonl")
+            matches!(msg, Some(Message::CopyToClipboard(CopyContent::FilePath(path))) if path == "/path/to/file.jsonl")
         );
 
         // Simulate the message being set after copy
@@ -446,24 +517,6 @@ mod tests {
         let buffer = render_component(&mut viewer, 80, 24);
         // Should handle empty filtered results gracefully
         assert!(buffer_contains(&buffer, "Session Messages"));
-    }
-
-    #[test]
-    fn test_vim_navigation() {
-        let mut viewer = SessionViewer::new();
-        viewer.set_messages(vec![
-            r#"{"type":"user","message":{"content":"message 1"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string(),
-            r#"{"type":"user","message":{"content":"message 2"},"timestamp":"2024-01-01T00:00:01Z"}"#.to_string(),
-            r#"{"type":"user","message":{"content":"message 3"},"timestamp":"2024-01-01T00:00:02Z"}"#.to_string(),
-        ]);
-
-        // Test down navigation with 'j' - should return SessionNavigated message
-        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
-
-        // Test up navigation with 'k' - should return SessionNavigated message
-        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
     }
 
     fn create_key_event_with_modifiers(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
@@ -1041,6 +1094,87 @@ mod tests {
         ));
         assert!(matches!(msg, Some(Message::SessionNavigated)));
         assert_eq!(viewer.list_viewer.selected_index, 1);
+    }
+
+    #[test]
+    fn test_ctrl_u_d_navigation_normal_mode() {
+        let mut viewer = SessionViewer::new();
+        let mut messages = vec![];
+        for i in 0..30 {
+            messages.push(format!(
+                r#"{{"type":"user","message":{{"content":"message {}"}},"timestamp":"2024-01-01T00:00:{:02}Z"}}"#,
+                i + 1, i
+            ));
+        }
+        viewer.set_messages(messages);
+
+        // Initially at index 0
+        assert_eq!(viewer.list_viewer.selected_index, 0);
+
+        // Ctrl+D to move down half page
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        // The exact position depends on viewport height, but should have moved down
+        let first_pos = viewer.list_viewer.selected_index;
+        assert!(first_pos > 0);
+
+        // Ctrl+D again
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        let second_pos = viewer.list_viewer.selected_index;
+        assert!(second_pos > first_pos);
+
+        // Navigate near the end
+        viewer.list_viewer.selected_index = 25;
+
+        // Ctrl+D should go to last item
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert_eq!(viewer.list_viewer.selected_index, 29);
+
+        // Can't move down from last item
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert_eq!(viewer.list_viewer.selected_index, 29);
+
+        // Ctrl+U to move up half page
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('u'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(viewer.list_viewer.selected_index < 29);
+
+        // Move to position 5
+        viewer.list_viewer.selected_index = 5;
+
+        // Ctrl+U should go to first item
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('u'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert_eq!(viewer.list_viewer.selected_index, 0);
+
+        // Can't move up from first item
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('u'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert_eq!(viewer.list_viewer.selected_index, 0);
     }
 
     #[test]

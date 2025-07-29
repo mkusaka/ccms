@@ -6,7 +6,7 @@ use crate::interactive_ratatui::ui::components::{
     text_input::TextInput,
     view_layout::{ColorScheme, ViewLayout},
 };
-use crate::interactive_ratatui::ui::events::Message;
+use crate::interactive_ratatui::ui::events::{CopyContent, Message};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
@@ -17,6 +17,7 @@ use ratatui::{
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::path::Path;
 
 #[derive(Default)]
 pub struct SessionViewer {
@@ -29,6 +30,7 @@ pub struct SessionViewer {
     order: Option<SessionOrder>,
     is_searching: bool,
     file_path: Option<String>,
+    project_path: Option<String>,
     session_id: Option<String>,
     messages_hash: u64,
     message: Option<String>,
@@ -47,6 +49,7 @@ impl SessionViewer {
             order: None,
             is_searching: false,
             file_path: None,
+            project_path: None,
             session_id: None,
             messages_hash: 0,
             message: None,
@@ -90,7 +93,9 @@ impl SessionViewer {
     }
 
     pub fn set_file_path(&mut self, file_path: Option<String>) {
-        self.file_path = file_path;
+        self.file_path = file_path.clone();
+        // Extract project path from file path
+        self.project_path = file_path.and_then(|path| Self::extract_project_path(&path));
     }
 
     pub fn set_session_id(&mut self, session_id: Option<String>) {
@@ -141,6 +146,30 @@ impl SessionViewer {
         self.text_input.text()
     }
 
+    fn extract_project_path(file_path: &str) -> Option<String> {
+        // Extract project path from file path
+        // Format: ~/.claude/projects/{encoded-project-path}/{session-id}.jsonl
+        let path = Path::new(file_path);
+
+        // Check if this is a Claude project path
+        if !file_path.contains(".claude/projects/") {
+            return None;
+        }
+
+        if let Some(parent) = path.parent() {
+            if let Some(project_name) = parent.file_name() {
+                if let Some(project_str) = project_name.to_str() {
+                    // Decode the project path (replace hyphens with slashes)
+                    let decoded = project_str.replace('-', "/");
+                    if !decoded.is_empty() && decoded != "/" {
+                        return Some(decoded);
+                    }
+                }
+            }
+        }
+        None
+    }
+
     fn render_content(&mut self, f: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -189,15 +218,24 @@ impl SessionViewer {
 
 impl Component for SessionViewer {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        let subtitle = match (&self.session_id, &self.file_path) {
-            (Some(session), Some(file)) => format!("Session: {session}\nFile: {file}"),
-            (Some(session), None) => format!("Session: {session}"),
-            (None, Some(file)) => format!("File: {file}"),
-            (None, None) => String::new(),
-        };
+        let mut subtitle_parts = Vec::new();
+
+        if let Some(project) = &self.project_path {
+            subtitle_parts.push(format!("Project: {project}"));
+        }
+
+        if let Some(session) = &self.session_id {
+            subtitle_parts.push(format!("Session: {session}"));
+        }
+
+        if let Some(file) = &self.file_path {
+            subtitle_parts.push(format!("File: {file}"));
+        }
+
+        let subtitle = subtitle_parts.join("\n");
 
         // Calculate status bar height based on terminal width
-        let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
+        let status_text = "↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
         let status_bar_height = {
             let text_len = status_text.len();
             let width = area.width as usize;
@@ -315,11 +353,11 @@ impl Component for SessionViewer {
             }
         } else {
             match key.code {
-                KeyCode::Up | KeyCode::Char('k') => {
+                KeyCode::Up => {
                     self.list_viewer.move_up();
                     Some(Message::SessionNavigated)
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
+                KeyCode::Down => {
                     self.list_viewer.move_down();
                     Some(Message::SessionNavigated)
                 }
@@ -331,6 +369,14 @@ impl Component for SessionViewer {
                     self.list_viewer.move_down();
                     Some(Message::SessionNavigated)
                 }
+                KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.list_viewer.half_page_up();
+                    Some(Message::SessionNavigated)
+                }
+                KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.list_viewer.half_page_down();
+                    Some(Message::SessionNavigated)
+                }
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(Message::ToggleSessionRoleFilter)
                 }
@@ -339,25 +385,33 @@ impl Component for SessionViewer {
                     None
                 }
                 KeyCode::Char('o') => Some(Message::ToggleSessionOrder),
-                KeyCode::Char('c') => self
-                    .list_viewer
-                    .get_selected_item()
-                    .map(|item| Message::CopyToClipboard(item.raw_json.clone())),
+                KeyCode::Char('c') => self.list_viewer.get_selected_item().map(|item| {
+                    Message::CopyToClipboard(CopyContent::JsonData(item.raw_json.clone()))
+                }),
                 KeyCode::Char('C') => {
                     // Copy all raw messages for now
                     // TODO: Add method to ListViewer to get filtered items
-                    Some(Message::CopyToClipboard(self.raw_messages.join("\n\n")))
+                    Some(Message::CopyToClipboard(CopyContent::JsonData(
+                        self.raw_messages.join("\n\n"),
+                    )))
                 }
-                KeyCode::Char('i') | KeyCode::Char('I') => {
-                    self.session_id.clone().map(Message::CopyToClipboard)
+                KeyCode::Char('i') | KeyCode::Char('I') => self
+                    .session_id
+                    .clone()
+                    .map(|id| Message::CopyToClipboard(CopyContent::SessionId(id))),
+                KeyCode::Char('p') | KeyCode::Char('P') => self
+                    .project_path
+                    .clone()
+                    .map(|path| Message::CopyToClipboard(CopyContent::ProjectPath(path))),
+                KeyCode::Char('f') | KeyCode::Char('F') => self
+                    .file_path
+                    .clone()
+                    .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path))),
+                KeyCode::Char('m') | KeyCode::Char('M') => {
+                    self.list_viewer.get_selected_item().map(|item| {
+                        Message::CopyToClipboard(CopyContent::MessageContent(item.content.clone()))
+                    })
                 }
-                KeyCode::Char('f') | KeyCode::Char('F') => {
-                    self.file_path.clone().map(Message::CopyToClipboard)
-                }
-                KeyCode::Char('m') | KeyCode::Char('M') => self
-                    .list_viewer
-                    .get_selected_item()
-                    .map(|item| Message::CopyToClipboard(item.content.clone())),
                 KeyCode::Enter => self.list_viewer.get_selected_item().and_then(|item| {
                     self.file_path.as_ref().map(|path| {
                         Message::EnterResultDetailFromSession(

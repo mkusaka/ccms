@@ -46,13 +46,19 @@ impl ResultList {
 
 impl Component for ResultList {
     fn render(&mut self, f: &mut Frame, area: Rect) {
+        let truncation_status = if self.list_viewer.is_truncation_enabled() {
+            "Truncated"
+        } else {
+            "Full Text"
+        };
         let layout = ViewLayout::new("Search Results".to_string())
             .with_subtitle(format!(
-                "{} results found | Ctrl+T: Toggle truncation",
-                self.list_viewer.filtered_count()
+                "{} results found | Ctrl+T: Toggle truncation [{}]",
+                self.list_viewer.filtered_count(),
+                truncation_status
             ))
             .with_status_text(
-                "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Esc: Exit | ?: Help"
+                "Tab: Filter | ↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit"
                     .to_string(),
             );
 
@@ -63,14 +69,14 @@ impl Component for ResultList {
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
+            KeyCode::Up => {
                 if self.list_viewer.move_up() {
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
                     None
                 }
             }
-            KeyCode::Down | KeyCode::Char('j') => {
+            KeyCode::Down => {
                 if self.list_viewer.move_down() {
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
@@ -119,7 +125,24 @@ impl Component for ResultList {
                     None
                 }
             }
+            KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                if self.list_viewer.half_page_up() {
+                    Some(Message::SelectResult(self.list_viewer.selected_index()))
+                } else {
+                    None
+                }
+            }
+            KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                if self.list_viewer.half_page_down() {
+                    Some(Message::SelectResult(self.list_viewer.selected_index()))
+                } else {
+                    None
+                }
+            }
             KeyCode::Enter => Some(Message::EnterResultDetail),
+            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+                Some(Message::EnterSessionViewer) // Ctrl+S
+            }
             _ => None,
         }
     }

@@ -142,6 +142,17 @@ mod tests {
     }
 
     #[test]
+    fn test_s_key_session_viewer() {
+        let mut list = ResultList::new();
+        let results = vec![create_test_result("user", "Test")];
+        list.update_results(results, 0);
+
+        // Ctrl+S should open session viewer
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::EnterSessionViewer)));
+    }
+
+    #[test]
     fn test_empty_results() {
         let mut list = ResultList::new();
         list.update_results(vec![], 0);
@@ -153,49 +164,6 @@ mod tests {
         assert!(msg.is_none());
 
         let msg = list.handle_key(create_key_event(KeyCode::Up));
-        assert!(msg.is_none());
-    }
-
-    #[test]
-    fn test_vim_navigation() {
-        let mut list = ResultList::new();
-        let results = vec![
-            create_test_result("user", "First"),
-            create_test_result("assistant", "Second"),
-            create_test_result("user", "Third"),
-        ];
-
-        list.update_results(results, 0);
-
-        // Initially at index 0
-        assert_eq!(list.selected_result().unwrap().text, "First");
-
-        // Move down with 'j'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "Second");
-
-        // Move down again with 'j'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "Third");
-
-        // Can't move down from last item
-        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
-        assert!(msg.is_none());
-
-        // Move up with 'k'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "Second");
-
-        // Move up again with 'k'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "First");
-
-        // Can't move up from first item
-        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
         assert!(msg.is_none());
     }
 
@@ -240,5 +208,141 @@ mod tests {
         // Can't move up from first item
         let msg = list.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL));
         assert!(msg.is_none());
+    }
+
+    #[test]
+    fn test_ctrl_u_d_navigation() {
+        let mut list = ResultList::new();
+        let mut results = vec![];
+        for i in 0..30 {
+            results.push(create_test_result("user", &format!("Message {i}")));
+        }
+
+        list.update_results(results, 0);
+
+        // Initially at index 0
+        assert_eq!(list.selected_result().unwrap().text, "Message 0");
+
+        // Move down with Ctrl+D (half page down)
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        // The exact position depends on the viewport height, but it should have moved down
+        let first_pos = list.selected_result().unwrap().text.clone();
+        assert_ne!(first_pos, "Message 0");
+
+        // Move down again with Ctrl+D
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        let second_pos = list.selected_result().unwrap().text.clone();
+        assert_ne!(second_pos, first_pos);
+
+        // Navigate to near the end
+        list.update_selection(25);
+
+        // Move down with Ctrl+D should go to last item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Message 29");
+
+        // Can't move down from last item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(msg.is_none());
+
+        // Move up with Ctrl+U (half page up)
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_ne!(list.selected_result().unwrap().text, "Message 29");
+
+        // Move to position 5
+        list.update_selection(5);
+
+        // Move up with Ctrl+U should go to first item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Message 0");
+
+        // Can't move up from first item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert!(msg.is_none());
+    }
+
+    #[test]
+    fn test_shortcuts_display_with_wrap() {
+        use ratatui::Terminal;
+        use ratatui::backend::TestBackend;
+
+        let mut list = ResultList::new();
+        let results = vec![create_test_result("user", "Test message")];
+        list.update_results(results, 0);
+
+        // Create test backend with narrow width but enough height to show all shortcuts
+        let backend = TestBackend::new(40, 25);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                list.render(f, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+
+        // Convert buffer to string for easier testing
+        let mut content = String::new();
+        for y in 0..buffer.area.height {
+            for x in 0..buffer.area.width {
+                let cell = buffer.cell((x, y)).unwrap();
+                content.push_str(cell.symbol());
+            }
+            content.push('\n');
+        }
+
+        // Since we use ViewLayout with a status bar instead of shortcuts section,
+        // The status bar is likely too long to fit in 40 characters width
+        // Let's just check that some basic UI elements are displayed
+        assert!(content.contains("Search Results"));
+        assert!(content.contains("1 results found"));
+
+        // Only check if [?] - Help is present if there's enough room
+        if content.contains("[?]") {
+            assert!(content.contains("Help"));
+        }
+    }
+
+    #[test]
+    fn test_shortcuts_display_wide_screen() {
+        use ratatui::Terminal;
+        use ratatui::backend::TestBackend;
+
+        let mut list = ResultList::new();
+        let results = vec![create_test_result("user", "Test message")];
+        list.update_results(results, 0);
+
+        // Create test backend with wide width
+        let backend = TestBackend::new(120, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                list.render(f, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+
+        // Convert buffer to string for easier testing
+        let mut content = String::new();
+        for y in 0..buffer.area.height {
+            for x in 0..buffer.area.width {
+                let cell = buffer.cell((x, y)).unwrap();
+                content.push_str(cell.symbol());
+            }
+            content.push('\n');
+        }
+
+        // Check that status bar is displayed properly on wide screen
+        assert!(content.contains("↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate"));
+        assert!(content.contains("Tab: Filter"));
+        assert!(content.contains("Enter: Detail"));
     }
 }

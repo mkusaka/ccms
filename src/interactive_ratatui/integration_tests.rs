@@ -2,7 +2,7 @@
 mod tests {
     use super::super::*;
     use crate::interactive_ratatui::domain::models::Mode;
-    use crate::interactive_ratatui::ui::events::Message;
+    use crate::interactive_ratatui::ui::events::{CopyContent, Message};
     use crate::interactive_ratatui::ui::navigation::{
         NavigationHistory, NavigationState, SearchStateSnapshot, SessionStateSnapshot,
         UiStateSnapshot,
@@ -86,6 +86,40 @@ mod tests {
         terminal
             .draw(|f| app.renderer.render(f, &app.state))
             .unwrap();
+    }
+
+    /// Test that status bar is not duplicated
+    #[test]
+    fn test_no_duplicate_status_bar() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        // Add some results to make the UI more realistic
+        app.state.search.results = vec![create_test_result(
+            "user",
+            "Test message",
+            "2024-01-01T12:00:00Z",
+        )];
+
+        // Render the search mode
+        app.set_mode(Mode::Search);
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content = buffer_to_string(buffer);
+
+        // Count occurrences of key status bar elements
+        let navigate_count = content.matches("Navigate").count();
+        let filter_count = content.matches("Tab: Filter").count();
+        let help_count = content.matches("?: Help").count();
+
+        // Each element should appear exactly once
+        assert_eq!(navigate_count, 1, "Navigate should appear exactly once");
+        assert_eq!(filter_count, 1, "Tab: Filter should appear exactly once");
+        assert_eq!(help_count, 1, "?: Help should appear exactly once");
     }
 
     /// Test error handling in various scenarios
@@ -227,6 +261,21 @@ mod tests {
         false
     }
 
+    fn buffer_to_string(buffer: &Buffer) -> String {
+        let content = buffer.area.x..buffer.area.x + buffer.area.width;
+        let lines = buffer.area.y..buffer.area.y + buffer.area.height;
+        let mut result = String::new();
+
+        for y in lines {
+            for x in content.clone() {
+                let cell = &buffer[(x, y)];
+                result.push_str(cell.symbol());
+            }
+            result.push('\n');
+        }
+        result
+    }
+
     /// Test that initial search query doesn't show pattern in search bar
     #[test]
     fn test_initial_search_no_pattern_display() {
@@ -245,6 +294,38 @@ mod tests {
             .unwrap();
         let buffer = terminal.backend().buffer();
         assert!(!buffer_contains(buffer, "~/.claude"));
+    }
+
+    /// Test 's' key shortcut to jump directly to session viewer from search results
+    #[test]
+    fn test_s_key_jump_to_session_viewer() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Start in search mode with results
+        app.state.mode = Mode::Search;
+        app.state.search.results = vec![create_test_result(
+            "user",
+            "test message",
+            "2024-01-01T00:00:00Z",
+        )];
+        app.state.search.selected_index = 0;
+
+        // Press Ctrl+S
+        let should_exit = app
+            .handle_input(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL))
+            .unwrap();
+        assert!(!should_exit);
+
+        // Should be in SessionViewer mode
+        assert_eq!(app.state.mode, Mode::SessionViewer);
+        assert_eq!(
+            app.state.session.file_path,
+            Some("/test/file.jsonl".to_string())
+        );
+        assert_eq!(
+            app.state.session.session_id,
+            Some("87654321-4321-8765-4321-876543218765".to_string())
+        );
     }
 
     /// Test ESC key behavior in different modes
@@ -599,7 +680,9 @@ mod tests {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
         // Test file path copy feedback
-        app.execute_command(Command::CopyToClipboard("/path/to/file.jsonl".to_string()));
+        app.execute_command(Command::CopyToClipboard(CopyContent::FilePath(
+            "/path/to/file.jsonl".to_string(),
+        )));
         // In CI environment, clipboard might fail
         if let Some(msg) = &app.state.ui.message {
             assert!(
@@ -610,9 +693,9 @@ mod tests {
 
         // Test session ID copy feedback
         app.state.ui.message = None;
-        app.execute_command(Command::CopyToClipboard(
+        app.execute_command(Command::CopyToClipboard(CopyContent::SessionId(
             "12345678-1234-5678-1234-567812345678".to_string(),
-        ));
+        )));
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied session ID" || msg.starts_with("Failed to copy:"),
@@ -622,7 +705,9 @@ mod tests {
 
         // Test short text copy feedback
         app.state.ui.message = None;
-        app.execute_command(Command::CopyToClipboard("short text".to_string()));
+        app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(
+            "short text".to_string(),
+        )));
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied: short text" || msg.starts_with("Failed to copy:"),
@@ -633,7 +718,9 @@ mod tests {
         // Test long message copy feedback
         app.state.ui.message = None;
         let long_text = "a".repeat(200);
-        app.execute_command(Command::CopyToClipboard(long_text));
+        app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(
+            long_text,
+        )));
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied message text" || msg.starts_with("Failed to copy:"),
@@ -759,8 +846,8 @@ mod tests {
             ('F', "✓ Copied file path"),
             ('i', "✓ Copied session ID"),
             ('I', "✓ Copied session ID"),
-            ('p', "✓ Copied file path"), // project path
-            ('P', "✓ Copied file path"),
+            ('p', "✓ Copied project path"), // project path
+            ('P', "✓ Copied project path"),
             ('m', "✓ Copied: Test message"), // short text shows the actual text
             ('M', "✓ Copied: Test message"),
         ];
@@ -819,7 +906,9 @@ mod tests {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
         // Execute copy command to show message
-        app.execute_command(Command::CopyToClipboard("test-id-1234".to_string()));
+        app.execute_command(Command::CopyToClipboard(CopyContent::SessionId(
+            "test-id-1234".to_string(),
+        )));
 
         // Message should be displayed
         assert!(app.state.ui.message.is_some());
