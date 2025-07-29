@@ -374,14 +374,16 @@ mod tests {
     fn test_toggle_order() {
         let mut viewer = SessionViewer::new();
 
+        // Plain 'o' without Ctrl should not toggle order anymore
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::ToggleSessionOrder)));
+        assert!(msg.is_none());
     }
 
     #[test]
     fn test_toggle_order_with_ctrl() {
         let mut viewer = SessionViewer::new();
 
+        // Ctrl+O should toggle order
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
         assert!(matches!(msg, Some(Message::ToggleSessionOrder)));
     }
@@ -1354,5 +1356,40 @@ mod tests {
         assert!(buffer_contains(&buffer, "✓ Test message"));
         assert!(buffer_contains(&buffer, "Navigate"));
         assert!(buffer_contains(&buffer, "Back"));
+    }
+
+    #[test]
+    fn test_ctrl_o_toggle_order_normal_mode() {
+        let mut viewer = SessionViewer::new();
+        
+        // Initial order should be Ascending
+        viewer.set_order(SessionOrder::Ascending);
+        
+        // Ctrl+O should toggle order
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('o'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::ToggleSessionOrder)));
+        
+        // Plain 'o' without Ctrl should not toggle order anymore
+        let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::empty()));
+        assert!(msg.is_none());
+    }
+
+    #[test]
+    fn test_ctrl_o_toggle_order_search_mode() {
+        let mut viewer = SessionViewer::new();
+        
+        // Enter search mode
+        viewer.handle_key(KeyEvent::new(KeyCode::Char('/'), KeyModifiers::empty()));
+        viewer.start_search();
+        
+        // Ctrl+O should toggle order even in search mode
+        let msg = viewer.handle_key(create_key_event_with_modifiers(
+            KeyCode::Char('o'),
+            KeyModifiers::CONTROL,
+        ));
+        assert!(matches!(msg, Some(Message::ToggleSessionOrder)));
     }
 }

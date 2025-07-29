@@ -257,7 +257,7 @@ impl Component for SessionViewer {
         let subtitle = subtitle_parts.join("\n");
 
         // Calculate status bar height based on terminal width
-        let status_text = "↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Tab: Role Filter | Enter: View Detail | o/Ctrl+O: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
+        let status_text = "↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Tab: Role Filter | Enter: View Detail | Ctrl+O: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
         let status_bar_height = {
             let text_len = status_text.len();
             let width = area.width as usize;
@@ -469,9 +469,6 @@ impl Component for SessionViewer {
                 KeyCode::Char('/') => {
                     self.is_searching = true;
                     None
-                }
-                KeyCode::Char('o') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    Some(Message::ToggleSessionOrder)
                 }
                 KeyCode::Char('o') if key.modifiers == KeyModifiers::CONTROL => {
                     Some(Message::ToggleSessionOrder)

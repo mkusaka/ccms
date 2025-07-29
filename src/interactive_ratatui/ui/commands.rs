@@ -1,6 +1,6 @@
 use super::events::CopyContent;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Command {
     None,
     ExecuteSearch,

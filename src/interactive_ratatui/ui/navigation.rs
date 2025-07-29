@@ -1,4 +1,4 @@
-use crate::interactive_ratatui::domain::models::{Mode, SessionOrder};
+use crate::interactive_ratatui::domain::models::{Mode, SessionOrder, SearchOrder};
 use crate::query::condition::SearchResult;
 
 /// Represents a complete navigation state that can be restored
@@ -18,6 +18,7 @@ pub struct SearchStateSnapshot {
     pub selected_index: usize,
     pub scroll_offset: usize,
     pub role_filter: Option<String>,
+    pub order: SearchOrder,
 }
 
 /// Snapshot of session state
@@ -190,6 +191,7 @@ mod tests {
                 selected_index: 0,
                 scroll_offset: 0,
                 role_filter: None,
+                order: SearchOrder::Descending,
             },
             session_state: SessionStateSnapshot {
                 messages: Vec::new(),

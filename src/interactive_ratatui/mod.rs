@@ -230,6 +230,10 @@ impl InteractiveSearch {
             KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
                 self.renderer.get_result_list_mut().handle_key(key)
             }
+            // Handle Ctrl+O for toggling search order
+            KeyCode::Char('o') if key.modifiers == KeyModifiers::CONTROL => {
+                Some(Message::ToggleSearchOrder)
+            }
             KeyCode::Up
             | KeyCode::Down
             | KeyCode::PageUp

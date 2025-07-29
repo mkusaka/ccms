@@ -37,13 +37,11 @@ impl SearchService {
             parse_query(query)?
         };
 
-        let (mut results, _, _) =
+        let (results, _, _) =
             self.engine
                 .search_with_role_filter(pattern, query_condition, role_filter)?;
 
-        // Sort by timestamp descending
-        results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-
+        // No sorting here - AppState will handle sorting based on current order
         Ok(results)
     }
 }

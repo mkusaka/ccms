@@ -16,6 +16,12 @@ pub enum SessionOrder {
     Descending,
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum SearchOrder {
+    Descending, // Default - newest first
+    Ascending,  // Reverse - oldest first
+}
+
 pub struct CachedFile {
     pub messages: Vec<SessionMessage>,
     pub raw_lines: Vec<String>,

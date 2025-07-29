@@ -1,3 +1,4 @@
+use crate::interactive_ratatui::domain::models::SearchOrder;
 use crate::interactive_ratatui::ui::components::{Component, text_input::TextInput};
 use crate::interactive_ratatui::ui::events::Message;
 use crossterm::event::KeyEvent;
@@ -9,12 +10,18 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-#[derive(Default)]
 pub struct SearchBar {
     text_input: TextInput,
     is_searching: bool,
     message: Option<String>,
     role_filter: Option<String>,
+    search_order: SearchOrder,
+}
+
+impl Default for SearchBar {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SearchBar {
@@ -24,6 +31,7 @@ impl SearchBar {
             is_searching: false,
             message: None,
             role_filter: None,
+            search_order: SearchOrder::Descending,
         }
     }
 
@@ -43,6 +51,10 @@ impl SearchBar {
         self.role_filter = role_filter;
     }
 
+    pub fn set_search_order(&mut self, order: SearchOrder) {
+        self.search_order = order;
+    }
+
     pub fn get_query(&self) -> &str {
         self.text_input.text()
     }
@@ -60,6 +72,14 @@ impl Component for SearchBar {
         if let Some(role) = &self.role_filter {
             title.push_str(&format!(" [role:{role}]"));
         }
+        
+        // Add order info
+        let order_text = match self.search_order {
+            SearchOrder::Descending => "Desc",
+            SearchOrder::Ascending => "Asc",
+        };
+        title.push_str(&format!(" [order:{order_text}]"));
+        
         if let Some(msg) = &self.message {
             title.push_str(&format!(" - {msg}"));
         }

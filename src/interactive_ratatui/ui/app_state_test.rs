@@ -3,7 +3,7 @@ mod tests {
     use super::super::app_state::*;
     use super::super::commands::Command;
     use super::super::events::{CopyContent, Message};
-    use crate::interactive_ratatui::domain::models::{Mode, SessionOrder};
+    use crate::interactive_ratatui::domain::models::{Mode, SessionOrder, SearchOrder};
     use crate::query::condition::{QueryCondition, SearchResult};
 
     fn create_test_state() -> AppState {
@@ -264,5 +264,71 @@ mod tests {
         state.session.order = SessionOrder::Ascending;
         state.update(Message::SessionQueryChanged("".to_string()));
         assert_eq!(state.session.filtered_indices, vec![1, 2, 0]); // Back to ascending
+    }
+
+    #[test]
+    fn test_toggle_search_order() {
+        let mut state = create_test_state();
+        
+        // Create test results with different timestamps
+        let mut result1 = create_test_result();
+        result1.timestamp = "2024-01-01T12:00:00Z".to_string();
+        
+        let mut result2 = create_test_result();
+        result2.timestamp = "2024-01-02T12:00:00Z".to_string();
+        
+        let mut result3 = create_test_result();
+        result3.timestamp = "2024-01-03T12:00:00Z".to_string();
+        
+        state.search.results = vec![result1, result2, result3];
+        
+        // Default should be Descending (newest first)
+        assert_eq!(state.search.order, SearchOrder::Descending);
+        state.sort_search_results();
+        assert_eq!(state.search.results[0].timestamp, "2024-01-03T12:00:00Z");
+        assert_eq!(state.search.results[1].timestamp, "2024-01-02T12:00:00Z");
+        assert_eq!(state.search.results[2].timestamp, "2024-01-01T12:00:00Z");
+        
+        // Toggle to Ascending (oldest first)
+        let command = state.update(Message::ToggleSearchOrder);
+        assert_eq!(command, Command::None);
+        assert_eq!(state.search.order, SearchOrder::Ascending);
+        assert_eq!(state.search.results[0].timestamp, "2024-01-01T12:00:00Z");
+        assert_eq!(state.search.results[1].timestamp, "2024-01-02T12:00:00Z");
+        assert_eq!(state.search.results[2].timestamp, "2024-01-03T12:00:00Z");
+        
+        // Toggle back to Descending
+        let command = state.update(Message::ToggleSearchOrder);
+        assert_eq!(command, Command::None);
+        assert_eq!(state.search.order, SearchOrder::Descending);
+        assert_eq!(state.search.results[0].timestamp, "2024-01-03T12:00:00Z");
+        assert_eq!(state.search.results[1].timestamp, "2024-01-02T12:00:00Z");
+        assert_eq!(state.search.results[2].timestamp, "2024-01-01T12:00:00Z");
+    }
+
+    #[test]
+    fn test_search_completed_sorts_by_order() {
+        let mut state = create_test_state();
+        
+        // Create test results with different timestamps
+        let mut result1 = create_test_result();
+        result1.timestamp = "2024-01-01T12:00:00Z".to_string();
+        
+        let mut result2 = create_test_result();
+        result2.timestamp = "2024-01-02T12:00:00Z".to_string();
+        
+        let mut result3 = create_test_result();
+        result3.timestamp = "2024-01-03T12:00:00Z".to_string();
+        
+        // Set order to Ascending before search completion
+        state.search.order = SearchOrder::Ascending;
+        
+        let results = vec![result2, result1, result3]; // Unsorted
+        state.update(Message::SearchCompleted(results));
+        
+        // Should be sorted by ascending order
+        assert_eq!(state.search.results[0].timestamp, "2024-01-01T12:00:00Z");
+        assert_eq!(state.search.results[1].timestamp, "2024-01-02T12:00:00Z");
+        assert_eq!(state.search.results[2].timestamp, "2024-01-03T12:00:00Z");
     }
 }

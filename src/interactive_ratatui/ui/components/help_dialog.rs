@@ -49,6 +49,7 @@ impl HelpDialog {
             Line::from("  Enter       - View result details"),
             Line::from("  Ctrl+S      - Jump directly to session viewer"),
             Line::from("  Tab         - Toggle role filter (user/assistant/system)"),
+            Line::from("  Ctrl+O      - Toggle sort order (newest/oldest first)"),
             Line::from("  Esc         - Quit"),
             Line::from(""),
             Line::from(vec![Span::styled(
@@ -95,7 +96,7 @@ impl HelpDialog {
             Line::from("  /           - Search within session"),
             Line::from("  c           - Copy selected message to clipboard"),
             Line::from("  C           - Copy all filtered messages to clipboard"),
-            Line::from("  o           - Toggle sort order (ascending/descending/original)"),
+            Line::from("  Ctrl+O      - Toggle sort order (ascending/descending)"),
             Line::from("  Backspace   - Back to search results (or clear search)"),
             Line::from("  Esc         - Back to search results"),
             Line::from(""),
