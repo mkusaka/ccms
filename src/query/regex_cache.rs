@@ -7,7 +7,8 @@ static REGEX_CACHE: OnceLock<Mutex<LruCache<String, Regex>>> = OnceLock::new();
 
 fn get_cache() -> &'static Mutex<LruCache<String, Regex>> {
     REGEX_CACHE.get_or_init(|| {
-        let capacity = NonZeroUsize::new(128).unwrap();
+        let capacity =
+            NonZeroUsize::new(128).expect("128 is a valid non-zero capacity for regex cache");
         Mutex::new(LruCache::new(capacity))
     })
 }
