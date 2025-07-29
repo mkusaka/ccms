@@ -135,14 +135,18 @@ mod tests {
 
         // Check that the component rendered
         assert!(content.contains("Result Detail"));
-        
+
         // The header fields should be visible
         assert!(content.contains("Role:"));
         assert!(content.contains("File:"));
-        
+
         // The long text should be wrapped across multiple lines in the message section
         // Since it's wrapped, check for parts of the text
-        assert!(content.contains("very long") || content.contains("wrap") || content.contains("displayed"));
+        assert!(
+            content.contains("very long")
+                || content.contains("wrap")
+                || content.contains("displayed")
+        );
     }
 
     #[test]
@@ -325,7 +329,11 @@ mod tests {
         // With narrow width, long values might be truncated or on next lines
         // Just check that some parts of the values are present
         assert!(content.contains("masatomokusaka") || content.contains("0ff88f7e"));
-        assert!(content.contains("extremely") || content.contains("session") || content.contains("segments"));
+        assert!(
+            content.contains("extremely")
+                || content.contains("session")
+                || content.contains("segments")
+        );
     }
 
     #[test]
@@ -429,7 +437,10 @@ mod tests {
         let mut detail = ResultDetail::new();
         let mut result = create_test_result();
         // Create a long message that will need scrolling
-        result.text = (0..50).map(|i| format!("Line {i}")).collect::<Vec<_>>().join("\n");
+        result.text = (0..50)
+            .map(|i| format!("Line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
         detail.set_result(result);
 
         // Render and check that header is visible
@@ -444,7 +455,7 @@ mod tests {
         assert!(content.contains("Role:"));
         assert!(content.contains("Time:"));
         assert!(content.contains("File:"));
-        
+
         // Message should be visible with scroll info
         assert!(content.contains("line") && content.contains("of"));
         assert!(content.contains("Line 0")); // First line should be visible
@@ -463,7 +474,7 @@ mod tests {
 
         // Header should still be visible after scrolling
         assert!(content.contains("Role:"));
-        
+
         // Line 0 should no longer be visible, but Line 3 should be
         assert!(!content.contains("Line 0"));
         assert!(content.contains("Line 3"));
@@ -474,7 +485,10 @@ mod tests {
         let mut detail = ResultDetail::new();
         let mut result = create_test_result();
         // Create a message with exactly 10 lines
-        result.text = (0..10).map(|i| format!("Line {i}")).collect::<Vec<_>>().join("\n");
+        result.text = (0..10)
+            .map(|i| format!("Line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
         detail.set_result(result);
 
         // Try to scroll beyond the content
@@ -492,7 +506,7 @@ mod tests {
 
         // Should show the last lines, not scroll beyond content
         assert!(content.contains("Line 9"));
-        
+
         // Scroll offset should be capped at max_scroll
         // The exact value depends on the visible height, but it should not be 20
         assert!(detail.scroll_offset < 20);
@@ -503,7 +517,10 @@ mod tests {
         let mut detail = ResultDetail::new();
         let mut result = create_test_result();
         // Create a very long message
-        result.text = (0..100).map(|i| format!("Line {i}")).collect::<Vec<_>>().join("\n");
+        result.text = (0..100)
+            .map(|i| format!("Line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
         detail.set_result(result);
 
         // Scroll to middle
@@ -526,7 +543,7 @@ mod tests {
         assert!(content.contains("Project: /path/to/project"));
         assert!(content.contains("UUID: 12345678-1234-5678-1234-567812345678"));
         assert!(content.contains("Session: session-123"));
-        
+
         // Actions should also be visible
         assert!(content.contains("Actions:"));
         assert!(content.contains("[S] - View full session"));
@@ -542,7 +559,7 @@ mod tests {
 
         // Try to scroll on empty message
         detail.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
-        
+
         // Should not crash and scroll_offset should be 0
         assert_eq!(detail.scroll_offset, 0);
 
@@ -563,7 +580,10 @@ mod tests {
         let mut detail = ResultDetail::new();
         let mut result = create_test_result();
         // Create a message with 20 lines
-        result.text = (0..20).map(|i| format!("Line {i}")).collect::<Vec<_>>().join("\n");
+        result.text = (0..20)
+            .map(|i| format!("Line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
         detail.set_result(result);
 
         let buffer = render_component(&mut detail, 80, 40);

@@ -100,7 +100,7 @@ impl ResultDetail {
 
         // Process message content for the scrollable area
         let mut message_lines = Vec::new();
-        
+
         // Calculate visible area for wrapping
         let inner_area = Block::default().borders(Borders::ALL).inner(chunks[1]);
         let visible_height = inner_area.height as usize;
@@ -138,7 +138,7 @@ impl ResultDetail {
 
         // Calculate the maximum scroll offset
         let max_scroll = message_lines.len().saturating_sub(visible_height);
-        
+
         // Ensure scroll offset doesn't exceed bounds
         if self.scroll_offset > max_scroll {
             self.scroll_offset = max_scroll;
@@ -156,11 +156,15 @@ impl ResultDetail {
         let message_widget = Paragraph::new(display_lines)
             .block(Block::default().borders(Borders::ALL).title(format!(
                 "Message (↑/↓ or j/k to scroll, line {}-{} of {})",
-                if total_lines > 0 { self.scroll_offset + 1 } else { 0 },
-                if total_lines > 0 { 
-                    (self.scroll_offset + visible_height).min(total_lines) 
-                } else { 
-                    0 
+                if total_lines > 0 {
+                    self.scroll_offset + 1
+                } else {
+                    0
+                },
+                if total_lines > 0 {
+                    (self.scroll_offset + visible_height).min(total_lines)
+                } else {
+                    0
                 },
                 total_lines
             )))
@@ -208,7 +212,8 @@ impl ResultDetail {
             ]),
         ];
 
-        let actions_widget = Paragraph::new(actions).block(Block::default().borders(Borders::ALL).title("Actions"));
+        let actions_widget =
+            Paragraph::new(actions).block(Block::default().borders(Borders::ALL).title("Actions"));
         f.render_widget(actions_widget, chunks[2]);
 
         // Show message if any
