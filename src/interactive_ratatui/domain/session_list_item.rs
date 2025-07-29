@@ -75,43 +75,69 @@ impl SessionListItem {
                             .and_then(|c| c.as_array())
                         {
                             let mut content_parts: Vec<String> = Vec::new();
-                            
+
                             for item in arr {
                                 if let Some(item_type) = item.get("type").and_then(|t| t.as_str()) {
                                     match item_type {
                                         "text" => {
-                                            if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                                            if let Some(text) =
+                                                item.get("text").and_then(|t| t.as_str())
+                                            {
                                                 content_parts.push(text.to_string());
                                             }
                                         }
                                         "thinking" => {
-                                            if let Some(thinking) = item.get("thinking").and_then(|t| t.as_str()) {
+                                            if let Some(thinking) =
+                                                item.get("thinking").and_then(|t| t.as_str())
+                                            {
                                                 content_parts.push(thinking.to_string());
                                             }
                                         }
                                         "tool_use" => {
-                                            if let Some(name) = item.get("name").and_then(|n| n.as_str()) {
-                                                if let Some(id) = item.get("id").and_then(|i| i.as_str()) {
-                                                    content_parts.push(format!("[Tool Use: {name} ({id})]"));
+                                            if let Some(name) =
+                                                item.get("name").and_then(|n| n.as_str())
+                                            {
+                                                if let Some(id) =
+                                                    item.get("id").and_then(|i| i.as_str())
+                                                {
+                                                    content_parts
+                                                        .push(format!("[Tool Use: {name} ({id})]"));
                                                 }
                                             }
                                         }
                                         "tool_result" => {
-                                            if let Some(tool_use_id) = item.get("tool_use_id").and_then(|i| i.as_str()) {
-                                                let is_error = item.get("is_error").and_then(|e| e.as_bool()).unwrap_or(false);
-                                                let prefix = if is_error { "Tool Error" } else { "Tool Result" };
-                                                
+                                            if let Some(tool_use_id) =
+                                                item.get("tool_use_id").and_then(|i| i.as_str())
+                                            {
+                                                let is_error = item
+                                                    .get("is_error")
+                                                    .and_then(|e| e.as_bool())
+                                                    .unwrap_or(false);
+                                                let prefix = if is_error {
+                                                    "Tool Error"
+                                                } else {
+                                                    "Tool Result"
+                                                };
+
                                                 if let Some(content) = item.get("content") {
                                                     if let Some(text) = content.as_str() {
-                                                        content_parts.push(format!("[{prefix}: {tool_use_id}: {text}]"));
+                                                        content_parts.push(format!(
+                                                            "[{prefix}: {tool_use_id}: {text}]"
+                                                        ));
                                                     } else if let Some(arr) = content.as_array() {
                                                         let texts: Vec<String> = arr
                                                             .iter()
-                                                            .filter_map(|c| c.get("text").and_then(|t| t.as_str()))
+                                                            .filter_map(|c| {
+                                                                c.get("text")
+                                                                    .and_then(|t| t.as_str())
+                                                            })
                                                             .map(|s| s.to_string())
                                                             .collect();
                                                         if !texts.is_empty() {
-                                                            content_parts.push(format!("[{prefix}: {tool_use_id}: {}]", texts.join(" ")));
+                                                            content_parts.push(format!(
+                                                                "[{prefix}: {tool_use_id}: {}]",
+                                                                texts.join(" ")
+                                                            ));
                                                         } else {
                                                             content_parts.push(format!("[{prefix}: {tool_use_id}: (empty result)]"));
                                                         }
@@ -119,7 +145,9 @@ impl SessionListItem {
                                                         content_parts.push(format!("[{prefix}: {tool_use_id}: (non-string value)]"));
                                                     }
                                                 } else {
-                                                    content_parts.push(format!("[{prefix}: {tool_use_id}: (no content)]"));
+                                                    content_parts.push(format!(
+                                                        "[{prefix}: {tool_use_id}: (no content)]"
+                                                    ));
                                                 }
                                             }
                                         }
@@ -130,7 +158,7 @@ impl SessionListItem {
                                     }
                                 }
                             }
-                            
+
                             if content_parts.is_empty() {
                                 String::new()
                             } else {
