@@ -198,25 +198,57 @@ impl SessionMessage {
                             match content {
                                 Content::Text { text } => texts.push(text.clone()),
                                 Content::ToolResult {
+                                    tool_use_id,
                                     content: Some(tool_content),
+                                    is_error,
+                                } => {
+                                    let error_prefix = if is_error.unwrap_or(false) {
+                                        "[Tool Error: "
+                                    } else {
+                                        "[Tool Result: "
+                                    };
+                                    let result_text = match tool_content {
+                                        ToolResultContent::String(s) => {
+                                            if s.is_empty() {
+                                                "(empty result)".to_string()
+                                            } else {
+                                                s.clone()
+                                            }
+                                        }
+                                        ToolResultContent::TextArray(arr) => {
+                                            if arr.is_empty() {
+                                                "(empty result)".to_string()
+                                            } else {
+                                                arr.iter()
+                                                    .map(|item| &item.text)
+                                                    .cloned()
+                                                    .collect::<Vec<_>>()
+                                                    .join("\n")
+                                            }
+                                        }
+                                        ToolResultContent::Value(val) => {
+                                            val.as_str().unwrap_or("(non-string value)").to_string()
+                                        }
+                                        _ => "(image or other content)".to_string(),
+                                    };
+                                    texts.push(format!(
+                                        "{error_prefix}{tool_use_id}: {result_text}]"
+                                    ));
+                                }
+                                Content::ToolResult {
+                                    tool_use_id,
+                                    content: None,
                                     ..
-                                } => match tool_content {
-                                    ToolResultContent::String(s) => texts.push(s.clone()),
-                                    ToolResultContent::TextArray(arr) => {
-                                        for item in arr {
-                                            texts.push(item.text.clone());
-                                        }
-                                    }
-                                    ToolResultContent::Value(val) => {
-                                        // Try to extract string from Value
-                                        if let Some(s) = val.as_str() {
-                                            texts.push(s.to_string());
-                                        }
-                                    }
-                                    _ => {}
-                                },
-                                Content::ToolResult { content: None, .. } => {}
-                                _ => {}
+                                } => {
+                                    texts.push(format!(
+                                        "[Tool Result: {tool_use_id}: (no content)]"
+                                    ));
+                                }
+                                Content::ToolUse { name, id, .. } => {
+                                    texts.push(format!("[Tool Use: {name} ({id})]"));
+                                }
+                                Content::Image { .. } => texts.push("[Image]".to_string()),
+                                Content::Thinking { thinking, .. } => texts.push(thinking.clone()),
                             }
                         }
                     }
@@ -231,7 +263,42 @@ impl SessionMessage {
                     match content {
                         Content::Text { text } => texts.push(text.clone()),
                         Content::Thinking { thinking, .. } => texts.push(thinking.clone()),
-                        _ => {}
+                        Content::ToolUse { name, id, .. } => {
+                            texts.push(format!("[Tool Use: {name} ({id})]"));
+                        }
+                        Content::ToolResult {
+                            tool_use_id,
+                            content: Some(tool_content),
+                            is_error,
+                        } => {
+                            let error_prefix = if is_error.unwrap_or(false) {
+                                "[Tool Error: "
+                            } else {
+                                "[Tool Result: "
+                            };
+                            let result_text = match tool_content {
+                                ToolResultContent::String(s) => s.clone(),
+                                ToolResultContent::TextArray(arr) => arr
+                                    .iter()
+                                    .map(|item| &item.text)
+                                    .cloned()
+                                    .collect::<Vec<_>>()
+                                    .join("\n"),
+                                ToolResultContent::Value(val) => {
+                                    val.as_str().unwrap_or("(non-string value)").to_string()
+                                }
+                                _ => "(image or other content)".to_string(),
+                            };
+                            texts.push(format!("{error_prefix}{tool_use_id}: {result_text}]"));
+                        }
+                        Content::ToolResult {
+                            tool_use_id,
+                            content: None,
+                            ..
+                        } => {
+                            texts.push(format!("[Tool Result: {tool_use_id}: (no content)]"));
+                        }
+                        Content::Image { .. } => texts.push("[Image]".to_string()),
                     }
                 }
 
@@ -378,7 +445,10 @@ mod tests {
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(msg.get_type(), "assistant");
-        assert_eq!(msg.get_content_text(), "I'll help you with that.");
+        assert_eq!(
+            msg.get_content_text(),
+            "I'll help you with that.\n[Tool Use: read_file (tool_1)]"
+        );
         assert!(msg.has_tool_use());
         assert!(!msg.has_thinking());
     }
@@ -503,7 +573,7 @@ mod tests {
         assert_eq!(msg.get_type(), "user");
         assert_eq!(
             msg.get_content_text(),
-            "Here's the result:\nFile contents: Hello World"
+            "Here's the result:\n[Tool Result: tool_1: File contents: Hello World]"
         );
     }
 
@@ -537,7 +607,10 @@ mod tests {
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(msg.get_type(), "user");
-        assert_eq!(msg.get_content_text(), "Line 1\nLine 2");
+        assert_eq!(
+            msg.get_content_text(),
+            "[Tool Result: tool_2: Line 1\nLine 2]"
+        );
     }
 
     #[test]
@@ -583,7 +656,7 @@ mod tests {
         assert_eq!(msg.get_type(), "assistant");
         assert_eq!(
             msg.get_content_text(),
-            "Starting analysis...\nAnalysis complete."
+            "Starting analysis...\n[Tool Use: analyze_code (tool_3)]\nAnalysis complete."
         );
         assert!(msg.has_tool_use());
     }
