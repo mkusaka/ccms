@@ -69,7 +69,7 @@ impl ViewLayout {
         let status_text = self
             .status_text
             .as_deref()
-            .unwrap_or("↑/↓ or j/k: Navigate | Enter: Select | Esc: Back | ?: Help");
+            .unwrap_or("↑/↓: Navigate | Enter: Select | Esc: Back | ?: Help");
 
         let paragraph = Paragraph::new(status_text).wrap(Wrap { trim: true });
 
@@ -150,7 +150,7 @@ impl ViewLayout {
         let status_text = self
             .status_text
             .as_deref()
-            .unwrap_or("↑/↓ or j/k: Navigate | Enter: Select | Esc: Back | ?: Help");
+            .unwrap_or("↑/↓: Navigate | Enter: Select | Esc: Back | ?: Help");
 
         let status_bar = Paragraph::new(status_text)
             .style(Style::default().fg(Color::DarkGray))

@@ -156,48 +156,6 @@ mod tests {
         assert!(msg.is_none());
     }
 
-    #[test]
-    fn test_vim_navigation() {
-        let mut list = ResultList::new();
-        let results = vec![
-            create_test_result("user", "First"),
-            create_test_result("assistant", "Second"),
-            create_test_result("user", "Third"),
-        ];
-
-        list.update_results(results, 0);
-
-        // Initially at index 0
-        assert_eq!(list.selected_result().unwrap().text, "First");
-
-        // Move down with 'j'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "Second");
-
-        // Move down again with 'j'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "Third");
-
-        // Can't move down from last item
-        let msg = list.handle_key(create_key_event(KeyCode::Char('j')));
-        assert!(msg.is_none());
-
-        // Move up with 'k'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "Second");
-
-        // Move up again with 'k'
-        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
-        assert_eq!(list.selected_result().unwrap().text, "First");
-
-        // Can't move up from first item
-        let msg = list.handle_key(create_key_event(KeyCode::Char('k')));
-        assert!(msg.is_none());
-    }
 
     #[test]
     fn test_ctrl_p_n_navigation() {
@@ -239,6 +197,62 @@ mod tests {
 
         // Can't move up from first item
         let msg = list.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL));
+        assert!(msg.is_none());
+    }
+
+    #[test]
+    fn test_ctrl_u_d_navigation() {
+        let mut list = ResultList::new();
+        let mut results = vec![];
+        for i in 0..30 {
+            results.push(create_test_result("user", &format!("Message {i}")));
+        }
+
+        list.update_results(results, 0);
+
+        // Initially at index 0
+        assert_eq!(list.selected_result().unwrap().text, "Message 0");
+
+        // Move down with Ctrl+D (half page down)
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        // The exact position depends on the viewport height, but it should have moved down
+        let first_pos = list.selected_result().unwrap().text.clone();
+        assert_ne!(first_pos, "Message 0");
+
+        // Move down again with Ctrl+D
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        let second_pos = list.selected_result().unwrap().text.clone();
+        assert_ne!(second_pos, first_pos);
+
+        // Navigate to near the end
+        list.update_selection(25);
+        
+        // Move down with Ctrl+D should go to last item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Message 29");
+
+        // Can't move down from last item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(msg.is_none());
+
+        // Move up with Ctrl+U (half page up)
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_ne!(list.selected_result().unwrap().text, "Message 29");
+
+        // Move to position 5
+        list.update_selection(5);
+        
+        // Move up with Ctrl+U should go to first item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert_eq!(list.selected_result().unwrap().text, "Message 0");
+
+        // Can't move up from first item
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
         assert!(msg.is_none());
     }
 }

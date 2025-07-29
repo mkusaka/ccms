@@ -233,6 +233,14 @@ impl InteractiveSearch {
             | KeyCode::Home
             | KeyCode::End
             | KeyCode::Enter => self.renderer.get_result_list_mut().handle_key(key),
+            // Ctrl+P/N navigation
+            KeyCode::Char('p') | KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
+                self.renderer.get_result_list_mut().handle_key(key)
+            }
+            // Handle Ctrl+u/d for half-page scrolling
+            KeyCode::Char('u') | KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                self.renderer.get_result_list_mut().handle_key(key)
+            }
             _ => self.renderer.get_search_bar_mut().handle_key(key),
         }
     }

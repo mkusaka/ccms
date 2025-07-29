@@ -145,7 +145,7 @@ mod tests {
         let mut terminal = Terminal::new(backend).unwrap();
 
         // Create a long status text that should wrap
-        let long_status = "Tab: Filter | ↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit";
+        let long_status = "Tab: Filter | ↑/↓ or Ctrl+P/N: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit";
 
         terminal
             .draw(|f| {
@@ -172,7 +172,7 @@ mod tests {
     fn test_view_layout_status_bar_height_calculation() {
         // Test with various terminal widths
         let widths = vec![30, 50, 80, 120];
-        let long_status = "Tab: Filter | ↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit";
+        let long_status = "Tab: Filter | ↑/↓ or Ctrl+P/N: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit";
         
         for width in widths {
             let backend = TestBackend::new(width, 20);

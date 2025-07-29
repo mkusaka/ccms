@@ -143,7 +143,7 @@ impl ResultDetail {
         let total_lines = all_lines.len();
         let detail = Paragraph::new(display_lines)
             .block(Block::default().borders(Borders::ALL).title(format!(
-                "Result Detail (↑/↓ or j/k to scroll, line {}/{})",
+                "Result Detail (↑/↓ to scroll, line {}/{})",
                 self.scroll_offset + 1,
                 total_lines
             )))
@@ -186,7 +186,7 @@ impl ResultDetail {
                 Span::styled(" - Navigate history", Styles::action_description()),
             ]),
             Line::from(vec![
-                Span::styled("[↑/↓ or j/k]", Styles::action_key()),
+                Span::styled("[↑/↓]", Styles::action_key()),
                 Span::styled(" - Scroll message", Styles::action_description()),
             ]),
         ];
@@ -227,13 +227,13 @@ impl Component for ResultDetail {
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
+            KeyCode::Up => {
                 if self.scroll_offset > 0 {
                     self.scroll_offset -= 1;
                 }
                 None
             }
-            KeyCode::Down | KeyCode::Char('j') => {
+            KeyCode::Down => {
                 self.scroll_offset += 1;
                 None
             }
