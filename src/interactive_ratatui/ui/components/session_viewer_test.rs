@@ -1116,7 +1116,7 @@ mod tests {
             KeyCode::Char('d'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         // The exact position depends on viewport height, but should have moved down
         let first_pos = viewer.list_viewer.selected_index;
         assert!(first_pos > 0);
@@ -1126,7 +1126,7 @@ mod tests {
             KeyCode::Char('d'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         let second_pos = viewer.list_viewer.selected_index;
         assert!(second_pos > first_pos);
 
@@ -1138,7 +1138,7 @@ mod tests {
             KeyCode::Char('d'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert_eq!(viewer.list_viewer.selected_index, 29);
 
         // Can't move down from last item
@@ -1146,7 +1146,7 @@ mod tests {
             KeyCode::Char('d'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert_eq!(viewer.list_viewer.selected_index, 29);
 
         // Ctrl+U to move up half page
@@ -1154,7 +1154,7 @@ mod tests {
             KeyCode::Char('u'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert!(viewer.list_viewer.selected_index < 29);
 
         // Move to position 5
@@ -1165,7 +1165,7 @@ mod tests {
             KeyCode::Char('u'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert_eq!(viewer.list_viewer.selected_index, 0);
 
         // Can't move up from first item
@@ -1173,7 +1173,7 @@ mod tests {
             KeyCode::Char('u'),
             KeyModifiers::CONTROL,
         ));
-        assert!(matches!(msg, Some(Message::SessionNavigated)));
+        assert!(matches!(msg, Some(Message::SessionNavigated(_, _))));
         assert_eq!(viewer.list_viewer.selected_index, 0);
     }
 
