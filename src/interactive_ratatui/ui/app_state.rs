@@ -457,7 +457,7 @@ impl AppState {
         }
     }
 
-    fn update_session_filter(&mut self) {
+    pub fn update_session_filter(&mut self) {
         use crate::interactive_ratatui::domain::filter::SessionFilter;
         use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
 

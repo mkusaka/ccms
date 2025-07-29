@@ -348,8 +348,8 @@ impl InteractiveSearch {
                     .get_raw_lines(file_path)
                     .unwrap_or_default();
                 self.state.session.messages = raw_lines;
-                self.state.session.filtered_indices =
-                    (0..self.state.session.messages.len()).collect();
+                // Apply filtering and sorting
+                self.state.update_session_filter();
             }
             Err(e) => {
                 self.state.ui.message = Some(format!("Failed to load session: {e}"));
