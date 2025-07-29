@@ -219,7 +219,11 @@ impl SessionMessage {
                                             if arr.is_empty() {
                                                 "(empty result)".to_string()
                                             } else {
-                                                arr.iter().map(|item| &item.text).cloned().collect::<Vec<_>>().join("\n")
+                                                arr.iter()
+                                                    .map(|item| &item.text)
+                                                    .cloned()
+                                                    .collect::<Vec<_>>()
+                                                    .join("\n")
                                             }
                                         }
                                         ToolResultContent::Value(val) => {
@@ -227,14 +231,18 @@ impl SessionMessage {
                                         }
                                         _ => "(image or other content)".to_string(),
                                     };
-                                    texts.push(format!("{error_prefix}{tool_use_id}: {result_text}]"));
+                                    texts.push(format!(
+                                        "{error_prefix}{tool_use_id}: {result_text}]"
+                                    ));
                                 }
                                 Content::ToolResult {
                                     tool_use_id,
                                     content: None,
                                     ..
                                 } => {
-                                    texts.push(format!("[Tool Result: {tool_use_id}: (no content)]"));
+                                    texts.push(format!(
+                                        "[Tool Result: {tool_use_id}: (no content)]"
+                                    ));
                                 }
                                 Content::ToolUse { name, id, .. } => {
                                     texts.push(format!("[Tool Use: {name} ({id})]"));
@@ -270,9 +278,12 @@ impl SessionMessage {
                             };
                             let result_text = match tool_content {
                                 ToolResultContent::String(s) => s.clone(),
-                                ToolResultContent::TextArray(arr) => {
-                                    arr.iter().map(|item| &item.text).cloned().collect::<Vec<_>>().join("\n")
-                                }
+                                ToolResultContent::TextArray(arr) => arr
+                                    .iter()
+                                    .map(|item| &item.text)
+                                    .cloned()
+                                    .collect::<Vec<_>>()
+                                    .join("\n"),
                                 ToolResultContent::Value(val) => {
                                     val.as_str().unwrap_or("(non-string value)").to_string()
                                 }
@@ -434,7 +445,10 @@ mod tests {
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(msg.get_type(), "assistant");
-        assert_eq!(msg.get_content_text(), "I'll help you with that.\n[Tool Use: read_file (tool_1)]");
+        assert_eq!(
+            msg.get_content_text(),
+            "I'll help you with that.\n[Tool Use: read_file (tool_1)]"
+        );
         assert!(msg.has_tool_use());
         assert!(!msg.has_thinking());
     }
@@ -593,7 +607,10 @@ mod tests {
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(msg.get_type(), "user");
-        assert_eq!(msg.get_content_text(), "[Tool Result: tool_2: Line 1\nLine 2]");
+        assert_eq!(
+            msg.get_content_text(),
+            "[Tool Result: tool_2: Line 1\nLine 2]"
+        );
     }
 
     #[test]
