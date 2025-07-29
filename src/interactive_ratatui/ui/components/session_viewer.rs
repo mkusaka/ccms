@@ -203,6 +203,7 @@ impl Component for SessionViewer {
             let width = area.width as usize;
             // Calculate number of lines needed for wrapping
             // Using manual ceiling division for compatibility
+            #[allow(clippy::manual_div_ceil)]
             let lines_needed = if width > 0 {
                 (text_len + width - 1) / width
             } else {
