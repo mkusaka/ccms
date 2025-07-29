@@ -47,3 +47,13 @@ pub const MIN_MESSAGE_WIDTH: u16 = 20;
 // Navigation history
 /// Maximum navigation history entries
 pub const MAX_NAVIGATION_HISTORY: usize = 50;
+
+// Message detail layout constants
+/// Height of the details header section (role, time, file, project, UUID, session)
+pub const MESSAGE_DETAIL_HEADER_HEIGHT: u16 = 8;
+
+/// Height of the shortcuts bar in message detail view
+pub const MESSAGE_DETAIL_SHORTCUTS_HEIGHT: u16 = 2;
+
+/// Height of the status bar in message detail view
+pub const MESSAGE_DETAIL_STATUS_HEIGHT: u16 = 1;

@@ -1,3 +1,4 @@
+use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::ui::components::{
     Component, is_exit_prompt,
     view_layout::{Styles, ViewLayout},
@@ -57,19 +58,19 @@ impl MessageDetail {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(8), // Header (fixed)
-                    Constraint::Min(5),    // Message content (scrollable)
-                    Constraint::Length(2), // Shortcuts (fixed)
-                    Constraint::Length(1), // Status/Exit prompt at bottom
+                    Constraint::Length(MESSAGE_DETAIL_HEADER_HEIGHT), // Header (fixed)
+                    Constraint::Min(5), // Message content (scrollable)
+                    Constraint::Length(MESSAGE_DETAIL_SHORTCUTS_HEIGHT), // Shortcuts (fixed)
+                    Constraint::Length(MESSAGE_DETAIL_STATUS_HEIGHT), // Status/Exit prompt at bottom
                 ])
                 .split(area)
         } else {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(8), // Header (fixed)
-                    Constraint::Min(5),    // Message content (scrollable)
-                    Constraint::Length(2), // Shortcuts (fixed)
+                    Constraint::Length(MESSAGE_DETAIL_HEADER_HEIGHT), // Header (fixed)
+                    Constraint::Min(5), // Message content (scrollable)
+                    Constraint::Length(MESSAGE_DETAIL_SHORTCUTS_HEIGHT), // Shortcuts (fixed)
                 ])
                 .split(area)
         };
@@ -255,27 +256,27 @@ impl Component for MessageDetail {
                 None
             }
             KeyCode::PageUp => {
-                self.scroll_offset = self.scroll_offset.saturating_sub(10);
+                self.scroll_offset = self.scroll_offset.saturating_sub(PAGE_SIZE);
                 None
             }
             KeyCode::PageDown => {
                 // Only scroll if there's content to scroll
                 if let Some(result) = &self.result {
                     if !result.text.is_empty() {
-                        self.scroll_offset += 10;
+                        self.scroll_offset += PAGE_SIZE;
                     }
                 }
                 None
             }
             KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
-                self.scroll_offset = self.scroll_offset.saturating_sub(10);
+                self.scroll_offset = self.scroll_offset.saturating_sub(PAGE_SIZE);
                 None
             }
             KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
                 // Only scroll if there's content to scroll
                 if let Some(result) = &self.result {
                     if !result.text.is_empty() {
-                        self.scroll_offset += 10;
+                        self.scroll_offset += PAGE_SIZE;
                     }
                 }
                 None
