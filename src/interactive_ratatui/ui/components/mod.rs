@@ -26,12 +26,17 @@ mod text_input_test;
 mod view_layout_test;
 
 use crate::interactive_ratatui::ui::events::Message;
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::{Frame, layout::Rect};
 
 pub trait Component {
     fn render(&mut self, f: &mut Frame, area: Rect);
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message>;
+    
+    /// Handle mouse events with the area where the component was rendered
+    fn handle_mouse(&mut self, _mouse: MouseEvent, _area: Rect) -> Option<Message> {
+        None // Default implementation returns None
+    }
 }
 
 /// Check if a message is the exit prompt

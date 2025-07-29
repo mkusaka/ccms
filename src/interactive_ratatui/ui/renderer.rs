@@ -31,7 +31,7 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self, f: &mut Frame, state: &AppState) {
+    pub fn render(&mut self, f: &mut Frame, state: &AppState) -> crate::interactive_ratatui::ComponentAreas {
         match state.mode {
             Mode::Search => self.render_search_mode(f, state),
             Mode::ResultDetail => self.render_detail_mode(f, state),
@@ -40,7 +40,7 @@ impl Renderer {
         }
     }
 
-    fn render_search_mode(&mut self, f: &mut Frame, state: &AppState) {
+    fn render_search_mode(&mut self, f: &mut Frame, state: &AppState) -> crate::interactive_ratatui::ComponentAreas {
         // Check if we need to display exit prompt at bottom
         let show_exit_prompt = is_exit_prompt(&state.ui.message);
 
@@ -98,17 +98,35 @@ impl Renderer {
                 .alignment(ratatui::layout::Alignment::Center);
             f.render_widget(exit_prompt, chunks[2]);
         }
+        
+        // Return component areas
+        crate::interactive_ratatui::ComponentAreas {
+            search_bar: Some(chunks[0]),
+            result_list: Some(chunks[1]),
+            result_detail: None,
+            session_viewer: None,
+            help_dialog: None,
+        }
     }
 
-    fn render_detail_mode(&mut self, f: &mut Frame, state: &AppState) {
+    fn render_detail_mode(&mut self, f: &mut Frame, state: &AppState) -> crate::interactive_ratatui::ComponentAreas {
         if let Some(result) = &state.ui.selected_result {
             self.result_detail.set_result(result.clone());
             self.result_detail.set_message(state.ui.message.clone());
             self.result_detail.render(f, f.area());
         }
+        
+        // Return component areas
+        crate::interactive_ratatui::ComponentAreas {
+            search_bar: None,
+            result_list: None,
+            result_detail: Some(f.area()),
+            session_viewer: None,
+            help_dialog: None,
+        }
     }
 
-    fn render_session_mode(&mut self, f: &mut Frame, state: &AppState) {
+    fn render_session_mode(&mut self, f: &mut Frame, state: &AppState) -> crate::interactive_ratatui::ComponentAreas {
         // Update session viewer state
         self.session_viewer
             .set_messages(state.session.messages.clone());
@@ -132,14 +150,32 @@ impl Renderer {
             .set_truncation_enabled(state.ui.truncation_enabled);
 
         self.session_viewer.render(f, f.area());
+        
+        // Return component areas
+        crate::interactive_ratatui::ComponentAreas {
+            search_bar: None,
+            result_list: None,
+            result_detail: None,
+            session_viewer: Some(f.area()),
+            help_dialog: None,
+        }
     }
 
-    fn render_help_mode(&mut self, f: &mut Frame, state: &AppState) {
+    fn render_help_mode(&mut self, f: &mut Frame, state: &AppState) -> crate::interactive_ratatui::ComponentAreas {
         // First render the search mode underneath
-        self.render_search_mode(f, state);
+        let areas = self.render_search_mode(f, state);
 
         // Then render the help dialog on top
         self.help_dialog.render(f, f.area());
+        
+        // Return component areas with help dialog area
+        crate::interactive_ratatui::ComponentAreas {
+            search_bar: areas.search_bar,
+            result_list: areas.result_list,
+            result_detail: None,
+            session_viewer: None,
+            help_dialog: Some(f.area()),
+        }
     }
 
     pub fn get_search_bar_mut(&mut self) -> &mut SearchBar {

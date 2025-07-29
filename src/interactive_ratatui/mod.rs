@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEvent, poll},
+    event::{self, Event, KeyCode, KeyEvent, MouseEvent, poll, EnableMouseCapture, DisableMouseCapture},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -51,6 +51,18 @@ pub struct InteractiveSearch {
     last_ctrl_c_press: Option<std::time::Instant>,
     message_timer: Option<std::time::Instant>,
     message_clear_delay: u64,
+    component_areas: ComponentAreas,
+}
+
+#[derive(Default, Clone)]
+pub struct ComponentAreas {
+    search_bar: Option<ratatui::layout::Rect>,
+    result_list: Option<ratatui::layout::Rect>,
+    #[allow(dead_code)]
+    result_detail: Option<ratatui::layout::Rect>,
+    session_viewer: Option<ratatui::layout::Rect>,
+    #[allow(dead_code)]
+    help_dialog: Option<ratatui::layout::Rect>,
 }
 
 impl InteractiveSearch {
@@ -74,6 +86,7 @@ impl InteractiveSearch {
             last_ctrl_c_press: None,
             message_timer: None,
             message_clear_delay: MESSAGE_CLEAR_DELAY_MS,
+            component_areas: ComponentAreas::default(),
         }
     }
 
@@ -99,7 +112,7 @@ impl InteractiveSearch {
     fn setup_terminal(&self) -> Result<Terminal<CrosstermBackend<Stdout>>> {
         enable_raw_mode()?;
         let mut stdout = io::stdout();
-        execute!(stdout, EnterAlternateScreen)?;
+        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
         let backend = CrosstermBackend::new(stdout);
         let terminal = Terminal::new(backend)?;
         Ok(terminal)
@@ -107,7 +120,7 @@ impl InteractiveSearch {
 
     fn cleanup_terminal(&self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
         disable_raw_mode()?;
-        execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+        execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
         terminal.show_cursor()?;
         Ok(())
     }
@@ -119,7 +132,7 @@ impl InteractiveSearch {
     ) -> Result<()> {
         loop {
             terminal.draw(|f| {
-                self.renderer.render(f, &self.state);
+                self.component_areas = self.renderer.render(f, &self.state);
             })?;
 
             // Check for search results
@@ -152,11 +165,17 @@ impl InteractiveSearch {
             }
 
             if poll(Duration::from_millis(EVENT_POLL_INTERVAL_MS))? {
-                if let Event::Key(key) = event::read()? {
-                    let should_quit = self.handle_input(key)?;
-                    if should_quit {
-                        break;
+                match event::read()? {
+                    Event::Key(key) => {
+                        let should_quit = self.handle_input(key)?;
+                        if should_quit {
+                            break;
+                        }
                     }
+                    Event::Mouse(mouse) => {
+                        self.handle_mouse_input(mouse);
+                    }
+                    _ => {} // Ignore other events (resize, etc.)
                 }
             }
         }
@@ -250,6 +269,38 @@ impl InteractiveSearch {
                 self.renderer.get_result_list_mut().handle_key(key)
             }
             _ => self.renderer.get_search_bar_mut().handle_key(key),
+        }
+    }
+
+    fn handle_mouse_input(&mut self, mouse: MouseEvent) {
+        use crossterm::event::{MouseEventKind, MouseButton};
+        
+        // Only handle left button clicks
+        if let MouseEventKind::Down(MouseButton::Left) = mouse.kind {
+            let message = match self.state.mode {
+                Mode::Search => {
+                    // Check if click is in result list area
+                    if let Some(area) = self.component_areas.result_list {
+                        self.renderer.get_result_list_mut().handle_mouse(mouse, area)
+                    } else {
+                        None
+                    }
+                }
+                Mode::SessionViewer => {
+                    // Check if click is in session viewer area
+                    if let Some(area) = self.component_areas.session_viewer {
+                        self.renderer.get_session_viewer_mut().handle_mouse(mouse, area)
+                    } else {
+                        None
+                    }
+                }
+                // Other modes don't support mouse interaction yet
+                _ => None,
+            };
+            
+            if let Some(msg) = message {
+                self.handle_message(msg);
+            }
         }
     }
 

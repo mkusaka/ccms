@@ -1364,4 +1364,125 @@ mod tests {
         ));
         assert!(matches!(msg, Some(Message::ToggleSessionOrder)));
     }
+    
+    fn create_test_message(role: &str, content: &str, timestamp: &str) -> String {
+        match role {
+            "user" => format!(r#"{{"type":"user","message":{{"content":"{}"}},"timestamp":"{}"}}"#, content, timestamp),
+            "assistant" => format!(r#"{{"type":"assistant","message":{{"content":"{}"}},"timestamp":"{}"}}"#, content, timestamp),
+            _ => format!(r#"{{"type":"{}","content":"{}","timestamp":"{}"}}"#, role, content, timestamp),
+        }
+    }
+    
+    #[test]
+    fn test_mouse_click_session_message() {
+        use crate::interactive_ratatui::ui::components::Component;
+        use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
+        use ratatui::layout::Rect;
+        
+        let mut viewer = SessionViewer::new();
+        
+        // Create test messages
+        let messages = vec![
+            create_test_message("user", "First message", "2024-01-01T12:00:00Z"),
+            create_test_message("assistant", "Second message", "2024-01-01T12:01:00Z"),
+            create_test_message("user", "Third message", "2024-01-01T12:02:00Z"),
+        ];
+        viewer.set_messages(messages);
+        viewer.set_file_path(Some("test.jsonl".to_string()));
+        
+        // Simulate the full terminal area
+        let area = Rect::new(0, 0, 80, 24);
+        
+        // Click on what should be approximately the second message
+        // The layout includes ViewLayout with title (3 lines) + list content
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 40,
+            row: 5, // Accounting for title and first message
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        
+        let msg = viewer.handle_mouse(mouse_event, area);
+        
+        // Should return MouseClickSession message
+        assert!(matches!(msg, Some(Message::MouseClickSession(1))));
+        
+        // Verify the selection was updated
+        let selected_idx = viewer.list_viewer.selected_index;
+        assert_eq!(selected_idx, 1);
+    }
+    
+    #[test]
+    fn test_mouse_click_with_search_filter() {
+        use crate::interactive_ratatui::ui::components::Component;
+        use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
+        use ratatui::layout::Rect;
+        
+        let mut viewer = SessionViewer::new();
+        
+        // Create test messages
+        let messages = vec![
+            create_test_message("user", "Hello world", "2024-01-01T12:00:00Z"),
+            create_test_message("assistant", "Goodbye", "2024-01-01T12:01:00Z"),
+            create_test_message("user", "Hello again", "2024-01-01T12:02:00Z"),
+            create_test_message("assistant", "See you", "2024-01-01T12:03:00Z"),
+        ];
+        viewer.set_messages(messages);
+        viewer.set_file_path(Some("test.jsonl".to_string()));
+        
+        // Apply search filter for "Hello"
+        viewer.set_query("Hello".to_string());
+        viewer.set_filtered_indices(vec![0, 2]); // Only first and third messages match
+        
+        let area = Rect::new(0, 0, 80, 24);
+        
+        // Click on what should be the second visible item (third original message)
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 40,
+            row: 5,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        
+        let msg = viewer.handle_mouse(mouse_event, area);
+        
+        // Should select the filtered item at position 1
+        assert!(matches!(msg, Some(Message::MouseClickSession(1))));
+        assert_eq!(viewer.list_viewer.selected_index, 1);
+        
+        // The actual message should be "Hello again"
+        if let Some(item) = viewer.list_viewer.get_selected_item() {
+            assert_eq!(item.content, "Hello again");
+        }
+    }
+    
+    #[test]
+    fn test_mouse_click_outside_session_viewer() {
+        use crate::interactive_ratatui::ui::components::Component;
+        use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
+        use ratatui::layout::Rect;
+        
+        let mut viewer = SessionViewer::new();
+        
+        let messages = vec![
+            create_test_message("user", "Test", "2024-01-01T12:00:00Z"),
+        ];
+        viewer.set_messages(messages);
+        
+        let area = Rect::new(10, 10, 60, 14); // Smaller area offset from origin
+        
+        // Click outside the component area
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 5, // Outside left boundary
+            row: 15,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        
+        let msg = viewer.handle_mouse(mouse_event, area);
+        
+        // Should not generate any message
+        assert!(msg.is_none());
+        assert_eq!(viewer.list_viewer.selected_index, 0); // Selection unchanged
+    }
 }

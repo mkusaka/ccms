@@ -343,4 +343,69 @@ mod tests {
         assert!(content.contains("↑/↓ or Ctrl+P/N: Navigate"));
         assert!(content.contains("Ctrl+S: View full session"));
     }
+    
+    #[test]
+    fn test_mouse_click_selection() {
+        use crate::interactive_ratatui::ui::components::Component;
+        use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
+        use ratatui::layout::Rect;
+        
+        let mut list = ResultList::new();
+        let results = vec![
+            create_test_result("user", "First message"),
+            create_test_result("assistant", "Second message"),
+            create_test_result("user", "Third message"),
+        ];
+        list.set_results(results);
+        
+        // Simulate component area (the ResultList divides space into title, list, and status)
+        let area = Rect::new(0, 0, 80, 20);
+        
+        // Click on the second item
+        // Title takes 2 lines, then list starts
+        // First item at y=3, second item at y=4 (assuming truncated mode)
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 40,
+            row: 4,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        
+        let msg = list.handle_mouse(mouse_event, area);
+        
+        // Should return MouseClickResult message
+        assert!(matches!(msg, Some(Message::MouseClickResult(1))));
+        assert_eq!(list.get_selected_index(), 1);
+        assert_eq!(list.selected_result().unwrap().text, "Second message");
+    }
+    
+    #[test]
+    fn test_mouse_click_outside_list_area() {
+        use crate::interactive_ratatui::ui::components::Component;
+        use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
+        use ratatui::layout::Rect;
+        
+        let mut list = ResultList::new();
+        let results = vec![
+            create_test_result("user", "First message"),
+            create_test_result("assistant", "Second message"),
+        ];
+        list.set_results(results);
+        
+        let area = Rect::new(0, 0, 80, 20);
+        
+        // Click in the title area (y=0)
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 40,
+            row: 0,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        
+        let msg = list.handle_mouse(mouse_event, area);
+        
+        // Should not generate any message
+        assert!(msg.is_none());
+        assert_eq!(list.get_selected_index(), 0); // Selection unchanged
+    }
 }

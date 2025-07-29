@@ -1,5 +1,7 @@
 use super::list_item::ListItem;
 use crate::interactive_ratatui::constants::*;
+use crate::interactive_ratatui::ui::events::Message;
+use crossterm::event::MouseEvent;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -407,5 +409,87 @@ impl<T: ListItem> ListViewer<T> {
             .style(Style::default());
 
         f.render_widget(list, area);
+    }
+    
+    /// Handle mouse events for the list viewer
+    /// Returns the appropriate message if a list item was clicked
+    pub fn handle_mouse(&mut self, mouse: MouseEvent, area: Rect) -> Option<Message> {
+        // Check if click is within the component area
+        if mouse.column < area.x || mouse.column >= area.x + area.width {
+            return None;
+        }
+        if mouse.row < area.y || mouse.row >= area.y + area.height {
+            return None;
+        }
+        
+        // Calculate which item was clicked
+        // Account for the border (1 line at top and bottom)
+        let content_area_y = area.y + 1;
+        let content_area_height = area.height.saturating_sub(2);
+        
+        if mouse.row < content_area_y || mouse.row >= content_area_y + content_area_height {
+            return None;
+        }
+        
+        let relative_y = (mouse.row - content_area_y) as usize;
+        
+        if self.truncation_enabled {
+            // In truncated mode, each item takes 1 line
+            let clicked_index = self.scroll_offset + relative_y;
+            
+            if clicked_index < self.filtered_indices.len() {
+                self.selected_index = clicked_index;
+                // Return the actual item index from filtered_indices
+                if let Some(&item_index) = self.filtered_indices.get(clicked_index) {
+                    return Some(self.create_click_message(item_index));
+                }
+            }
+        } else {
+            // In full text mode, need to calculate which item was clicked
+            // based on how many lines each item takes
+            let available_width = area.width.saturating_sub(2) as usize;
+            
+            // Use Layout API to calculate available width for text
+            let row_layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Length(TIMESTAMP_COLUMN_WIDTH),
+                    Constraint::Length(ROLE_COLUMN_WIDTH),
+                    Constraint::Length(SEPARATOR_WIDTH),
+                    Constraint::Min(MIN_MESSAGE_WIDTH),
+                ])
+                .split(Rect::new(0, 0, available_width as u16, 1));
+            let available_text_width = row_layout[3].width as usize;
+            
+            let mut current_line = 0;
+            for i in self.scroll_offset..self.filtered_indices.len() {
+                if let Some(&item_idx) = self.filtered_indices.get(i) {
+                    if let Some(item) = self.items.get(item_idx) {
+                        let lines = item.create_full_lines(available_text_width, &self.query);
+                        let item_height = lines.len();
+                        
+                        if relative_y >= current_line && relative_y < current_line + item_height {
+                            // Click is within this item
+                            self.selected_index = i;
+                            return Some(self.create_click_message(item_idx));
+                        }
+                        
+                        current_line += item_height;
+                        if current_line > relative_y {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        None
+    }
+    
+    /// Create the appropriate click message based on the item type
+    /// This should be overridden by specific implementations
+    fn create_click_message(&self, _item_index: usize) -> Message {
+        // Default implementation - should be overridden by specific list types
+        Message::Refresh
     }
 }

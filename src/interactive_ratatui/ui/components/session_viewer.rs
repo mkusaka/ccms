@@ -513,4 +513,73 @@ impl Component for SessionViewer {
             }
         }
     }
+    
+    fn handle_mouse(&mut self, mouse: crossterm::event::MouseEvent, area: Rect) -> Option<Message> {
+        // Calculate the actual content area (account for the layout)
+        let is_exit = is_exit_prompt(&self.message);
+        let non_exit_message = if !is_exit {
+            self.message.clone()
+        } else {
+            None
+        };
+        
+        let status_text = "↑/↓ Ctrl+P/N Ctrl+U/D: Navigate | Tab: Filter | Enter: Detail | Ctrl+O: Sort | c/C: Copy text/JSON | i/f/p: Copy IDs/paths | /: Search | Alt+←/→: History | Esc: Back";
+        let status_bar_height = {
+            let text_len = status_text.len();
+            let width = area.width as usize;
+            if width > 0 {
+                ((text_len + width - 1) / width).max(1) as u16
+            } else {
+                1
+            }
+        };
+        
+        let chunks = if is_exit {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(0),                    // Main content
+                    Constraint::Length(status_bar_height), // Status bar
+                    Constraint::Length(1),                 // Exit prompt
+                ])
+                .split(area)
+        } else if non_exit_message.is_some() {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(0),                    // Main content
+                    Constraint::Length(1),                 // Message
+                    Constraint::Length(status_bar_height), // Status bar
+                ])
+                .split(area)
+        } else {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(0),                    // Main content
+                    Constraint::Length(status_bar_height), // Status bar
+                ])
+                .split(area)
+        };
+        
+        // The main content area
+        let main_area = chunks[0];
+        
+        // Calculate the inner content area (inside ViewLayout)
+        // ViewLayout has borders and title, so we need to account for them
+        let inner_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Title area
+                Constraint::Min(0),    // Content (list)
+            ])
+            .split(main_area);
+        
+        // Pass mouse event to list viewer with the correct area
+        if let Some(_msg) = self.list_viewer.handle_mouse(mouse, inner_chunks[1]) {
+            // Return MouseClickSession with the selected index
+            return Some(Message::MouseClickSession(self.list_viewer.selected_index));
+        }
+        None
+    }
 }

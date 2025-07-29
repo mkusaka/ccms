@@ -477,6 +477,25 @@ impl AppState {
             Message::Quit => {
                 Command::None // Handle in main loop
             }
+            Message::MouseClickResult(index) => {
+                // Handle mouse click on result item
+                if self.mode == Mode::Search && index < self.search.results.len() {
+                    self.search.selected_index = index;
+                    // Just update the selection, don't enter detail view
+                    Command::None
+                } else {
+                    Command::None
+                }
+            }
+            Message::MouseClickSession(index) => {
+                // Handle mouse click on session message
+                if self.mode == Mode::SessionViewer {
+                    // Update the selection in session viewer
+                    // The actual click position will be handled by the SessionViewer component
+                    self.session.selected_index = index;
+                }
+                Command::None
+            }
             _ => Command::None,
         }
     }

@@ -64,7 +64,7 @@ mod tests {
         // Test search mode rendering
         app.set_mode(Mode::Search);
         terminal
-            .draw(|f| app.renderer.render(f, &app.state))
+            .draw(|f| { app.renderer.render(f, &app.state); })
             .unwrap();
         let buffer = terminal.backend().buffer();
         assert!(buffer_contains(buffer, "Search"));
@@ -72,7 +72,7 @@ mod tests {
         // Test help mode rendering
         app.set_mode(Mode::Help);
         terminal
-            .draw(|f| app.renderer.render(f, &app.state))
+            .draw(|f| { app.renderer.render(f, &app.state); })
             .unwrap();
         let buffer = terminal.backend().buffer();
         assert!(buffer_contains(buffer, "Help"));
@@ -84,7 +84,7 @@ mod tests {
             create_test_result("assistant", "Hi there!", "2024-01-01T12:01:00Z"),
         ];
         terminal
-            .draw(|f| app.renderer.render(f, &app.state))
+            .draw(|f| { app.renderer.render(f, &app.state); })
             .unwrap();
     }
 
@@ -105,7 +105,7 @@ mod tests {
         // Render the search mode
         app.set_mode(Mode::Search);
         terminal
-            .draw(|f| app.renderer.render(f, &app.state))
+            .draw(|f| { app.renderer.render(f, &app.state); })
             .unwrap();
 
         let buffer = terminal.backend().buffer();
@@ -290,7 +290,7 @@ mod tests {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal
-            .draw(|f| app.renderer.render(f, &app.state))
+            .draw(|f| { app.renderer.render(f, &app.state); })
             .unwrap();
         let buffer = terminal.backend().buffer();
         assert!(!buffer_contains(buffer, "~/.claude"));
@@ -759,7 +759,7 @@ mod tests {
         let backend = TestBackend::new(100, 40);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal
-            .draw(|f| app.renderer.render(f, &app.state))
+            .draw(|f| { app.renderer.render(f, &app.state); })
             .unwrap();
         let buffer = terminal.backend().buffer();
 
@@ -799,7 +799,7 @@ mod tests {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal
-            .draw(|f| app.renderer.render(f, &app.state))
+            .draw(|f| { app.renderer.render(f, &app.state); })
             .unwrap();
         let buffer = terminal.backend().buffer();
 
@@ -888,7 +888,7 @@ mod tests {
         let backend = TestBackend::new(120, 30);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal
-            .draw(|f| app.renderer.render(f, &app.state))
+            .draw(|f| { app.renderer.render(f, &app.state); })
             .unwrap();
         let buffer = terminal.backend().buffer();
 

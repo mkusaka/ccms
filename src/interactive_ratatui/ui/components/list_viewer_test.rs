@@ -377,4 +377,129 @@ mod tests {
             "Full text mode should have scrolled"
         );
     }
+    
+    #[test]
+    fn test_mouse_click_truncated_mode() {
+        use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
+        use ratatui::layout::Rect;
+        
+        let mut viewer = ListViewer::<MockListItem>::new("Test".to_string(), "Empty".to_string());
+        viewer.set_items(create_mock_items(10));
+        viewer.truncation_enabled = true;
+        
+        // Simulate component area (x=1, y=1, width=50, height=12)
+        // Border takes 1 line at top and bottom, so content starts at y=2
+        let area = Rect::new(1, 1, 50, 12);
+        
+        // Click on the 3rd item (y=4 in absolute coordinates)
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 10,
+            row: 4,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        
+        let result = viewer.handle_mouse(mouse_event, area);
+        
+        // Should have selected the 3rd item (index 2)
+        assert_eq!(viewer.selected_index, 2);
+        assert!(result.is_some(), "Should return a message");
+    }
+    
+    #[test]
+    fn test_mouse_click_outside_area() {
+        use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
+        use ratatui::layout::Rect;
+        
+        let mut viewer = ListViewer::<MockListItem>::new("Test".to_string(), "Empty".to_string());
+        viewer.set_items(create_mock_items(10));
+        
+        let area = Rect::new(10, 10, 50, 20);
+        
+        // Click outside the component area
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 5, // Outside left boundary
+            row: 15,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        
+        let result = viewer.handle_mouse(mouse_event, area);
+        
+        // Should not have changed selection
+        assert_eq!(viewer.selected_index, 0);
+        assert!(result.is_none(), "Should not return a message");
+    }
+    
+    #[test]
+    fn test_mouse_click_with_scroll_offset() {
+        use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
+        use ratatui::layout::Rect;
+        
+        let mut viewer = ListViewer::<MockListItem>::new("Test".to_string(), "Empty".to_string());
+        viewer.set_items(create_mock_items(20));
+        viewer.truncation_enabled = true;
+        viewer.scroll_offset = 5; // Scrolled down by 5 items
+        
+        let area = Rect::new(0, 0, 50, 10);
+        
+        // Click on the first visible item (which is actually index 5)
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 10,
+            row: 1, // First content row
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        
+        let result = viewer.handle_mouse(mouse_event, area);
+        
+        // Should have selected item at index 5
+        assert_eq!(viewer.selected_index, 5);
+        assert!(result.is_some(), "Should return a message");
+    }
+    
+    #[test]
+    fn test_mouse_click_full_text_mode() {
+        use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
+        use ratatui::layout::Rect;
+        
+        let mut viewer = ListViewer::<MockListItem>::new("Test".to_string(), "Empty".to_string());
+        
+        // Create items with multi-line content
+        let items = vec![
+            MockListItem {
+                role: "user".to_string(),
+                timestamp: "2024-01-01T12:00:00Z".to_string(),
+                content: "Short message".to_string(),
+            },
+            MockListItem {
+                role: "assistant".to_string(),
+                timestamp: "2024-01-01T12:01:00Z".to_string(),
+                content: "This is a very long message that will wrap to multiple lines when displayed in full text mode. It contains enough text to ensure it takes up several lines.".to_string(),
+            },
+            MockListItem {
+                role: "user".to_string(),
+                timestamp: "2024-01-01T12:02:00Z".to_string(),
+                content: "Another message".to_string(),
+            },
+        ];
+        viewer.set_items(items);
+        viewer.truncation_enabled = false;
+        
+        let area = Rect::new(0, 0, 80, 20);
+        
+        // Click somewhere in the middle of the long message
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 40,
+            row: 3, // Should be within the second item's multi-line display
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        
+        let result = viewer.handle_mouse(mouse_event, area);
+        
+        // Should have selected the second item (index 1)
+        assert_eq!(viewer.selected_index, 1);
+        assert!(result.is_some(), "Should return a message");
+    }
 }

@@ -170,4 +170,24 @@ impl Component for ResultList {
             _ => None,
         }
     }
+    
+    fn handle_mouse(&mut self, mouse: crossterm::event::MouseEvent, area: Rect) -> Option<Message> {
+        // Calculate the actual list area (account for title and status bar)
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(2), // Title
+                Constraint::Min(0),    // Content (list)
+                Constraint::Length(2), // Status
+            ])
+            .split(area);
+        
+        // Pass mouse event to list viewer with the correct area
+        if let Some(_msg) = self.list_viewer.handle_mouse(mouse, chunks[1]) {
+            // The list viewer will return a generic message, but we need to return MouseClickResult
+            // with the selected index
+            return Some(Message::MouseClickResult(self.list_viewer.selected_index));
+        }
+        None
+    }
 }

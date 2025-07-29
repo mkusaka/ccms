@@ -64,4 +64,8 @@ pub enum Message {
     // Terminal events
     Quit,
     Refresh,
+    
+    // Mouse events
+    MouseClickResult(usize),       // Click on result at index
+    MouseClickSession(usize),      // Click on session message at index
 }
