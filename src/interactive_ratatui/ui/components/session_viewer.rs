@@ -267,12 +267,11 @@ impl Component for SessionViewer {
         let status_text = "↑/↓ Ctrl+P/N Ctrl+U/D: Navigate | Tab: Filter | Enter: Detail | Ctrl+O: Sort | c/C: Copy text/JSON | i/f/p: Copy IDs/paths | /: Search | Alt+←/→: History | Esc: Back";
         let status_bar_height = {
             // Create a temporary paragraph to calculate actual line count
-            let paragraph = Paragraph::new(status_text)
-                .wrap(Wrap { trim: true });
-            
+            let paragraph = Paragraph::new(status_text).wrap(Wrap { trim: true });
+
             // Calculate the actual number of lines with proper text wrapping
             let lines_needed = paragraph.line_count(area.width) as u16;
-            
+
             // Ensure minimum of 3 lines, max of 8 lines
             lines_needed.clamp(3, 8)
         };
