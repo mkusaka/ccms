@@ -435,11 +435,17 @@ impl Component for SessionViewer {
                 }
                 KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
                     self.list_viewer.half_page_up();
-                    Some(Message::SessionNavigated)
+                    Some(Message::SessionNavigated(
+                        self.list_viewer.selected_index,
+                        self.list_viewer.scroll_offset,
+                    ))
                 }
                 KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
                     self.list_viewer.half_page_down();
-                    Some(Message::SessionNavigated)
+                    Some(Message::SessionNavigated(
+                        self.list_viewer.selected_index,
+                        self.list_viewer.scroll_offset,
+                    ))
                 }
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(Message::ToggleSessionRoleFilter)
