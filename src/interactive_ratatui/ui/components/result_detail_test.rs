@@ -430,7 +430,7 @@ mod tests {
         let mut detail = ResultDetail::new();
         let mut result = create_test_result();
         // Create a long message that will need scrolling
-        result.text = (0..50).map(|i| format!("Line {}", i)).collect::<Vec<_>>().join("\n");
+        result.text = (0..50).map(|i| format!("Line {i}")).collect::<Vec<_>>().join("\n");
         detail.set_result(result);
 
         // Render and check that header is visible
@@ -475,7 +475,7 @@ mod tests {
         let mut detail = ResultDetail::new();
         let mut result = create_test_result();
         // Create a message with exactly 10 lines
-        result.text = (0..10).map(|i| format!("Line {}", i)).collect::<Vec<_>>().join("\n");
+        result.text = (0..10).map(|i| format!("Line {i}")).collect::<Vec<_>>().join("\n");
         detail.set_result(result);
 
         // Try to scroll beyond the content
@@ -504,7 +504,7 @@ mod tests {
         let mut detail = ResultDetail::new();
         let mut result = create_test_result();
         // Create a very long message
-        result.text = (0..100).map(|i| format!("Line {}", i)).collect::<Vec<_>>().join("\n");
+        result.text = (0..100).map(|i| format!("Line {i}")).collect::<Vec<_>>().join("\n");
         detail.set_result(result);
 
         // Scroll to middle
@@ -564,7 +564,7 @@ mod tests {
         let mut detail = ResultDetail::new();
         let mut result = create_test_result();
         // Create a message with 20 lines
-        result.text = (0..20).map(|i| format!("Line {}", i)).collect::<Vec<_>>().join("\n");
+        result.text = (0..20).map(|i| format!("Line {i}")).collect::<Vec<_>>().join("\n");
         detail.set_result(result);
 
         let buffer = render_component(&mut detail, 80, 40);
