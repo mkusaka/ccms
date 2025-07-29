@@ -57,3 +57,7 @@ pub const MESSAGE_DETAIL_SHORTCUTS_HEIGHT: u16 = 2;
 
 /// Height of the status bar in message detail view
 pub const MESSAGE_DETAIL_STATUS_HEIGHT: u16 = 1;
+
+// General UI layout constants
+/// Height of the exit prompt displayed at the bottom
+pub const EXIT_PROMPT_HEIGHT: u16 = 1;
