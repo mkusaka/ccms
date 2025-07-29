@@ -75,7 +75,7 @@ impl Component for ResultList {
         let title_lines = vec![
             Line::from(vec![Span::styled("Search Results", Styles::title())]),
             Line::from(vec![Span::raw(format!(
-                "{} results found | Ctrl+T: Toggle truncation",
+                "{} results found",
                 self.list_viewer.filtered_count()
             ))]),
         ];
