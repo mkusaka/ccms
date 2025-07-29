@@ -1,5 +1,5 @@
 use crate::interactive_ratatui::ui::components::{
-    Component,
+    Component, is_exit_prompt,
     view_layout::{Styles, ViewLayout},
 };
 use crate::interactive_ratatui::ui::events::{CopyContent, Message};
@@ -48,16 +48,31 @@ impl ResultDetail {
             return;
         };
 
-        // Split the main area into header, message, status/message, and shortcuts
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(8), // Header (fixed)
-                Constraint::Min(5),    // Message content (scrollable)
-                Constraint::Length(1), // Status/Message (fixed)
-                Constraint::Length(2), // Shortcuts (fixed)
-            ])
-            .split(area);
+        // Check if message is exit prompt
+        let is_exit = is_exit_prompt(&self.message);
+        let non_exit_message = if is_exit { None } else { self.message.clone() };
+
+        // Split the main area into header, message, shortcuts, and optionally status/exit prompt
+        let chunks = if is_exit || non_exit_message.is_some() {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(8), // Header (fixed)
+                    Constraint::Min(5),    // Message content (scrollable)
+                    Constraint::Length(2), // Shortcuts (fixed)
+                    Constraint::Length(1), // Status/Exit prompt at bottom
+                ])
+                .split(area)
+        } else {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(8), // Header (fixed)
+                    Constraint::Min(5),    // Message content (scrollable)
+                    Constraint::Length(2), // Shortcuts (fixed)
+                ])
+                .split(area)
+        };
 
         // Format timestamp
         let timestamp = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&result.timestamp) {
@@ -170,8 +185,17 @@ impl ResultDetail {
             )))
             .wrap(Wrap { trim: true });
         f.render_widget(message_widget, chunks[1]);
-        // Show message if any
-        if let Some(ref msg) = self.message {
+
+        // Render shortcuts bar (similar to Session Viewer style)
+        let shortcuts_text = "↑/↓ or j/k: Scroll | Ctrl+S: View full session | F: Copy file path | I: Copy session ID | P: Copy project path | M: Copy message text | R: Copy raw JSON | Alt+←/→: Navigate history | Esc: Back";
+        let shortcuts_bar = Paragraph::new(shortcuts_text)
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(ratatui::layout::Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(shortcuts_bar, chunks[2]);
+
+        // Show non-exit message if any
+        if let Some(ref msg) = non_exit_message {
             let style = if msg.starts_with('✓') {
                 Styles::success()
             } else if msg.starts_with('⚠') {
@@ -183,16 +207,20 @@ impl ResultDetail {
             let message_widget = Paragraph::new(msg.clone())
                 .style(style)
                 .alignment(ratatui::layout::Alignment::Center);
-            f.render_widget(message_widget, chunks[2]);
+            f.render_widget(message_widget, chunks[3]);
         }
 
-        // Render shortcuts bar (similar to Session Viewer style)
-        let shortcuts_text = "↑/↓ or j/k: Scroll | Ctrl+S: View full session | F: Copy file path | I: Copy session ID | P: Copy project path | M: Copy message text | R: Copy raw JSON | Alt+←/→: Navigate history | Esc: Back";
-        let shortcuts_bar = Paragraph::new(shortcuts_text)
-            .style(Style::default().fg(Color::DarkGray))
-            .alignment(ratatui::layout::Alignment::Center)
-            .wrap(Wrap { trim: true });
-        f.render_widget(shortcuts_bar, chunks[3]);
+        // Render exit prompt at the very bottom if needed
+        if is_exit {
+            let exit_prompt = Paragraph::new("Press Ctrl+C again to exit")
+                .style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .alignment(ratatui::layout::Alignment::Center);
+            f.render_widget(exit_prompt, chunks[3]);
+        }
     }
 }
 

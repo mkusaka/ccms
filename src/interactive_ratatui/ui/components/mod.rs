@@ -33,3 +33,34 @@ pub trait Component {
     fn render(&mut self, f: &mut Frame, area: Rect);
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message>;
 }
+
+/// Check if a message is the exit prompt
+pub fn is_exit_prompt(message: &Option<String>) -> bool {
+    message
+        .as_ref()
+        .map(|msg| msg == "Press Ctrl+C again to exit")
+        .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_exit_prompt() {
+        // Test with exit prompt message
+        let exit_message = Some("Press Ctrl+C again to exit".to_string());
+        assert!(is_exit_prompt(&exit_message));
+
+        // Test with other message
+        let other_message = Some("Some other message".to_string());
+        assert!(!is_exit_prompt(&other_message));
+
+        // Test with None
+        assert!(!is_exit_prompt(&None));
+
+        // Test with empty string
+        let empty_message = Some("".to_string());
+        assert!(!is_exit_prompt(&empty_message));
+    }
+}

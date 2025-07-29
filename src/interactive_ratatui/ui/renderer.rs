@@ -1,12 +1,14 @@
 use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::components::{
-    Component, help_dialog::HelpDialog, result_detail::ResultDetail, result_list::ResultList,
-    search_bar::SearchBar, session_viewer::SessionViewer,
+    Component, help_dialog::HelpDialog, is_exit_prompt, result_detail::ResultDetail,
+    result_list::ResultList, search_bar::SearchBar, session_viewer::SessionViewer,
 };
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    widgets::Paragraph,
 };
 
 #[derive(Default)]
@@ -39,18 +41,37 @@ impl Renderer {
     }
 
     fn render_search_mode(&mut self, f: &mut Frame, state: &AppState) {
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(SEARCH_BAR_HEIGHT), // Search bar
-                Constraint::Min(0),                    // Results
-            ])
-            .split(f.area());
+        // Check if we need to display exit prompt at bottom
+        let show_exit_prompt = is_exit_prompt(&state.ui.message);
+
+        let chunks = if show_exit_prompt {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(SEARCH_BAR_HEIGHT), // Search bar
+                    Constraint::Min(0),                    // Results
+                    Constraint::Length(1),                 // Exit prompt
+                ])
+                .split(f.area())
+        } else {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(SEARCH_BAR_HEIGHT), // Search bar
+                    Constraint::Min(0),                    // Results
+                ])
+                .split(f.area())
+        };
 
         // Update search bar state
         self.search_bar.set_query(state.search.query.clone());
         self.search_bar.set_searching(state.search.is_searching);
-        self.search_bar.set_message(state.ui.message.clone());
+        // Don't pass exit prompt to search bar
+        if show_exit_prompt {
+            self.search_bar.set_message(None);
+        } else {
+            self.search_bar.set_message(state.ui.message.clone());
+        }
         self.search_bar
             .set_role_filter(state.search.role_filter.clone());
 
@@ -64,6 +85,18 @@ impl Renderer {
         // Render components
         self.search_bar.render(f, chunks[0]);
         self.result_list.render(f, chunks[1]);
+
+        // Render exit prompt at bottom if needed
+        if show_exit_prompt {
+            let exit_prompt = Paragraph::new("Press Ctrl+C again to exit")
+                .style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .alignment(ratatui::layout::Alignment::Center);
+            f.render_widget(exit_prompt, chunks[2]);
+        }
     }
 
     fn render_detail_mode(&mut self, f: &mut Frame, state: &AppState) {
