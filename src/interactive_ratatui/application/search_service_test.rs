@@ -2,7 +2,7 @@
 mod tests {
     use super::super::search_service::*;
     use crate::SearchOptions;
-    use crate::interactive_ratatui::domain::models::SearchRequest;
+    use crate::interactive_ratatui::domain::models::{SearchOrder, SearchRequest};
 
     #[test]
     fn test_search_service_creation() {
@@ -28,6 +28,7 @@ mod tests {
             query: "   ".to_string(), // Empty/whitespace query
             role_filter: None,
             pattern: "/nonexistent/test/path/*.jsonl".to_string(),
+            order: SearchOrder::Descending,
         };
 
         let response = service.search(request).unwrap();
@@ -52,6 +53,7 @@ mod tests {
             query: "test".to_string(),
             role_filter: Some("user".to_string()),
             pattern: "/nonexistent/test/path/*.jsonl".to_string(),
+            order: SearchOrder::Descending,
         };
 
         // This would normally search files, but without test files it returns empty
@@ -77,6 +79,7 @@ mod tests {
                 query: "test".to_string(),
                 role_filter: None,
                 pattern: "/nonexistent/test/path/*.jsonl".to_string(),
+                order: SearchOrder::Descending,
             };
 
             let response = service.search(request).unwrap();
@@ -97,6 +100,7 @@ mod tests {
             query: "[[invalid regex".to_string(),
             role_filter: None,
             pattern: "/nonexistent/test/path/*.jsonl".to_string(),
+            order: SearchOrder::Descending,
         };
 
         // Should handle invalid regex gracefully
@@ -123,6 +127,7 @@ mod tests {
             query: "".to_string(),
             role_filter: None,
             pattern: "/nonexistent/test/path/*.jsonl".to_string(),
+            order: SearchOrder::Descending,
         };
 
         // Request with role filter should get only that role
@@ -131,6 +136,7 @@ mod tests {
             query: "".to_string(),
             role_filter: Some("user".to_string()),
             pattern: "/nonexistent/test/path/*.jsonl".to_string(),
+            order: SearchOrder::Descending,
         };
 
         // Both will return empty due to missing file, but the structure is correct

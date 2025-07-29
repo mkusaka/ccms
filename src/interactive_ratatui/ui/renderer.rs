@@ -74,6 +74,7 @@ impl Renderer {
         }
         self.search_bar
             .set_role_filter(state.search.role_filter.clone());
+        self.search_bar.set_search_order(state.search.order);
 
         // Update result list state
         self.result_list.set_results(state.search.results.clone());

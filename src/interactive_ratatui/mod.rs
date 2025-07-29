@@ -15,7 +15,7 @@ use crate::SearchOptions;
 
 mod application;
 mod constants;
-mod domain;
+pub mod domain;
 pub mod ui;
 
 #[cfg(test)]
@@ -230,6 +230,10 @@ impl InteractiveSearch {
             KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
                 self.renderer.get_result_list_mut().handle_key(key)
             }
+            // Handle Ctrl+O for toggling search order
+            KeyCode::Char('o') if key.modifiers == KeyModifiers::CONTROL => {
+                Some(Message::ToggleSearchOrder)
+            }
             KeyCode::Up
             | KeyCode::Down
             | KeyCode::PageUp
@@ -335,6 +339,7 @@ impl InteractiveSearch {
                 query: self.state.search.query.clone(),
                 role_filter: self.state.search.role_filter.clone(),
                 pattern: self.pattern.clone(),
+                order: self.state.search.order,
             };
             let _ = sender.send(request);
         }

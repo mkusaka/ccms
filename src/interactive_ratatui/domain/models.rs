@@ -16,6 +16,12 @@ pub enum SessionOrder {
     Descending,
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum SearchOrder {
+    Descending, // Default - newest first
+    Ascending,  // Reverse - oldest first
+}
+
 pub struct CachedFile {
     pub messages: Vec<SessionMessage>,
     pub raw_lines: Vec<String>,
@@ -29,6 +35,7 @@ pub struct SearchRequest {
     pub query: String,
     pub role_filter: Option<String>,
     pub pattern: String,
+    pub order: SearchOrder,
 }
 
 pub struct SearchResponse {

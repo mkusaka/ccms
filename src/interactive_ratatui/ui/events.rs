@@ -1,6 +1,6 @@
 use crate::query::condition::SearchResult;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CopyContent {
     FilePath(String),
     ProjectPath(String),
@@ -19,6 +19,7 @@ pub enum Message {
     SelectResult(usize),
     ScrollUp,
     ScrollDown,
+    ToggleSearchOrder,
 
     // Mode changes
     EnterResultDetail,

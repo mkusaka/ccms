@@ -1,5 +1,5 @@
 use crate::interactive_ratatui::constants::*;
-use crate::interactive_ratatui::domain::models::SessionOrder;
+use crate::interactive_ratatui::domain::models::{SearchOrder, SessionOrder};
 use crate::interactive_ratatui::ui::commands::Command;
 use crate::interactive_ratatui::ui::events::Message;
 use crate::interactive_ratatui::ui::navigation::{
@@ -26,6 +26,7 @@ pub struct SearchState {
     pub role_filter: Option<String>,
     pub is_searching: bool,
     pub current_search_id: u64,
+    pub order: SearchOrder,
 }
 
 pub struct SessionState {
@@ -66,6 +67,7 @@ impl AppState {
                 role_filter: None,
                 is_searching: false,
                 current_search_id: 0,
+                order: SearchOrder::Descending,
             },
             session: SessionState {
                 messages: Vec::new(),
@@ -103,8 +105,7 @@ impl AppState {
             Message::SearchCompleted(results) => {
                 self.search.results = results;
                 self.search.is_searching = false;
-                self.search.selected_index = 0;
-                self.search.scroll_offset = 0;
+                // Results are already sorted by the search engine based on current order
                 self.ui.message = None;
                 Command::None
             }
@@ -238,6 +239,14 @@ impl AppState {
                     Some(r) if r == "assistant" => Some("system".to_string()),
                     _ => None,
                 };
+                Command::ExecuteSearch
+            }
+            Message::ToggleSearchOrder => {
+                self.search.order = match self.search.order {
+                    SearchOrder::Descending => SearchOrder::Ascending,
+                    SearchOrder::Ascending => SearchOrder::Descending,
+                };
+                // Re-execute the search with the new order to get different results
                 Command::ExecuteSearch
             }
             Message::ToggleTruncation => {
@@ -514,6 +523,7 @@ impl AppState {
                 selected_index: self.search.selected_index,
                 scroll_offset: self.search.scroll_offset,
                 role_filter: self.search.role_filter.clone(),
+                order: self.search.order,
             },
             session_state: SessionStateSnapshot {
                 messages: self.session.messages.clone(),
@@ -545,6 +555,7 @@ impl AppState {
         self.search.selected_index = state.search_state.selected_index;
         self.search.scroll_offset = state.search_state.scroll_offset;
         self.search.role_filter = state.search_state.role_filter.clone();
+        self.search.order = state.search_state.order;
 
         // Restore session state
         self.session.messages = state.session_state.messages.clone();
