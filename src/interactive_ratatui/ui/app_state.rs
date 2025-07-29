@@ -134,7 +134,8 @@ impl AppState {
                             // Update the current search state before transitioning
                             // This ensures the current selection is saved
                             if let Some(_current_pos) = self.navigation_history.current_position() {
-                                self.navigation_history.update_current(self.create_navigation_state());
+                                self.navigation_history
+                                    .update_current(self.create_navigation_state());
                             }
                         }
 
@@ -169,7 +170,8 @@ impl AppState {
                         // Update the current search state before transitioning
                         // This ensures the current selection is saved
                         if let Some(_current_pos) = self.navigation_history.current_position() {
-                            self.navigation_history.update_current(self.create_navigation_state());
+                            self.navigation_history
+                                .update_current(self.create_navigation_state());
                         }
                     }
 
@@ -394,7 +396,8 @@ impl AppState {
             Message::NavigateBack => {
                 // Update the current state in history before going back
                 if let Some(_current_pos) = self.navigation_history.current_position() {
-                    self.navigation_history.update_current(self.create_navigation_state());
+                    self.navigation_history
+                        .update_current(self.create_navigation_state());
                 }
 
                 #[cfg(test)]
@@ -430,7 +433,8 @@ impl AppState {
             Message::NavigateForward => {
                 // Update the current state in history before going forward
                 if let Some(_current_pos) = self.navigation_history.current_position() {
-                    self.navigation_history.update_current(self.create_navigation_state());
+                    self.navigation_history
+                        .update_current(self.create_navigation_state());
                 }
 
                 if self.navigation_history.can_go_forward() {
