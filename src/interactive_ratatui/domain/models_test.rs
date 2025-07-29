@@ -6,7 +6,7 @@ mod tests {
     fn test_mode_equality() {
         assert_eq!(Mode::Search, Mode::Search);
         assert_ne!(Mode::Search, Mode::Help);
-        assert_ne!(Mode::ResultDetail, Mode::SessionViewer);
+        assert_ne!(Mode::MessageDetail, Mode::SessionViewer);
     }
 
     #[test]

@@ -123,10 +123,10 @@ impl AppState {
                 // Scroll handling is now done within ResultList
                 Command::None
             }
-            Message::EnterResultDetail => {
+            Message::EnterMessageDetail => {
                 if let Some(result) = self.search.results.get(self.search.selected_index).cloned() {
                     // Only save state if we're actually changing modes
-                    if self.mode != Mode::ResultDetail {
+                    if self.mode != Mode::MessageDetail {
                         // If this is our first navigation, save the initial state
                         if self.navigation_history.is_empty() {
                             let initial_state = self.create_navigation_state();
@@ -142,7 +142,7 @@ impl AppState {
 
                         self.ui.selected_result = Some(result);
                         self.ui.detail_scroll_offset = 0;
-                        self.mode = Mode::ResultDetail;
+                        self.mode = Mode::MessageDetail;
 
                         // Save the new state after transitioning
                         let new_state = self.create_navigation_state();
@@ -156,7 +156,7 @@ impl AppState {
             }
             Message::EnterSessionViewer => {
                 // Try to get result from selected result (when in detail view) or search results
-                let result = if self.mode == Mode::ResultDetail {
+                let result = if self.mode == Mode::MessageDetail {
                     self.ui.selected_result.as_ref()
                 } else {
                     self.search.results.get(self.search.selected_index)
@@ -326,7 +326,7 @@ impl AppState {
                 self.ui.message = None;
                 Command::None
             }
-            Message::EnterResultDetailFromSession(raw_json, file_path, session_id) => {
+            Message::EnterMessageDetailFromSession(raw_json, file_path, session_id) => {
                 // Parse the raw JSON to create a SearchResult
                 if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&raw_json) {
                     let role = json_value
@@ -421,7 +421,7 @@ impl AppState {
 
                     self.ui.selected_result = Some(result);
                     self.ui.detail_scroll_offset = 0;
-                    self.mode = Mode::ResultDetail;
+                    self.mode = Mode::MessageDetail;
 
                     // Save the new state after transitioning
                     let new_state = self.create_navigation_state();
@@ -613,7 +613,7 @@ impl AppState {
                     Command::None
                 }
             }
-            Mode::ResultDetail => {
+            Mode::MessageDetail => {
                 // ResultDetail initialization during direct transition:
                 // - Selected result is set in EnterResultDetail handler
                 // - Scroll position is reset here for consistency

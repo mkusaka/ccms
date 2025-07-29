@@ -340,8 +340,8 @@ mod tests {
             .unwrap();
         assert!(!should_exit);
 
-        // ESC in result detail should return to search
-        app.state.mode = Mode::ResultDetail;
+        // ESC in message detail should return to search
+        app.state.mode = Mode::MessageDetail;
         let should_exit = app
             .handle_input(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()))
             .unwrap();
@@ -354,8 +354,8 @@ mod tests {
         app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
 
         // Navigate to ResultDetail (this will save both Search and ResultDetail states)
-        app.handle_message(Message::EnterResultDetail);
-        assert_eq!(app.state.mode, Mode::ResultDetail);
+        app.handle_message(Message::EnterMessageDetail);
+        assert_eq!(app.state.mode, Mode::MessageDetail);
 
         // Navigate to SessionViewer (this will save SessionViewer state)
         app.handle_message(Message::EnterSessionViewer);
@@ -366,7 +366,7 @@ mod tests {
             .handle_input(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()))
             .unwrap();
         assert!(!should_exit);
-        assert_eq!(app.state.mode, Mode::ResultDetail);
+        assert_eq!(app.state.mode, Mode::MessageDetail);
     }
 
     /// Test navigation history functionality
@@ -378,10 +378,10 @@ mod tests {
         app.state.mode = Mode::Search;
         assert!(app.state.navigation_history.is_empty());
 
-        // Navigate to result detail
+        // Navigate to message detail
         app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
-        app.handle_message(Message::EnterResultDetail);
-        assert_eq!(app.state.mode, Mode::ResultDetail);
+        app.handle_message(Message::EnterMessageDetail);
+        assert_eq!(app.state.mode, Mode::MessageDetail);
         assert_eq!(app.state.navigation_history.len(), 2); // Search and ResultDetail
 
         // Navigate to session viewer
@@ -389,9 +389,9 @@ mod tests {
         assert_eq!(app.state.mode, Mode::SessionViewer);
         assert_eq!(app.state.navigation_history.len(), 3); // Search, ResultDetail, SessionViewer
 
-        // ESC should pop back to result detail
+        // ESC should pop back to message detail
         app.handle_message(Message::ExitToSearch);
-        assert_eq!(app.state.mode, Mode::ResultDetail);
+        assert_eq!(app.state.mode, Mode::MessageDetail);
         assert!(app.state.navigation_history.can_go_forward());
 
         // Another ESC should go back to search
@@ -449,7 +449,7 @@ mod tests {
 
         // Now push ResultDetail state
         let result_detail_state = NavigationState {
-            mode: Mode::ResultDetail,
+            mode: Mode::MessageDetail,
             search_state: SearchStateSnapshot {
                 query: String::new(),
                 results: Vec::new(),
@@ -495,7 +495,7 @@ mod tests {
         let forward_state = history.go_forward();
         assert_eq!(
             forward_state.unwrap().mode,
-            Mode::ResultDetail,
+            Mode::MessageDetail,
             "go_forward returns ResultDetail"
         );
         assert!(history.can_go_back());
@@ -529,8 +529,8 @@ mod tests {
         app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
 
         // Navigate to ResultDetail - this will push both Search and ResultDetail states
-        app.handle_message(Message::EnterResultDetail);
-        assert_eq!(app.state.mode, Mode::ResultDetail);
+        app.handle_message(Message::EnterMessageDetail);
+        assert_eq!(app.state.mode, Mode::MessageDetail);
         assert!(
             app.state.ui.selected_result.is_some(),
             "Should have selected result"
@@ -572,7 +572,7 @@ mod tests {
         app.handle_input(alt_right).unwrap();
         assert_eq!(
             app.state.mode,
-            Mode::ResultDetail,
+            Mode::MessageDetail,
             "Alt+Right should go forward to ResultDetail"
         );
         assert!(
@@ -588,7 +588,7 @@ mod tests {
         app.handle_input(alt_right).unwrap();
         assert_eq!(
             app.state.mode,
-            Mode::ResultDetail,
+            Mode::MessageDetail,
             "Alt+Right at end should not change mode"
         );
     }
@@ -604,8 +604,8 @@ mod tests {
 
         // Setup: Navigate through modes
         app.state.search.results = vec![create_test_result("user", "test", "2024-01-01T00:00:00Z")];
-        app.handle_message(Message::EnterResultDetail);
-        assert_eq!(app.state.mode, Mode::ResultDetail);
+        app.handle_message(Message::EnterMessageDetail);
+        assert_eq!(app.state.mode, Mode::MessageDetail);
         assert_eq!(app.state.navigation_history.len(), 2); // Search, ResultDetail
 
         app.handle_message(Message::EnterSessionViewer);
@@ -616,7 +616,7 @@ mod tests {
         app.handle_input(alt_left).unwrap();
         assert_eq!(
             app.state.mode,
-            Mode::ResultDetail,
+            Mode::MessageDetail,
             "Alt+Left from SessionViewer should go to ResultDetail"
         );
 
@@ -631,7 +631,7 @@ mod tests {
         app.handle_input(alt_right).unwrap();
         assert_eq!(
             app.state.mode,
-            Mode::ResultDetail,
+            Mode::MessageDetail,
             "Alt+Right should go to ResultDetail"
         );
 
@@ -751,9 +751,9 @@ mod tests {
         let mut app = InteractiveSearch::new(SearchOptions::default());
         let result = create_test_result("user", "Test message", "2024-01-01T12:00:00Z");
 
-        app.state.mode = Mode::ResultDetail;
+        app.state.mode = Mode::MessageDetail;
         app.state.ui.selected_result = Some(result.clone());
-        app.renderer.get_result_detail_mut().set_result(result);
+        app.renderer.get_message_detail_mut().set_result(result);
 
         // Render and check metadata is displayed
         let backend = TestBackend::new(100, 40);
@@ -838,9 +838,9 @@ mod tests {
         let mut app = InteractiveSearch::new(SearchOptions::default());
         let result = create_test_result("user", "Test message", "2024-01-01T00:00:00Z");
 
-        app.state.mode = Mode::ResultDetail;
+        app.state.mode = Mode::MessageDetail;
         app.state.ui.selected_result = Some(result.clone());
-        app.renderer.get_result_detail_mut().set_result(result);
+        app.renderer.get_message_detail_mut().set_result(result);
 
         // Test all copy shortcuts
         let shortcuts = vec![
@@ -993,7 +993,7 @@ mod tests {
     fn test_ctrl_c_in_all_modes() {
         let modes = vec![
             Mode::Search,
-            Mode::ResultDetail,
+            Mode::MessageDetail,
             Mode::SessionViewer,
             Mode::Help,
         ];
