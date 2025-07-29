@@ -198,9 +198,9 @@ impl SessionMessage {
                             match content {
                                 Content::Text { text } => texts.push(text.clone()),
                                 Content::ToolResult {
-                                    tool_use_id,
+                                    tool_use_id: _,
                                     content: Some(tool_content),
-                                    is_error,
+                                    is_error: _,
                                 } => {
                                     let result_text = match tool_content {
                                         ToolResultContent::String(s) => {
@@ -233,14 +233,14 @@ impl SessionMessage {
                                     texts.push(result_text);
                                 }
                                 Content::ToolResult {
-                                    tool_use_id,
+                                    tool_use_id: _,
                                     content: None,
                                     ..
                                 } => {
                                     // Skip tool results with no content
                                     continue;
                                 }
-                                Content::ToolUse { name, id, .. } => {
+                                Content::ToolUse { .. } => {
                                     // Skip tool use entries
                                     continue;
                                 }
@@ -263,14 +263,14 @@ impl SessionMessage {
                     match content {
                         Content::Text { text } => texts.push(text.clone()),
                         Content::Thinking { thinking, .. } => texts.push(thinking.clone()),
-                        Content::ToolUse { name, id, .. } => {
+                        Content::ToolUse { .. } => {
                             // Skip tool use entries
                             continue;
                         }
                         Content::ToolResult {
-                            tool_use_id,
+                            tool_use_id: _,
                             content: Some(tool_content),
-                            is_error,
+                            is_error: _,
                         } => {
                             let result_text = match tool_content {
                                 ToolResultContent::String(s) => {
@@ -303,7 +303,7 @@ impl SessionMessage {
                             texts.push(result_text);
                         }
                         Content::ToolResult {
-                            tool_use_id,
+                            tool_use_id: _,
                             content: None,
                             ..
                         } => {
@@ -462,7 +462,7 @@ mod tests {
         assert_eq!(msg.get_type(), "assistant");
         assert_eq!(
             msg.get_content_text(),
-            "I'll help you with that.\n[Tool Use: read_file (tool_1)]"
+            "I'll help you with that."
         );
         assert!(msg.has_tool_use());
         assert!(!msg.has_thinking());
@@ -588,7 +588,7 @@ mod tests {
         assert_eq!(msg.get_type(), "user");
         assert_eq!(
             msg.get_content_text(),
-            "Here's the result:\n[Tool Result: tool_1: File contents: Hello World]"
+            "Here's the result:\nFile contents: Hello World"
         );
     }
 
@@ -624,7 +624,7 @@ mod tests {
         assert_eq!(msg.get_type(), "user");
         assert_eq!(
             msg.get_content_text(),
-            "[Tool Result: tool_2: Line 1\nLine 2]"
+            "Line 1\nLine 2"
         );
     }
 
@@ -671,7 +671,7 @@ mod tests {
         assert_eq!(msg.get_type(), "assistant");
         assert_eq!(
             msg.get_content_text(),
-            "Starting analysis...\n[Tool Use: analyze_code (tool_3)]\nAnalysis complete."
+            "Starting analysis...\nAnalysis complete."
         );
         assert!(msg.has_tool_use());
     }
