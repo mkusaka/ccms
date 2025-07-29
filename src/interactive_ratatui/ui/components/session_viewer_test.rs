@@ -1251,4 +1251,75 @@ mod tests {
         let buffer = render_component(&mut viewer, 100, 30);
         assert!(buffer_contains(&buffer, "Tab: Role Filter"));
     }
+
+    #[test]
+    fn test_status_bar_wrapping_narrow_terminal() {
+        let mut viewer = SessionViewer::new();
+
+        // Create a very narrow terminal (40 characters wide) to force wrapping
+        // Increase height to 20 to ensure all wrapped text is visible
+        let buffer = render_component(&mut viewer, 40, 20);
+
+        // The long status text should be wrapped across multiple lines
+        // Check that key parts of the shortcuts are present
+        assert!(buffer_contains(&buffer, "Navigate"));
+        assert!(buffer_contains(&buffer, "Copy"));
+        assert!(buffer_contains(&buffer, "Search"));
+        assert!(buffer_contains(&buffer, "Back"));
+    }
+
+    #[test]
+    fn test_status_bar_wrapping_very_narrow_terminal() {
+        let mut viewer = SessionViewer::new();
+
+        // Create an extremely narrow terminal (20 characters wide)
+        // Increase height to accommodate wrapped text
+        let buffer = render_component(&mut viewer, 20, 25);
+
+        // Even with extreme narrow width, shortcuts should be wrapped and visible
+        assert!(buffer_contains(&buffer, "Navigate"));
+        assert!(buffer_contains(&buffer, "Filter"));
+        assert!(buffer_contains(&buffer, "Copy"));
+    }
+
+    #[test]
+    fn test_status_bar_no_wrapping_wide_terminal() {
+        let mut viewer = SessionViewer::new();
+
+        // Create a wide terminal (200 characters wide) where no wrapping should occur
+        let buffer = render_component(&mut viewer, 200, 10);
+
+        // All shortcuts should be on the same line
+        let content = buffer
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+
+        // Find the status bar content
+        let navigate_pos = content.find("Navigate").expect("Navigate not found");
+        let back_pos = content.find("Back").expect("Back not found");
+
+        // They should be on the same line (200 chars per line)
+        let navigate_line = navigate_pos / 200;
+        let back_line = back_pos / 200;
+        assert_eq!(
+            navigate_line, back_line,
+            "Status bar should be on a single line in wide terminal"
+        );
+    }
+
+    #[test]
+    fn test_status_bar_height_with_message() {
+        let mut viewer = SessionViewer::new();
+        viewer.set_message(Some("✓ Test message".to_string()));
+
+        // Create a narrow terminal to test wrapping with message present
+        let buffer = render_component(&mut viewer, 40, 15);
+
+        // Both message and status bar should be visible
+        assert!(buffer_contains(&buffer, "✓ Test message"));
+        assert!(buffer_contains(&buffer, "Navigate"));
+        assert!(buffer_contains(&buffer, "Back"));
+    }
 }

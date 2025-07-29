@@ -12,8 +12,8 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::Line,
-    widgets::{Block, Borders, Paragraph},
+    text::{Line, Text},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -234,22 +234,39 @@ impl Component for SessionViewer {
 
         let subtitle = subtitle_parts.join("\n");
 
+        // Calculate status bar height based on terminal width
+        let status_text = "↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
+        let status_bar_height = {
+            let text_len = status_text.len();
+            let width = area.width as usize;
+            // Calculate number of lines needed for wrapping
+            // Using manual ceiling division for compatibility
+            #[allow(clippy::manual_div_ceil)]
+            let lines_needed = if width > 0 {
+                (text_len + width - 1) / width
+            } else {
+                1
+            };
+            // Ensure minimum of 3 lines, max of 8 lines
+            (lines_needed as u16).clamp(3, 8)
+        };
+
         // Layout with message area
         let chunks = if self.message.is_some() {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Min(0),    // Main content
-                    Constraint::Length(1), // Message
-                    Constraint::Length(2), // Status bar
+                    Constraint::Min(0),                    // Main content
+                    Constraint::Length(1),                 // Message
+                    Constraint::Length(status_bar_height), // Status bar with dynamic height
                 ])
                 .split(area)
         } else {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Min(0),    // Main content
-                    Constraint::Length(2), // Status bar
+                    Constraint::Min(0),                    // Main content
+                    Constraint::Length(status_bar_height), // Status bar with dynamic height
                 ])
                 .split(area)
         };
@@ -284,10 +301,10 @@ impl Component for SessionViewer {
         // Render status bar
         let status_idx = if self.message.is_some() { 2 } else { 1 };
         if chunks.len() > status_idx {
-            let status_text = "↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
-            let status_bar = Paragraph::new(status_text)
+            let status_bar = Paragraph::new(Text::from(status_text))
                 .style(Style::default().fg(Color::DarkGray))
-                .alignment(ratatui::layout::Alignment::Center);
+                .alignment(ratatui::layout::Alignment::Left)
+                .wrap(Wrap { trim: true });
             f.render_widget(status_bar, chunks[status_idx]);
         }
     }
