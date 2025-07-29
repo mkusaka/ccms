@@ -181,6 +181,69 @@ mod tests {
     }
 
     #[test]
+    fn test_half_page_navigation() {
+        let mut viewer = ListViewer::<MockListItem>::new("Test".to_string(), "Empty".to_string());
+        let items = create_mock_items(30);
+        viewer.set_items(items);
+
+        // Set a viewport height for testing
+        viewer.set_last_viewport_height(10);
+
+        // Test half_page_down
+        assert_eq!(viewer.selected_index, 0);
+        assert!(viewer.half_page_down());
+        assert_eq!(viewer.selected_index, 5); // Half of 10
+
+        assert!(viewer.half_page_down());
+        assert_eq!(viewer.selected_index, 10);
+
+        // Navigate to near the end
+        viewer.selected_index = 25;
+        assert!(viewer.half_page_down());
+        assert_eq!(viewer.selected_index, 29); // Can't go past last item
+
+        // Test that we can't scroll past the end
+        assert!(!viewer.half_page_down());
+        assert_eq!(viewer.selected_index, 29);
+
+        // Test half_page_up
+        assert!(viewer.half_page_up());
+        assert_eq!(viewer.selected_index, 24); // 29 - 5
+
+        viewer.selected_index = 3;
+        assert!(viewer.half_page_up());
+        assert_eq!(viewer.selected_index, 0); // Can't go below 0
+
+        // Test that we can't scroll past the start
+        assert!(!viewer.half_page_up());
+        assert_eq!(viewer.selected_index, 0);
+    }
+
+    #[test]
+    fn test_half_page_navigation_with_different_viewport_sizes() {
+        let mut viewer = ListViewer::<MockListItem>::new("Test".to_string(), "Empty".to_string());
+        let items = create_mock_items(50);
+        viewer.set_items(items);
+
+        // Test with viewport height of 20
+        viewer.set_last_viewport_height(20);
+        assert!(viewer.half_page_down());
+        assert_eq!(viewer.selected_index, 10); // Half of 20
+
+        // Test with viewport height of 7 (odd number)
+        viewer.selected_index = 0;
+        viewer.set_last_viewport_height(7);
+        assert!(viewer.half_page_down());
+        assert_eq!(viewer.selected_index, 3); // Floor of 7/2
+
+        // Test with very small viewport
+        viewer.selected_index = 0;
+        viewer.set_last_viewport_height(2);
+        assert!(viewer.half_page_down());
+        assert_eq!(viewer.selected_index, 1);
+    }
+
+    #[test]
     fn test_filtered_navigation() {
         let mut viewer = ListViewer::<MockListItem>::new("Test".to_string(), "Empty".to_string());
         let items = create_mock_items(10);

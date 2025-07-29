@@ -284,7 +284,7 @@ impl Component for SessionViewer {
         // Render status bar
         let status_idx = if self.message.is_some() { 2 } else { 1 };
         if chunks.len() > status_idx {
-            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
+            let status_text = "↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
             let status_bar = Paragraph::new(status_text)
                 .style(Style::default().fg(Color::DarkGray))
                 .alignment(ratatui::layout::Alignment::Center);
@@ -336,11 +336,11 @@ impl Component for SessionViewer {
             }
         } else {
             match key.code {
-                KeyCode::Up | KeyCode::Char('k') => {
+                KeyCode::Up => {
                     self.list_viewer.move_up();
                     Some(Message::SessionNavigated)
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
+                KeyCode::Down => {
                     self.list_viewer.move_down();
                     Some(Message::SessionNavigated)
                 }
@@ -350,6 +350,14 @@ impl Component for SessionViewer {
                 }
                 KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
                     self.list_viewer.move_down();
+                    Some(Message::SessionNavigated)
+                }
+                KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.list_viewer.half_page_up();
+                    Some(Message::SessionNavigated)
+                }
+                KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.list_viewer.half_page_down();
                     Some(Message::SessionNavigated)
                 }
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
