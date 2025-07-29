@@ -460,10 +460,7 @@ mod tests {
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(msg.get_type(), "assistant");
-        assert_eq!(
-            msg.get_content_text(),
-            "I'll help you with that."
-        );
+        assert_eq!(msg.get_content_text(), "I'll help you with that.");
         assert!(msg.has_tool_use());
         assert!(!msg.has_thinking());
     }
@@ -622,10 +619,7 @@ mod tests {
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(msg.get_type(), "user");
-        assert_eq!(
-            msg.get_content_text(),
-            "Line 1\nLine 2"
-        );
+        assert_eq!(msg.get_content_text(), "Line 1\nLine 2");
     }
 
     #[test]
