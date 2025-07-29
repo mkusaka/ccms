@@ -105,8 +105,7 @@ impl AppState {
             Message::SearchCompleted(results) => {
                 self.search.results = results;
                 self.search.is_searching = false;
-                // Sort results based on current order
-                self.sort_search_results();
+                // Results are already sorted by the search engine based on current order
                 self.ui.message = None;
                 Command::None
             }
@@ -247,9 +246,8 @@ impl AppState {
                     SearchOrder::Descending => SearchOrder::Ascending,
                     SearchOrder::Ascending => SearchOrder::Descending,
                 };
-                // Re-sort the current results without re-executing search
-                self.sort_search_results();
-                Command::None
+                // Re-execute the search with the new order to get different results
+                Command::ExecuteSearch
             }
             Message::ToggleTruncation => {
                 self.ui.truncation_enabled = !self.ui.truncation_enabled;
@@ -621,21 +619,4 @@ impl AppState {
         self.initialize_mode()
     }
 
-    // Sort search results based on current order
-    pub fn sort_search_results(&mut self) {
-        match self.search.order {
-            SearchOrder::Descending => {
-                // Sort by timestamp descending (newest first)
-                self.search.results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-            }
-            SearchOrder::Ascending => {
-                // Sort by timestamp ascending (oldest first)
-                self.search.results.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
-            }
-        }
-        
-        // Reset selection to first item
-        self.search.selected_index = 0;
-        self.search.scroll_offset = 0;
-    }
 }

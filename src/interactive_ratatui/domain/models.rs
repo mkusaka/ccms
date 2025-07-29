@@ -35,6 +35,7 @@ pub struct SearchRequest {
     pub query: String,
     pub role_filter: Option<String>,
     pub pattern: String,
+    pub order: SearchOrder,
 }
 
 pub struct SearchResponse {

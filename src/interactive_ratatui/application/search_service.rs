@@ -16,7 +16,7 @@ impl SearchService {
     }
 
     pub fn search(&self, request: SearchRequest) -> Result<SearchResponse> {
-        let results = self.execute_search(&request.query, &request.pattern, request.role_filter)?;
+        let results = self.execute_search(&request.query, &request.pattern, request.role_filter, request.order)?;
 
         Ok(SearchResponse {
             id: request.id,
@@ -29,6 +29,7 @@ impl SearchService {
         query: &str,
         pattern: &str,
         role_filter: Option<String>,
+        order: crate::interactive_ratatui::domain::models::SearchOrder,
     ) -> Result<Vec<SearchResult>> {
         let query_condition = if query.trim().is_empty() {
             // Empty query means "match all" - use empty AND condition
@@ -39,9 +40,9 @@ impl SearchService {
 
         let (results, _, _) =
             self.engine
-                .search_with_role_filter(pattern, query_condition, role_filter)?;
+                .search_with_role_filter_and_order(pattern, query_condition, role_filter, order)?;
 
-        // No sorting here - AppState will handle sorting based on current order
+        // Results are already sorted by the engine based on the order
         Ok(results)
     }
 }

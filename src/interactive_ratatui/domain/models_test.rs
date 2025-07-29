@@ -43,6 +43,7 @@ mod tests {
             query: "test query".to_string(),
             role_filter: Some("user".to_string()),
             pattern: "*.jsonl".to_string(),
+            order: SearchOrder::Descending,
         };
 
         assert_eq!(request.id, 42);
@@ -102,6 +103,7 @@ mod tests {
             query: "test".to_string(),
             role_filter: None,
             pattern: "*.jsonl".to_string(),
+            order: SearchOrder::Ascending,
         };
 
         let cloned = original.clone();
@@ -109,5 +111,6 @@ mod tests {
         assert_eq!(cloned.query, original.query);
         assert_eq!(cloned.role_filter, original.role_filter);
         assert_eq!(cloned.pattern, original.pattern);
+        assert_eq!(cloned.order, original.order);
     }
 }

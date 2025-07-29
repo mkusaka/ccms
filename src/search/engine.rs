@@ -9,6 +9,7 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 use super::file_discovery::{discover_claude_files, expand_tilde};
+use crate::interactive_ratatui::domain::models::SearchOrder;
 use crate::query::{QueryCondition, SearchOptions, SearchResult};
 use crate::schemas::SessionMessage;
 
@@ -34,6 +35,16 @@ impl SearchEngine {
         pattern: &str,
         query: QueryCondition,
         role_filter: Option<String>,
+    ) -> Result<(Vec<SearchResult>, std::time::Duration, usize)> {
+        self.search_with_role_filter_and_order(pattern, query, role_filter, SearchOrder::Descending)
+    }
+
+    pub fn search_with_role_filter_and_order(
+        &self,
+        pattern: &str,
+        query: QueryCondition,
+        role_filter: Option<String>,
+        order: SearchOrder,
     ) -> Result<(Vec<SearchResult>, std::time::Duration, usize)> {
         let start_time = std::time::Instant::now();
 
@@ -112,8 +123,17 @@ impl SearchEngine {
         // Apply filters
         self.apply_filters(&mut all_results, role_filter)?;
 
-        // Sort by timestamp (newest first)
-        all_results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        // Sort by timestamp based on search order
+        match order {
+            SearchOrder::Descending => {
+                // Newest first
+                all_results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            }
+            SearchOrder::Ascending => {
+                // Oldest first
+                all_results.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+            }
+        }
 
         // Store total count before truncating
         let total_count = all_results.len();

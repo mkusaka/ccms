@@ -15,7 +15,7 @@ use crate::SearchOptions;
 
 mod application;
 mod constants;
-mod domain;
+pub mod domain;
 pub mod ui;
 
 #[cfg(test)]
@@ -339,6 +339,7 @@ impl InteractiveSearch {
                 query: self.state.search.query.clone(),
                 role_filter: self.state.search.role_filter.clone(),
                 pattern: self.pattern.clone(),
+                order: self.state.search.order,
             };
             let _ = sender.send(request);
         }
