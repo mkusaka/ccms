@@ -58,8 +58,11 @@ impl CacheService {
             );
         }
 
-        self.files
-            .get(path)
-            .ok_or_else(|| anyhow::anyhow!("Failed to retrieve cached file from path: {}", path.display()))
+        self.files.get(path).ok_or_else(|| {
+            anyhow::anyhow!(
+                "Failed to retrieve cached file from path: {}",
+                path.display()
+            )
+        })
     }
 }

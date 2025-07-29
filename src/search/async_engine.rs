@@ -90,7 +90,10 @@ impl AsyncSearchEngine {
                         Ok(permit) => permit,
                         Err(e) => {
                             if options.verbose {
-                                debug!("Failed to acquire semaphore permit for file {:?}: {}", file_path, e);
+                                debug!(
+                                    "Failed to acquire semaphore permit for file {:?}: {}",
+                                    file_path, e
+                                );
                             }
                             return;
                         }
@@ -116,7 +119,9 @@ impl AsyncSearchEngine {
 
         let duration = start.elapsed();
         let results = Arc::try_unwrap(results)
-            .map_err(|_| anyhow::anyhow!("Failed to unwrap results - Arc still has active references"))?
+            .map_err(|_| {
+                anyhow::anyhow!("Failed to unwrap results - Arc still has active references")
+            })?
             .into_inner();
         let total = total_count.load(std::sync::atomic::Ordering::Relaxed);
 
