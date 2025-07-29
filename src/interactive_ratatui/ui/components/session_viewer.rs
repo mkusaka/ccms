@@ -1,7 +1,7 @@
 use crate::interactive_ratatui::domain::models::SessionOrder;
 use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
 use crate::interactive_ratatui::ui::components::{
-    Component,
+    Component, is_exit_prompt,
     list_viewer::ListViewer,
     text_input::TextInput,
     view_layout::{ColorScheme, ViewLayout},
@@ -12,8 +12,8 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::Line,
-    widgets::{Block, Borders, Paragraph},
+    text::{Line, Text},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -243,22 +243,52 @@ impl Component for SessionViewer {
 
         let subtitle = subtitle_parts.join("\n");
 
+        // Calculate status bar height based on terminal width
+        let status_text = "↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
+        let status_bar_height = {
+            let text_len = status_text.len();
+            let width = area.width as usize;
+            // Calculate number of lines needed for wrapping
+            // Using manual ceiling division for compatibility
+            #[allow(clippy::manual_div_ceil)]
+            let lines_needed = if width > 0 {
+                (text_len + width - 1) / width
+            } else {
+                1
+            };
+            // Ensure minimum of 3 lines, max of 8 lines
+            (lines_needed as u16).clamp(3, 8)
+        };
+
+        // Check if message is exit prompt
+        let is_exit = is_exit_prompt(&self.message);
+        let non_exit_message = if is_exit { None } else { self.message.clone() };
+
         // Layout with message area
-        let chunks = if self.message.is_some() {
+        let chunks = if is_exit {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Min(0),    // Main content
-                    Constraint::Length(1), // Message
-                    Constraint::Length(2), // Status bar
+                    Constraint::Min(0),                    // Main content
+                    Constraint::Length(status_bar_height), // Status bar with dynamic height
+                    Constraint::Length(1),                 // Exit prompt at bottom
+                ])
+                .split(area)
+        } else if non_exit_message.is_some() {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(0),                    // Main content
+                    Constraint::Length(1),                 // Message
+                    Constraint::Length(status_bar_height), // Status bar with dynamic height
                 ])
                 .split(area)
         } else {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Min(0),    // Main content
-                    Constraint::Length(2), // Status bar
+                    Constraint::Min(0),                    // Main content
+                    Constraint::Length(status_bar_height), // Status bar with dynamic height
                 ])
                 .split(area)
         };
@@ -272,8 +302,8 @@ impl Component for SessionViewer {
             self.render_content(f, content_area);
         });
 
-        // Render message if present
-        if let Some(ref msg) = self.message {
+        // Render non-exit message if present
+        if let Some(ref msg) = non_exit_message {
             let style = if msg.starts_with('✓') {
                 Style::default()
                     .fg(ColorScheme::SUCCESS)
@@ -291,13 +321,31 @@ impl Component for SessionViewer {
         }
 
         // Render status bar
-        let status_idx = if self.message.is_some() { 2 } else { 1 };
+        let status_idx = if is_exit {
+            1
+        } else if non_exit_message.is_some() {
+            2
+        } else {
+            1
+        };
         if chunks.len() > status_idx {
-            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | p: Copy Project Path | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
-            let status_bar = Paragraph::new(status_text)
+            let status_bar = Paragraph::new(Text::from(status_text))
                 .style(Style::default().fg(Color::DarkGray))
-                .alignment(ratatui::layout::Alignment::Center);
+                .alignment(ratatui::layout::Alignment::Left)
+                .wrap(Wrap { trim: true });
             f.render_widget(status_bar, chunks[status_idx]);
+        }
+
+        // Render exit prompt at the very bottom if needed
+        if is_exit {
+            let exit_prompt = Paragraph::new("Press Ctrl+C again to exit")
+                .style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .alignment(ratatui::layout::Alignment::Center);
+            f.render_widget(exit_prompt, chunks[2]);
         }
     }
 
@@ -357,14 +405,14 @@ impl Component for SessionViewer {
             }
         } else {
             match key.code {
-                KeyCode::Up | KeyCode::Char('k') => {
+                KeyCode::Up => {
                     self.list_viewer.move_up();
                     Some(Message::SessionNavigated(
                         self.list_viewer.selected_index,
                         self.list_viewer.scroll_offset,
                     ))
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
+                KeyCode::Down => {
                     self.list_viewer.move_down();
                     Some(Message::SessionNavigated(
                         self.list_viewer.selected_index,
@@ -384,6 +432,14 @@ impl Component for SessionViewer {
                         self.list_viewer.selected_index,
                         self.list_viewer.scroll_offset,
                     ))
+                }
+                KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.list_viewer.half_page_up();
+                    Some(Message::SessionNavigated)
+                }
+                KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.list_viewer.half_page_down();
+                    Some(Message::SessionNavigated)
                 }
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(Message::ToggleSessionRoleFilter)

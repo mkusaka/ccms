@@ -207,6 +207,12 @@ impl SessionMessage {
                                             texts.push(item.text.clone());
                                         }
                                     }
+                                    ToolResultContent::Value(val) => {
+                                        // Try to extract string from Value
+                                        if let Some(s) = val.as_str() {
+                                            texts.push(s.to_string());
+                                        }
+                                    }
                                     _ => {}
                                 },
                                 Content::ToolResult { content: None, .. } => {}

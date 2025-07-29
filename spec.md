@@ -53,7 +53,10 @@ Search [role]: [query]
 | Backspace | Remove last character from query and re-search |
 | ↑ (Arrow Up) | Move selection up (with bounds checking) |
 | ↓ (Arrow Down) | Move selection down (with scrolling support) |
+| Ctrl+u | Scroll up half page |
+| Ctrl+d | Scroll down half page |
 | Enter | View full details of selected result |
+| Ctrl+S | Jump directly to session viewer |
 | Home | Jump to first result |
 | End | Jump to last result |
 | PageUp | Scroll up by visible height |
@@ -82,7 +85,7 @@ Session: [session_id]
 [Full message content with automatic word wrapping at terminal boundaries]
 [Long lines are wrapped at word boundaries when possible]
 [Unicode characters (Japanese, emoji) are safely handled]
-[Scrollable with j/k or ↑/↓ arrows]
+[Scrollable with ↑/↓ arrows and Ctrl+u/d half-page scrolling]
 ────────────────────────────────────────────────────────────────────────────────
 
 Actions:
@@ -92,8 +95,9 @@ Actions:
   [P] - Copy project path
   [M] - Copy message text
   [R] - Copy raw JSON
-  [J/↓] - Scroll down
-  [K/↑] - Scroll up
+  [↑/↓] - Scroll up/down
+  [Ctrl+u] - Scroll up half page  
+  [Ctrl+d] - Scroll down half page
   [PageDown] - Scroll down 10 lines
   [PageUp] - Scroll up 10 lines
   [Alt+←/→] - Navigate history
@@ -104,7 +108,7 @@ Actions:
 
 #### Scrolling Behavior
 
-- Long messages can be scrolled using j/k or arrow keys
+- Long messages can be scrolled using arrow keys or Ctrl+u/d for half-page scrolling
 - Page up/down scrolls by 10 lines
 - Scroll offset is reset when returning to search view
 - Visible area adjusts based on terminal height
@@ -129,7 +133,7 @@ When 'S' is pressed in the full result view:
 │                                                                                │
 │ Showing X-Y of Z messages ↑/↓ to scroll                                        │
 └────────────────────────────────────────────────────────────────────────────────┘
-Enter: View | ↑/↓: Navigate | Tab: Role Filter | /: Search | I: Copy Session ID | O: Sort | C: Copy All | Esc: Back
+Enter: View | ↑/↓: Navigate | Ctrl+u/d: Half-page | Tab: Role Filter | /: Search | I: Copy Session ID | O: Sort | C: Copy All | Esc: Back
 ```
 
 **Navigation**: Pressing Esc returns to the previous screen (typically ResultDetail), not directly to Search.
@@ -152,6 +156,7 @@ Enter: View | ↑/↓: Navigate | Tab: Role Filter | /: Search | I: Copy Session
 
 3. **Navigation and Actions**:
    - ↑/↓: Move selection through messages
+   - Ctrl+u/d: Half-page scrolling (up/down)
    - PageUp/PageDown: Jump 10 messages at a time
    - Enter: View full message in detail view
    - /: Start search mode (interactive filtering)
