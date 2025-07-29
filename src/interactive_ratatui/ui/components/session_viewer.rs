@@ -205,9 +205,16 @@ impl SessionViewer {
             let search_text = self.text_input.render_cursor_spans();
             let order_text = Self::format_order(&self.order);
 
+            // Build status text with order and optional role filter
+            let status_text = if let Some(role) = &self.role_filter {
+                format!("Order: {order_text}, Role: {role}")
+            } else {
+                format!("Order: {order_text}")
+            };
+
             let search_bar = Paragraph::new(Line::from(search_text)).block(
                 Block::default()
-                    .title(format!("Search in session (Order: {order_text}) | Tab: Role Filter | Ctrl+O: Sort | Esc to cancel | ↑/↓ or Ctrl+P/N to scroll"))
+                    .title(format!("Search in session ({status_text}) | Tab: Role Filter | Ctrl+O: Sort | Esc to cancel | ↑/↓ or Ctrl+P/N to scroll"))
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(ColorScheme::SECONDARY)),
             );
