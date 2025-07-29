@@ -195,7 +195,9 @@ impl AppState {
             Message::ExitToSearch => {
                 // Go back in navigation history
                 if let Some(previous_state) = self.navigation_history.go_back() {
-                    self.restore_navigation_state(&previous_state);
+                    let command = self.restore_navigation_state(&previous_state);
+                    self.ui.detail_scroll_offset = 0;
+                    return command;
                 } else {
                     // No history, go to Search
                     self.mode = Mode::Search;
@@ -211,18 +213,18 @@ impl AppState {
                     self.navigation_history.push(initial_state);
                 }
 
-                self.mode = Mode::Help;
+                let command = self.set_mode(Mode::Help);
 
                 // Save the new state after transitioning
                 let new_state = self.create_navigation_state();
                 self.navigation_history.push(new_state);
 
-                Command::None
+                command
             }
             Message::CloseHelp => {
                 // Go back in navigation history
                 if let Some(previous_state) = self.navigation_history.go_back() {
-                    self.restore_navigation_state(&previous_state);
+                    return self.restore_navigation_state(&previous_state);
                 } else {
                     // No history, go to Search
                     self.mode = Mode::Search;
@@ -379,6 +381,13 @@ impl AppState {
                     if self.navigation_history.is_empty() {
                         let initial_state = self.create_navigation_state();
                         self.navigation_history.push(initial_state);
+                    } else if self.mode == Mode::SessionViewer {
+                        // Update the current session state before transitioning
+                        // This ensures the current selection is saved
+                        if let Some(_current_pos) = self.navigation_history.current_position() {
+                            self.navigation_history
+                                .update_current(self.create_navigation_state());
+                        }
                     }
 
                     self.ui.selected_result = Some(result);
@@ -414,14 +423,7 @@ impl AppState {
                         previous_state.mode
                     );
 
-                    self.restore_navigation_state(&previous_state);
-
-                    // Load session if entering SessionViewer mode
-                    if self.mode == Mode::SessionViewer {
-                        if let Some(file_path) = &self.session.file_path {
-                            return Command::LoadSession(file_path.clone());
-                        }
-                    }
+                    return self.restore_navigation_state(&previous_state);
                 } else {
                     #[cfg(test)]
                     println!("NavigateBack: go_back() returned None");
@@ -437,14 +439,7 @@ impl AppState {
 
                 if self.navigation_history.can_go_forward() {
                     if let Some(next_state) = self.navigation_history.go_forward() {
-                        self.restore_navigation_state(&next_state);
-
-                        // Load session if entering SessionViewer mode
-                        if self.mode == Mode::SessionViewer {
-                            if let Some(file_path) = &self.session.file_path {
-                                return Command::LoadSession(file_path.clone());
-                            }
-                        }
+                        return self.restore_navigation_state(&next_state);
                     }
                 }
                 Command::None
@@ -541,7 +536,7 @@ impl AppState {
     }
 
     // Restore state from a snapshot
-    pub fn restore_navigation_state(&mut self, state: &NavigationState) {
+    pub fn restore_navigation_state(&mut self, state: &NavigationState) -> Command {
         self.mode = state.mode;
 
         // Restore search state
@@ -567,5 +562,49 @@ impl AppState {
         self.ui.detail_scroll_offset = state.ui_state.detail_scroll_offset;
         self.ui.selected_result = state.ui_state.selected_result.clone();
         self.ui.truncation_enabled = state.ui_state.truncation_enabled;
+
+        // Execute mode-specific initialization
+        self.initialize_mode()
+    }
+
+    // Initialize mode-specific data (like React's componentDidMount)
+    // This is called when restoring from navigation history.
+    // For direct transitions, initialization is handled in the message handlers
+    // because they often need transition-specific context (e.g., selected result).
+    fn initialize_mode(&mut self) -> Command {
+        match self.mode {
+            Mode::SessionViewer => {
+                // Reload session data when returning to SessionViewer
+                // This ensures the session messages are always fresh
+                if let Some(file_path) = &self.session.file_path {
+                    Command::LoadSession(file_path.clone())
+                } else {
+                    Command::None
+                }
+            }
+            Mode::ResultDetail => {
+                // ResultDetail initialization during direct transition:
+                // - Selected result is set in EnterResultDetail handler
+                // - Scroll position is reset here for consistency
+                self.ui.detail_scroll_offset = 0;
+                Command::None
+            }
+            Mode::Search => {
+                // Search mode maintains its state across transitions
+                // No special initialization needed
+                Command::None
+            }
+            Mode::Help => {
+                // Help is a stateless dialog
+                // No initialization needed
+                Command::None
+            }
+        }
+    }
+
+    // Set mode with initialization (for direct transitions)
+    fn set_mode(&mut self, mode: Mode) -> Command {
+        self.mode = mode;
+        self.initialize_mode()
     }
 }
