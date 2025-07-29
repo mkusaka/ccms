@@ -75,9 +75,9 @@ impl Component for ResultList {
         // Render list
         self.list_viewer.render(f, chunks[1]);
 
-        // Render status bar (updated to include Ctrl+S)
+        // Render status bar (updated to include Ctrl+S and Tab: Filter)
         let status_text =
-            "↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Ctrl+S: View full session | Ctrl+T: Toggle truncation | Esc: Exit | ?: Help";
+            "Tab: Filter | ↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Ctrl+S: View full session | Ctrl+T: Toggle truncation | Esc: Exit | ?: Help";
         let status_bar = Paragraph::new(status_text)
             .style(Styles::dimmed())
             .alignment(ratatui::layout::Alignment::Center)
@@ -138,6 +138,20 @@ impl Component for ResultList {
             }
             KeyCode::End => {
                 if self.list_viewer.move_to_end() {
+                    Some(Message::SelectResult(self.list_viewer.selected_index()))
+                } else {
+                    None
+                }
+            }
+            KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                if self.list_viewer.half_page_up() {
+                    Some(Message::SelectResult(self.list_viewer.selected_index()))
+                } else {
+                    None
+                }
+            }
+            KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                if self.list_viewer.half_page_down() {
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
                     None
