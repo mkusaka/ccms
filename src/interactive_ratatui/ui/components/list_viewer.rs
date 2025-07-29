@@ -30,7 +30,7 @@ impl<T: ListItem> Default for ListViewer<T> {
             title: String::new(),
             empty_message: String::new(),
             query: String::new(),
-            last_viewport_height: 10,
+            last_viewport_height: DEFAULT_VIEWPORT_HEIGHT,
         }
     }
 }
@@ -42,10 +42,10 @@ impl<T: ListItem> ListViewer<T> {
         let position = self.selected_index;
         let viewport_size = if self.truncation_enabled {
             // Estimate based on typical terminal height
-            20
+            TRUNCATED_VIEWPORT_ESTIMATE
         } else {
             // In full text mode, harder to estimate
-            10
+            FULL_TEXT_VIEWPORT_ESTIMATE
         };
         (position, viewport_size, total)
     }
@@ -59,7 +59,7 @@ impl<T: ListItem> ListViewer<T> {
             title,
             empty_message,
             query: String::new(),
-            last_viewport_height: 10,
+            last_viewport_height: DEFAULT_VIEWPORT_HEIGHT,
         }
     }
 
