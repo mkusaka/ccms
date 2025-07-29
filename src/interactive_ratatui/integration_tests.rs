@@ -247,6 +247,34 @@ mod tests {
         assert!(!buffer_contains(buffer, "~/.claude"));
     }
 
+    /// Test 's' key shortcut to jump directly to session viewer from search results
+    #[test]
+    fn test_s_key_jump_to_session_viewer() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Start in search mode with results
+        app.state.mode = Mode::Search;
+        app.state.search.results = vec![create_test_result("user", "test message", "2024-01-01T00:00:00Z")];
+        app.state.search.selected_index = 0;
+
+        // Press Ctrl+S
+        let should_exit = app
+            .handle_input(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL))
+            .unwrap();
+        assert!(!should_exit);
+
+        // Should be in SessionViewer mode
+        assert_eq!(app.state.mode, Mode::SessionViewer);
+        assert_eq!(
+            app.state.session.file_path,
+            Some("/test/file.jsonl".to_string())
+        );
+        assert_eq!(
+            app.state.session.session_id,
+            Some("87654321-4321-8765-4321-876543218765".to_string())
+        );
+    }
+
     /// Test ESC key behavior in different modes
     #[test]
     fn test_esc_key_behavior() {
