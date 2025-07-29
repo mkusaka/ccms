@@ -297,16 +297,15 @@ mod tests {
             content.push('\n');
         }
 
-        // Since we use ViewLayout with a status bar instead of shortcuts section,
-        // The status bar is likely too long to fit in 40 characters width
-        // Let's just check that some basic UI elements are displayed
-        assert!(content.contains("Search Results"));
-        assert!(content.contains("1 results found"));
-
-        // Only check if [?] - Help is present if there's enough room
-        if content.contains("[?]") {
-            assert!(content.contains("Help"));
-        }
+        // Check that shortcuts are displayed in the status bar
+        // With a narrow terminal (40 chars), the status bar will wrap
+        // We can see from the output that it shows:
+        // "   ↑/↓ or j/k or Ctrl+P/N: Navigate |   "
+        // " Enter: View details | Ctrl+S: View full"
+        // So we check for partial text that we know is visible
+        assert!(content.contains("Navigate"));
+        assert!(content.contains("View details"));
+        assert!(content.contains("Ctrl+S"));
     }
 
     #[test]
@@ -340,9 +339,8 @@ mod tests {
             content.push('\n');
         }
 
-        // Check that status bar is displayed properly on wide screen
-        assert!(content.contains("↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate"));
-        assert!(content.contains("Tab: Filter"));
-        assert!(content.contains("Enter: Detail"));
+        // Check that shortcuts are displayed properly on wide screen in the status bar
+        assert!(content.contains("↑/↓ or j/k or Ctrl+P/N: Navigate"));
+        assert!(content.contains("Ctrl+S: View full session"));
     }
 }

@@ -1,10 +1,15 @@
 use crate::interactive_ratatui::ui::components::{
-    Component, list_viewer::ListViewer, view_layout::ViewLayout,
+    Component, list_viewer::ListViewer, view_layout::Styles,
 };
 use crate::interactive_ratatui::ui::events::Message;
 use crate::query::condition::SearchResult;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use ratatui::{Frame, layout::Rect};
+use ratatui::{
+    Frame,
+    layout::{Constraint, Direction, Layout, Rect},
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph, Wrap},
+};
 
 #[derive(Default)]
 pub struct ResultList {
@@ -56,37 +61,49 @@ impl ResultList {
 
 impl Component for ResultList {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        let truncation_status = if self.list_viewer.is_truncation_enabled() {
-            "Truncated"
-        } else {
-            "Full Text"
-        };
-        let layout = ViewLayout::new("Search Results".to_string())
-            .with_subtitle(format!(
-                "{} results found | Ctrl+T: Toggle truncation [{}]",
-                self.list_viewer.filtered_count(),
-                truncation_status
-            ))
-            .with_status_text(
-                "Tab: Filter | ↑/↓ or Ctrl+P/N or Ctrl+U/D: Navigate | Enter: Detail | s: Session | Alt+←/→: History | ?: Help | Esc: Exit"
-                    .to_string(),
-            );
+        // Split area into title, content (list), and status
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Title
+                Constraint::Min(0),    // Content (list)
+                Constraint::Length(2), // Status
+            ])
+            .split(area);
 
-        layout.render(f, area, |f, content_area| {
-            self.list_viewer.render(f, content_area);
-        });
+        // Render title
+        let title_lines = vec![
+            Line::from(vec![Span::styled("Search Results", Styles::title())]),
+            Line::from(vec![Span::raw(format!(
+                "{} results found | Ctrl+T: Toggle truncation",
+                self.list_viewer.filtered_count()
+            ))]),
+        ];
+        let title = Paragraph::new(title_lines).block(Block::default().borders(Borders::BOTTOM));
+        f.render_widget(title, chunks[0]);
+
+        // Render list
+        self.list_viewer.render(f, chunks[1]);
+
+        // Render status bar (updated to include Ctrl+S and Tab: Filter)
+        let status_text = "Tab: Filter | ↑/↓ or j/k or Ctrl+P/N: Navigate | Enter: View details | Ctrl+S: View full session | Ctrl+T: Toggle truncation | Esc: Exit | ?: Help";
+        let status_bar = Paragraph::new(status_text)
+            .style(Styles::dimmed())
+            .alignment(ratatui::layout::Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(status_bar, chunks[2]);
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
         match key.code {
-            KeyCode::Up => {
+            KeyCode::Up | KeyCode::Char('k') => {
                 if self.list_viewer.move_up() {
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
                     None
                 }
             }
-            KeyCode::Down => {
+            KeyCode::Down | KeyCode::Char('j') => {
                 if self.list_viewer.move_down() {
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
