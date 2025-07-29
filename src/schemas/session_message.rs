@@ -202,52 +202,52 @@ impl SessionMessage {
                                     content: Some(tool_content),
                                     is_error,
                                 } => {
-                                    let error_prefix = if is_error.unwrap_or(false) {
-                                        "[Tool Error: "
-                                    } else {
-                                        "[Tool Result: "
-                                    };
                                     let result_text = match tool_content {
                                         ToolResultContent::String(s) => {
-                                            if s.is_empty() {
-                                                "(empty result)".to_string()
-                                            } else {
+                                            if !s.is_empty() {
                                                 s.clone()
+                                            } else {
+                                                continue;
                                             }
                                         }
                                         ToolResultContent::TextArray(arr) => {
-                                            if arr.is_empty() {
-                                                "(empty result)".to_string()
-                                            } else {
+                                            if !arr.is_empty() {
                                                 arr.iter()
                                                     .map(|item| &item.text)
                                                     .cloned()
                                                     .collect::<Vec<_>>()
                                                     .join("\n")
+                                            } else {
+                                                continue;
                                             }
                                         }
                                         ToolResultContent::Value(val) => {
-                                            val.as_str().unwrap_or("(non-string value)").to_string()
+                                            if let Some(s) = val.as_str() {
+                                                s.to_string()
+                                            } else {
+                                                continue;
+                                            }
                                         }
-                                        _ => "(image or other content)".to_string(),
+                                        _ => continue,
                                     };
-                                    texts.push(format!(
-                                        "{error_prefix}{tool_use_id}: {result_text}]"
-                                    ));
+                                    texts.push(result_text);
                                 }
                                 Content::ToolResult {
                                     tool_use_id,
                                     content: None,
                                     ..
                                 } => {
-                                    texts.push(format!(
-                                        "[Tool Result: {tool_use_id}: (no content)]"
-                                    ));
+                                    // Skip tool results with no content
+                                    continue;
                                 }
                                 Content::ToolUse { name, id, .. } => {
-                                    texts.push(format!("[Tool Use: {name} ({id})]"));
+                                    // Skip tool use entries
+                                    continue;
                                 }
-                                Content::Image { .. } => texts.push("[Image]".to_string()),
+                                Content::Image { .. } => {
+                                    // Skip image entries
+                                    continue;
+                                }
                                 Content::Thinking { thinking, .. } => texts.push(thinking.clone()),
                             }
                         }
@@ -264,41 +264,56 @@ impl SessionMessage {
                         Content::Text { text } => texts.push(text.clone()),
                         Content::Thinking { thinking, .. } => texts.push(thinking.clone()),
                         Content::ToolUse { name, id, .. } => {
-                            texts.push(format!("[Tool Use: {name} ({id})]"));
+                            // Skip tool use entries
+                            continue;
                         }
                         Content::ToolResult {
                             tool_use_id,
                             content: Some(tool_content),
                             is_error,
                         } => {
-                            let error_prefix = if is_error.unwrap_or(false) {
-                                "[Tool Error: "
-                            } else {
-                                "[Tool Result: "
-                            };
                             let result_text = match tool_content {
-                                ToolResultContent::String(s) => s.clone(),
-                                ToolResultContent::TextArray(arr) => arr
-                                    .iter()
-                                    .map(|item| &item.text)
-                                    .cloned()
-                                    .collect::<Vec<_>>()
-                                    .join("\n"),
-                                ToolResultContent::Value(val) => {
-                                    val.as_str().unwrap_or("(non-string value)").to_string()
+                                ToolResultContent::String(s) => {
+                                    if !s.is_empty() {
+                                        s.clone()
+                                    } else {
+                                        continue;
+                                    }
                                 }
-                                _ => "(image or other content)".to_string(),
+                                ToolResultContent::TextArray(arr) => {
+                                    if !arr.is_empty() {
+                                        arr.iter()
+                                            .map(|item| &item.text)
+                                            .cloned()
+                                            .collect::<Vec<_>>()
+                                            .join("\n")
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                                ToolResultContent::Value(val) => {
+                                    if let Some(s) = val.as_str() {
+                                        s.to_string()
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                                _ => continue,
                             };
-                            texts.push(format!("{error_prefix}{tool_use_id}: {result_text}]"));
+                            texts.push(result_text);
                         }
                         Content::ToolResult {
                             tool_use_id,
                             content: None,
                             ..
                         } => {
-                            texts.push(format!("[Tool Result: {tool_use_id}: (no content)]"));
+                            // Skip tool results with no content
+                            continue;
                         }
-                        Content::Image { .. } => texts.push("[Image]".to_string()),
+                        Content::Image { .. } => {
+                            // Skip image entries
+                            continue;
+                        }
                     }
                 }
 
