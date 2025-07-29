@@ -48,9 +48,9 @@ impl Renderer {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(SEARCH_BAR_HEIGHT), // Search bar
-                    Constraint::Min(0),                    // Results
-                    Constraint::Length(1),                 // Exit prompt
+                    Constraint::Length(SEARCH_BAR_HEIGHT),  // Search bar
+                    Constraint::Min(0),                     // Results
+                    Constraint::Length(EXIT_PROMPT_HEIGHT), // Exit prompt
                 ])
                 .split(f.area())
         } else {
