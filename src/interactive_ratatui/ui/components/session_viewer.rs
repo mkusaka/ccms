@@ -12,8 +12,8 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::Line,
-    widgets::{Block, Borders, Paragraph},
+    text::{Line, Text},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -196,6 +196,17 @@ impl Component for SessionViewer {
             (None, None) => String::new(),
         };
 
+        // Calculate status bar height based on terminal width
+        let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
+        let status_bar_height = {
+            let text_len = status_text.len();
+            let width = area.width as usize;
+            // Calculate number of lines needed for wrapping
+            let lines_needed = (text_len + width - 1) / width; // Ceiling division
+            // Ensure minimum of 3 lines, max of 8 lines
+            std::cmp::min(std::cmp::max(lines_needed as u16, 3), 8)
+        };
+
         // Layout with message area
         let chunks = if self.message.is_some() {
             Layout::default()
@@ -203,7 +214,7 @@ impl Component for SessionViewer {
                 .constraints([
                     Constraint::Min(0),    // Main content
                     Constraint::Length(1), // Message
-                    Constraint::Length(2), // Status bar
+                    Constraint::Length(status_bar_height), // Status bar with dynamic height
                 ])
                 .split(area)
         } else {
@@ -211,7 +222,7 @@ impl Component for SessionViewer {
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Min(0),    // Main content
-                    Constraint::Length(2), // Status bar
+                    Constraint::Length(status_bar_height), // Status bar with dynamic height
                 ])
                 .split(area)
         };
@@ -246,10 +257,10 @@ impl Component for SessionViewer {
         // Render status bar
         let status_idx = if self.message.is_some() { 2 } else { 1 };
         if chunks.len() > status_idx {
-            let status_text = "↑/↓ or j/k or Ctrl+P/N: Navigate | Tab: Role Filter | Enter: View Detail | o: Sort | c: Copy JSON | i: Copy Session ID | f: Copy File Path | /: Search | Alt+←/→: History | Esc: Back";
-            let status_bar = Paragraph::new(status_text)
+            let status_bar = Paragraph::new(Text::from(status_text))
                 .style(Style::default().fg(Color::DarkGray))
-                .alignment(ratatui::layout::Alignment::Center);
+                .alignment(ratatui::layout::Alignment::Left)
+                .wrap(Wrap { trim: true });
             f.render_widget(status_bar, chunks[status_idx]);
         }
     }
