@@ -14,13 +14,13 @@ use ratatui::{
 };
 
 #[derive(Default)]
-pub struct ResultDetail {
+pub struct MessageDetail {
     pub(super) result: Option<SearchResult>,
     pub(super) scroll_offset: usize,
     pub(super) message: Option<String>,
 }
 
-impl ResultDetail {
+impl MessageDetail {
     pub fn new() -> Self {
         Self {
             result: None,
@@ -224,13 +224,13 @@ impl ResultDetail {
     }
 }
 
-impl Component for ResultDetail {
+impl Component for MessageDetail {
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let Some(_result) = &self.result else {
             return;
         };
 
-        let layout = ViewLayout::new("Result Detail".to_string()).with_status_bar(false); // We'll handle status manually for now
+        let layout = ViewLayout::new("Message Detail".to_string()).with_status_bar(false); // We'll handle status manually for now
 
         layout.render(f, area, |f, content_area| {
             self.render_content(f, content_area);
@@ -304,7 +304,7 @@ impl Component for ResultDetail {
                             result.text,
                             result.project_path
                         );
-                        Some(Message::CopyToClipboard(CopyContent::FullResultDetails(
+                        Some(Message::CopyToClipboard(CopyContent::FullMessageDetails(
                             formatted,
                         )))
                     }

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use super::super::result_detail::ResultDetail;
+    use super::super::message_detail::MessageDetail;
     use crate::interactive_ratatui::ui::components::Component;
     use crate::interactive_ratatui::ui::events::{CopyContent, Message};
     use crate::query::condition::{QueryCondition, SearchResult};
@@ -58,7 +58,7 @@ mod tests {
         result
     }
 
-    fn render_component(component: &mut ResultDetail, width: u16, height: u16) -> Buffer {
+    fn render_component(component: &mut MessageDetail, width: u16, height: u16) -> Buffer {
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).unwrap();
 
@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn test_result_detail_new() {
-        let detail = ResultDetail::new();
+        let detail = MessageDetail::new();
         assert!(detail.result.is_none());
         assert_eq!(detail.scroll_offset, 0);
         assert!(detail.message.is_none());
@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn test_set_result() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let result = create_test_result();
 
         detail.set_result(result.clone());
@@ -95,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_clear() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let result = create_test_result();
 
         detail.set_result(result);
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn test_set_message() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
 
         detail.set_message(Some("Test message".to_string()));
         assert_eq!(detail.message, Some("Test message".to_string()));
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_text_wrapping() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let result = create_test_result_with_long_text();
         detail.set_result(result);
 
@@ -134,7 +134,7 @@ mod tests {
             .collect::<String>();
 
         // Check that the component rendered
-        assert!(content.contains("Result Detail"));
+        assert!(content.contains("Message Detail"));
 
         // The header fields should be visible
         assert!(content.contains("Role:"));
@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_long_file_path_wrapping() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let result = create_test_result_with_long_file_path();
         detail.set_result(result);
 
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_long_project_path_wrapping() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let result = create_test_result_with_long_project_path();
         detail.set_result(result);
 
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_scroll_navigation() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let result = create_test_result();
         detail.set_result(result);
 
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_page_navigation() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let result = create_test_result();
         detail.set_result(result);
 
@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_copy_shortcuts() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let result = create_test_result();
         detail.set_result(result);
 
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_navigation_shortcuts() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let result = create_test_result();
         detail.set_result(result);
 
@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_all_fields_wrapping() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let result = create_test_result_with_all_long_fields();
         detail.set_result(result);
 
@@ -338,7 +338,7 @@ mod tests {
 
     #[test]
     fn test_copy_without_result() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         // Don't set any result
 
         // All copy operations should return None when no result is set
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn test_unicode_text_wrapping() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let mut result = create_test_result();
         result.text = "これは日本語のテストメッセージです。絵文字も含まれています🎉。長いテキストが正しく折り返されることを確認します。".to_string();
         detail.set_result(result);
@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     fn test_render_without_result() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
 
         // Should not panic when rendering without a result
         let buffer = render_component(&mut detail, 80, 24);
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_copy_raw_json_fallback() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let mut result = create_test_result();
         result.raw_json = None; // No raw JSON available
         detail.set_result(result);
@@ -404,7 +404,7 @@ mod tests {
         let msg = detail.handle_key(KeyEvent::new(KeyCode::Char('C'), KeyModifiers::empty()));
         if let Some(Message::CopyToClipboard(content)) = msg {
             match content {
-                CopyContent::FullResultDetails(text) => {
+                CopyContent::FullMessageDetails(text) => {
                     assert!(text.contains("File: /path/to/test.jsonl"));
                     assert!(text.contains("UUID: 12345678-1234-5678-1234-567812345678"));
                     assert!(text.contains("Session ID: session-123"));
@@ -412,7 +412,7 @@ mod tests {
                     assert!(text.contains("Text: This is a test message"));
                     assert!(text.contains("Project: /path/to/project"));
                 }
-                _ => panic!("Expected FullResultDetails variant"),
+                _ => panic!("Expected FullMessageDetails variant"),
             }
         } else {
             panic!("Expected CopyToClipboard message");
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn test_message_only_scrolling() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let mut result = create_test_result();
         // Create a long message that will need scrolling
         result.text = (0..50)
@@ -469,7 +469,7 @@ mod tests {
 
     #[test]
     fn test_scroll_bounds_with_new_layout() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let mut result = create_test_result();
         // Create a message with exactly 10 lines
         result.text = (0..10)
@@ -501,7 +501,7 @@ mod tests {
 
     #[test]
     fn test_header_always_visible() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let mut result = create_test_result();
         // Create a very long message
         result.text = (0..100)
@@ -538,7 +538,7 @@ mod tests {
 
     #[test]
     fn test_empty_message_scrolling() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let mut result = create_test_result();
         result.text = "".to_string(); // Empty message
         detail.set_result(result);
@@ -563,7 +563,7 @@ mod tests {
 
     #[test]
     fn test_message_title_shows_scroll_position() {
-        let mut detail = ResultDetail::new();
+        let mut detail = MessageDetail::new();
         let mut result = create_test_result();
         // Create a message with 20 lines
         result.text = (0..20)

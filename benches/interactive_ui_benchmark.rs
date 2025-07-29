@@ -271,7 +271,7 @@ fn benchmark_app_state_updates(c: &mut Criterion) {
                 state
             },
             |mut state| {
-                let msg = Message::EnterResultDetail;
+                let msg = Message::EnterMessageDetail;
                 black_box(state.update(msg));
             },
             BatchSize::SmallInput,
@@ -337,7 +337,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
         let mut state = AppState::new();
         let test_results = create_test_search_results(10);
         state.ui.selected_result = Some(test_results[0].clone());
-        state.mode = ccms::interactive_ratatui::ui::app_state::Mode::ResultDetail;
+        state.mode = ccms::interactive_ratatui::ui::app_state::Mode::MessageDetail;
 
         b.iter_batched(
             || TestBackend::new(120, 40),

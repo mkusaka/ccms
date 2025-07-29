@@ -7,7 +7,7 @@ pub enum CopyContent {
     SessionId(String),
     MessageContent(String),
     JsonData(String),
-    FullResultDetails(String),
+    FullMessageDetails(String),
 }
 
 #[derive(Clone, Debug)]
@@ -22,9 +22,9 @@ pub enum Message {
     ToggleSearchOrder,
 
     // Mode changes
-    EnterResultDetail,
+    EnterMessageDetail,
     EnterSessionViewer,
-    EnterResultDetailFromSession(String, String, Option<String>), // (raw_json, file_path, session_id)
+    EnterMessageDetailFromSession(String, String, Option<String>), // (raw_json, file_path, session_id)
     ExitToSearch,
     ShowHelp,
     CloseHelp,

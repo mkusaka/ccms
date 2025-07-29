@@ -139,7 +139,7 @@ The codebase is organized into five main modules:
   - **Update**: Message-driven state updates with side effects as `Command`s
 - **Component-Based UI**:
   - Reusable components implementing `Component` trait
-  - `SearchBar`, `ResultList`, `ResultDetail`, `SessionViewer`, `HelpDialog`
+  - `SearchBar`, `ResultList`, `MessageDetail`, `SessionViewer`, `HelpDialog`
   - Each component manages its own rendering and input handling
 - **Non-blocking Architecture**:
   - Event polling with 50ms timeout
@@ -233,7 +233,7 @@ The interactive mode uses non-blocking input handling to prevent UI freezing:
 - Dynamic text truncation respects character boundaries
 
 **State Management**:
-- Clear separation between UI modes (Search, ResultDetail, SessionViewer, Help)
+- Clear separation between UI modes (Search, MessageDetail, SessionViewer, Help)
 - Automatic cleanup on mode transitions (clear messages, reset scroll)
 - Comprehensive caching system to minimize file I/O
 
@@ -329,7 +329,7 @@ src/interactive_ratatui/
     └── components/          # Reusable UI components
         ├── search_bar.rs
         ├── result_list.rs
-        ├── result_detail.rs
+        ├── message_detail.rs
         ├── session_viewer.rs
         └── help_dialog.rs
 ```
@@ -338,7 +338,7 @@ src/interactive_ratatui/
 
 1. **Messages** (`ui/events.rs`):
    - User actions and system events
-   - Examples: `QueryChanged`, `SearchCompleted`, `EnterResultDetail`
+   - Examples: `QueryChanged`, `SearchCompleted`, `EnterMessageDetail`
 
 2. **State** (`ui/app_state.rs`):
    - Single source of truth for UI state

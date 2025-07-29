@@ -70,7 +70,7 @@ impl HelpDialog {
             )]),
             Line::from("  ↑/↓         - Navigate results"),
             Line::from("  Ctrl+u/d    - Half-page scrolling (up/down)"),
-            Line::from("  Enter       - View result details"),
+            Line::from("  Enter       - View message details"),
             Line::from("  Ctrl+S      - Jump directly to session viewer"),
             Line::from("  Tab         - Toggle role filter (user/assistant/system)"),
             Line::from("  Ctrl+O      - Toggle sort order (newest/oldest first)"),
@@ -95,7 +95,7 @@ impl HelpDialog {
             Line::from("  Ctrl+H      - Delete character before cursor"),
             Line::from(""),
             Line::from(vec![Span::styled(
-                "Result Detail Mode:",
+                "Message Detail Mode:",
                 Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),

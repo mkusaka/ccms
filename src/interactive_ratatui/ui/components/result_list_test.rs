@@ -138,7 +138,7 @@ mod tests {
 
         // Enter should open detail view
         let msg = list.handle_key(create_key_event(KeyCode::Enter));
-        assert!(matches!(msg, Some(Message::EnterResultDetail)));
+        assert!(matches!(msg, Some(Message::EnterMessageDetail)));
     }
 
     #[test]

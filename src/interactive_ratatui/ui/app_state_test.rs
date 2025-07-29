@@ -102,9 +102,9 @@ mod tests {
         let mut state = create_test_state();
         state.search.results = vec![create_test_result()];
 
-        // Enter result detail
-        let _command = state.update(Message::EnterResultDetail);
-        assert_eq!(state.mode, Mode::ResultDetail);
+        // Enter message detail
+        let _command = state.update(Message::EnterMessageDetail);
+        assert_eq!(state.mode, Mode::MessageDetail);
         assert!(state.ui.selected_result.is_some());
 
         // Exit back to search
@@ -321,8 +321,8 @@ mod tests {
         state.search.results = results.clone();
 
         // Navigate to ResultDetail
-        state.update(Message::EnterResultDetail);
-        assert_eq!(state.mode, Mode::ResultDetail);
+        state.update(Message::EnterMessageDetail);
+        assert_eq!(state.mode, Mode::MessageDetail);
 
         // Navigate back to Search
         state.update(Message::ExitToSearch);
@@ -349,12 +349,12 @@ mod tests {
 
         // Navigate to ResultDetail from session
         let raw_json = state.session.messages[0].clone();
-        state.update(Message::EnterResultDetailFromSession(
+        state.update(Message::EnterMessageDetailFromSession(
             raw_json,
             "test.jsonl".to_string(),
             Some("session-id".to_string()),
         ));
-        assert_eq!(state.mode, Mode::ResultDetail);
+        assert_eq!(state.mode, Mode::MessageDetail);
 
         // Navigate back to SessionViewer
         state.update(Message::ExitToSearch);
@@ -373,7 +373,7 @@ mod tests {
         state.search.results = vec![create_test_result()];
 
         // Navigate to ResultDetail to establish navigation history
-        state.update(Message::EnterResultDetail);
+        state.update(Message::EnterMessageDetail);
 
         // Go back to Search
         state.update(Message::ExitToSearch);
@@ -388,7 +388,7 @@ mod tests {
         assert_eq!(state.search.order, SearchOrder::Ascending);
 
         // Navigate to ResultDetail again
-        state.update(Message::EnterResultDetail);
+        state.update(Message::EnterMessageDetail);
 
         // Go back - should see both updated filter and order
         state.update(Message::ExitToSearch);

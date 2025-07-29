@@ -1,7 +1,7 @@
 use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::components::{
-    Component, help_dialog::HelpDialog, is_exit_prompt, result_detail::ResultDetail,
+    Component, help_dialog::HelpDialog, is_exit_prompt, message_detail::MessageDetail,
     result_list::ResultList, search_bar::SearchBar, session_viewer::SessionViewer,
 };
 use ratatui::{
@@ -15,7 +15,7 @@ use ratatui::{
 pub struct Renderer {
     search_bar: SearchBar,
     result_list: ResultList,
-    result_detail: ResultDetail,
+    message_detail: MessageDetail,
     session_viewer: SessionViewer,
     help_dialog: HelpDialog,
 }
@@ -25,7 +25,7 @@ impl Renderer {
         Self {
             search_bar: SearchBar::new(),
             result_list: ResultList::new(),
-            result_detail: ResultDetail::new(),
+            message_detail: MessageDetail::new(),
             session_viewer: SessionViewer::new(),
             help_dialog: HelpDialog::new(),
         }
@@ -34,7 +34,7 @@ impl Renderer {
     pub fn render(&mut self, f: &mut Frame, state: &AppState) {
         match state.mode {
             Mode::Search => self.render_search_mode(f, state),
-            Mode::ResultDetail => self.render_detail_mode(f, state),
+            Mode::MessageDetail => self.render_detail_mode(f, state),
             Mode::SessionViewer => self.render_session_mode(f, state),
             Mode::Help => self.render_help_mode(f, state),
         }
@@ -102,9 +102,9 @@ impl Renderer {
 
     fn render_detail_mode(&mut self, f: &mut Frame, state: &AppState) {
         if let Some(result) = &state.ui.selected_result {
-            self.result_detail.set_result(result.clone());
-            self.result_detail.set_message(state.ui.message.clone());
-            self.result_detail.render(f, f.area());
+            self.message_detail.set_result(result.clone());
+            self.message_detail.set_message(state.ui.message.clone());
+            self.message_detail.render(f, f.area());
         }
     }
 
@@ -150,8 +150,8 @@ impl Renderer {
         &mut self.result_list
     }
 
-    pub fn get_result_detail_mut(&mut self) -> &mut ResultDetail {
-        &mut self.result_detail
+    pub fn get_message_detail_mut(&mut self) -> &mut MessageDetail {
+        &mut self.message_detail
     }
 
     pub fn get_session_viewer_mut(&mut self) -> &mut SessionViewer {

@@ -26,21 +26,21 @@ mod tests {
     fn test_help_dialog_navigation_from_result_detail_mode() {
         let mut state = AppState::new();
 
-        // First navigate to result detail mode
+        // First navigate to message detail mode
         // (We need to set up a result first)
         state.search.results = vec![create_test_result()];
-        state.update(Message::EnterResultDetail);
-        assert_eq!(state.mode, Mode::ResultDetail);
+        state.update(Message::EnterMessageDetail);
+        assert_eq!(state.mode, Mode::MessageDetail);
         assert_eq!(state.navigation_history.len(), 2); // Search + ResultDetail
 
-        // Show help from result detail mode
+        // Show help from message detail mode
         state.update(Message::ShowHelp);
         assert_eq!(state.mode, Mode::Help);
         assert_eq!(state.navigation_history.len(), 3); // Search + ResultDetail + Help
 
-        // Close help should return to result detail mode
+        // Close help should return to message detail mode
         state.update(Message::CloseHelp);
-        assert_eq!(state.mode, Mode::ResultDetail);
+        assert_eq!(state.mode, Mode::MessageDetail);
         assert!(state.navigation_history.can_go_back()); // Can go back to Search
         assert!(state.navigation_history.can_go_forward()); // Can go forward to Help
     }
@@ -93,7 +93,7 @@ mod tests {
 
         // Navigate: Search -> ResultDetail -> SessionViewer -> Help
         state.search.results = vec![create_test_result()];
-        state.update(Message::EnterResultDetail);
+        state.update(Message::EnterMessageDetail);
         assert_eq!(state.navigation_history.len(), 2); // Search + ResultDetail
 
         state.update(Message::EnterSessionViewer);
@@ -107,9 +107,9 @@ mod tests {
         state.update(Message::CloseHelp);
         assert_eq!(state.mode, Mode::SessionViewer);
 
-        // Navigate back to result detail
+        // Navigate back to message detail
         state.update(Message::ExitToSearch);
-        assert_eq!(state.mode, Mode::ResultDetail);
+        assert_eq!(state.mode, Mode::MessageDetail);
 
         // Navigate back to search
         state.update(Message::ExitToSearch);
@@ -125,7 +125,7 @@ mod tests {
 
         // Navigate: Search -> ResultDetail -> SessionViewer
         state.search.results = vec![create_test_result()];
-        state.update(Message::EnterResultDetail);
+        state.update(Message::EnterMessageDetail);
         assert_eq!(state.navigation_history.len(), 2); // Search + ResultDetail
 
         state.update(Message::EnterSessionViewer);
@@ -134,7 +134,7 @@ mod tests {
 
         // Navigate back from SessionViewer to ResultDetail
         state.update(Message::NavigateBack);
-        assert_eq!(state.mode, Mode::ResultDetail);
+        assert_eq!(state.mode, Mode::MessageDetail);
         assert!(state.navigation_history.can_go_back());
         assert!(state.navigation_history.can_go_forward());
 
@@ -146,7 +146,7 @@ mod tests {
 
         // Navigate forward - goes to ResultDetail
         state.update(Message::NavigateForward);
-        assert_eq!(state.mode, Mode::ResultDetail);
+        assert_eq!(state.mode, Mode::MessageDetail);
         assert!(state.navigation_history.can_go_back());
         assert!(state.navigation_history.can_go_forward());
 

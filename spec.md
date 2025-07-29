@@ -137,7 +137,7 @@ When 'S' is pressed in the full result view:
 Enter: View | ↑/↓ or Ctrl+P/N: Navigate | Ctrl+U/D: Half-page | Tab: Role Filter | /: Search | c/C/i/f/p: Copy | Ctrl+O: Sort | Esc: Back
 ```
 
-**Navigation**: Pressing Esc returns to the previous screen (typically ResultDetail), not directly to Search.
+**Navigation**: Pressing Esc returns to the previous screen (typically MessageDetail), not directly to Search.
 
 #### Session Viewer Features
 
@@ -305,7 +305,7 @@ Applied before other filters in the search pipeline.
   - Session IDs (UUID format): "✓ Copied session ID"
   - Short text (< 100 chars): "✓ Copied: [actual text]"
   - Long text: "✓ Copied message text"
-  - Full result details: "✓ Copied full result details"
+  - Full message details: "✓ Copied full message details"
 
 ## Display Limits
 
@@ -359,7 +359,7 @@ The Ctrl+T keyboard shortcut toggles between truncated and full text display mod
 - Mode persists across search and session viewer
 - Feedback message shown when toggling
 
-Note: The Result Detail view always displays messages with word wrapping and is not affected by the truncation toggle.
+Note: The Message Detail view always displays messages with word wrapping and is not affected by the truncation toggle.
 
 ### Session Viewer Display Limits
 
@@ -438,7 +438,7 @@ The interactive mode uses a Model-View-Update (MVU) architecture with clean sepa
 ### Architecture Layers
 
 1. **Domain Layer**: Core business entities and models
-   - `Mode`: Current UI screen (Search, ResultDetail, SessionViewer, Help)
+   - `Mode`: Current UI screen (Search, MessageDetail, SessionViewer, Help)
    - `SearchRequest`: Query and filter parameters
    - `SessionOrder`: Sort order for session messages
 
@@ -505,10 +505,10 @@ The interactive mode maintains a navigation history stack that allows users to r
 
 ### Mode Transitions
 
-- Search → ResultDetail: Enter key on result (pushes to stack)
-- ResultDetail → Search: Esc or other keys (pops from stack, clears message and scroll offset)
-- ResultDetail → SessionViewer: S key (pushes to stack)
-- SessionViewer → ResultDetail: Q/Esc (pops from stack, returns to previous screen)
+- Search → MessageDetail: Enter key on result (pushes to stack)
+- MessageDetail → Search: Esc or other keys (pops from stack, clears message and scroll offset)
+- MessageDetail → SessionViewer: S key (pushes to stack)
+- SessionViewer → MessageDetail: Q/Esc (pops from stack, returns to previous screen)
 - Any → Help: ? key (pushes to stack)
 - Help → Previous Screen: Any key (pops from stack)
 
@@ -525,7 +525,7 @@ When entering SessionViewer:
 
 When exiting SessionViewer:
 - Clears all session-related state
-- Returns to ResultDetail mode
+- Returns to MessageDetail mode
 - Preserves the selected result for continued navigation
 
 ## Project Path Extraction
@@ -562,5 +562,5 @@ Recent enhancements include:
 - Non-blocking UI with visual feedback during operations
 - Unicode-safe text handling throughout
 - Search result highlighting in Session Viewer
-- Automatic text wrapping for long file paths in Result Detail and Session Viewer
+- Automatic text wrapping for long file paths in Message Detail and Session Viewer
 - Unified exit mechanism (Ctrl+C twice) - ESC no longer exits from search screen

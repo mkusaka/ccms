@@ -153,13 +153,13 @@ ccms -i -n 100                               # Adjust result limit
 - Results are limited by the `-n` flag (default: 50, but 20x more are loaded for scrolling)
 
 **Result Actions:**
-- `Enter` - View result details
+- `Enter` - View message details
 - `Ctrl+S` - Jump directly to session viewer
 - `Tab` - Toggle role filter (all → user → assistant → system)
 - `Ctrl+O` - Toggle sort order (newest/oldest first)
 - `Ctrl+T` - Toggle message truncation
 
-**Result Detail & Session Viewer Copy Operations (Unified):**
+**Message Detail & Session Viewer Copy Operations (Unified):**
 - `c` - Copy content/text
 - `C` - Copy as JSON
 - `i` - Copy session ID

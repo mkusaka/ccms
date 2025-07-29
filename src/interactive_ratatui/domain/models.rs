@@ -5,7 +5,7 @@ use std::time::SystemTime;
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Mode {
     Search,
-    ResultDetail,
+    MessageDetail,
     SessionViewer,
     Help,
 }

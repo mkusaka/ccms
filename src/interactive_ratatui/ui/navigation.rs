@@ -228,7 +228,7 @@ mod tests {
         assert!(!history.can_go_forward());
 
         // Push second state
-        let state2 = create_test_state(Mode::ResultDetail);
+        let state2 = create_test_state(Mode::MessageDetail);
         history.push(state2.clone());
         assert_eq!(history.len(), 2);
         assert!(history.can_go_back()); // Can go back
@@ -240,7 +240,7 @@ mod tests {
         let mut history = NavigationHistory::new(10);
 
         let state1 = create_test_state(Mode::Search);
-        let state2 = create_test_state(Mode::ResultDetail);
+        let state2 = create_test_state(Mode::MessageDetail);
         let state3 = create_test_state(Mode::SessionViewer);
 
         history.push(state1.clone());
@@ -251,7 +251,7 @@ mod tests {
         // Go back - should return ResultDetail and move to index 1
         assert!(history.can_go_back());
         let back_state = history.go_back().unwrap();
-        assert_eq!(back_state.mode, Mode::ResultDetail);
+        assert_eq!(back_state.mode, Mode::MessageDetail);
         assert!(history.can_go_back());
         assert!(history.can_go_forward());
 
@@ -266,7 +266,7 @@ mod tests {
 
         // Go forward - should return ResultDetail and move to index 1
         let forward_state = history.go_forward().unwrap();
-        assert_eq!(forward_state.mode, Mode::ResultDetail);
+        assert_eq!(forward_state.mode, Mode::MessageDetail);
         assert!(history.can_go_back());
         assert!(history.can_go_forward());
 
@@ -282,7 +282,7 @@ mod tests {
         let mut history = NavigationHistory::new(10);
 
         let state1 = create_test_state(Mode::Search);
-        let state2 = create_test_state(Mode::ResultDetail);
+        let state2 = create_test_state(Mode::MessageDetail);
         let state3 = create_test_state(Mode::SessionViewer);
         let state4 = create_test_state(Mode::Help);
 

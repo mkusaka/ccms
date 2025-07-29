@@ -47,8 +47,8 @@ fn test_message_handling() {
         raw_json: None,
     }];
 
-    let command = state.update(Message::EnterResultDetail);
-    assert_eq!(state.mode, Mode::ResultDetail);
+    let command = state.update(Message::EnterMessageDetail);
+    assert_eq!(state.mode, Mode::MessageDetail);
     assert!(matches!(command, Command::None));
 }
 

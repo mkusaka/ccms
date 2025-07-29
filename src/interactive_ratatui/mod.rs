@@ -206,7 +206,7 @@ impl InteractiveSearch {
         // Mode-specific input handling
         let message = match self.state.mode {
             Mode::Search => self.handle_search_mode_input(key),
-            Mode::ResultDetail => self.renderer.get_result_detail_mut().handle_key(key),
+            Mode::MessageDetail => self.renderer.get_message_detail_mut().handle_key(key),
             Mode::SessionViewer => self.renderer.get_session_viewer_mut().handle_key(key),
             Mode::Help => self.renderer.get_help_dialog_mut().handle_key(key),
         };
@@ -288,8 +288,8 @@ impl InteractiveSearch {
                     ui::events::CopyContent::JsonData(json) => {
                         (json, "✓ Copied as JSON".to_string())
                     }
-                    ui::events::CopyContent::FullResultDetails(details) => {
-                        (details, "✓ Copied full result details".to_string())
+                    ui::events::CopyContent::FullMessageDetails(details) => {
+                        (details, "✓ Copied full message details".to_string())
                     }
                 };
 
