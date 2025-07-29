@@ -378,7 +378,7 @@ impl Component for SessionViewer {
                     // Navigate to result detail for selected message
                     self.list_viewer.get_selected_item().and_then(|item| {
                         self.file_path.as_ref().map(|path| {
-                            Message::EnterResultDetailFromSession(
+                            Message::EnterMessageDetailFromSession(
                                 item.raw_json.clone(),
                                 path.clone(),
                                 self.session_id.clone(),
