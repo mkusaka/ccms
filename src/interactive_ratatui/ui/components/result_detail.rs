@@ -1,5 +1,5 @@
 use crate::interactive_ratatui::ui::components::{
-    Component,
+    Component, is_exit_prompt,
     view_layout::{Styles, ViewLayout},
 };
 use crate::interactive_ratatui::ui::events::{CopyContent, Message};
@@ -8,7 +8,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::Modifier,
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
 };
@@ -48,16 +48,41 @@ impl ResultDetail {
             return;
         };
 
-        // Split the main area into header, message, and actions
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(8),  // Header (fixed)
-                Constraint::Min(5),     // Message content (scrollable)
-                Constraint::Length(10), // Actions (fixed)
-                Constraint::Length(2),  // Status/Message (fixed)
-            ])
-            .split(area);
+        // Check if message is exit prompt
+        let is_exit = is_exit_prompt(&self.message);
+        let non_exit_message = if is_exit { None } else { self.message.clone() };
+
+        // Split the main area into header, message, actions, and optionally exit prompt
+        let chunks = if is_exit {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(8),  // Header (fixed)
+                    Constraint::Min(5),     // Message content (scrollable)
+                    Constraint::Length(10), // Actions (fixed)
+                    Constraint::Length(1),  // Exit prompt at bottom
+                ])
+                .split(area)
+        } else if non_exit_message.is_some() {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(8),  // Header (fixed)
+                    Constraint::Min(5),     // Message content (scrollable)
+                    Constraint::Length(10), // Actions (fixed)
+                    Constraint::Length(2),  // Status/Message (fixed)
+                ])
+                .split(area)
+        } else {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(8),  // Header (fixed)
+                    Constraint::Min(5),     // Message content (scrollable)
+                    Constraint::Length(10), // Actions (fixed)
+                ])
+                .split(area)
+        };
 
         // Format timestamp
         let timestamp = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&result.timestamp) {
@@ -216,8 +241,8 @@ impl ResultDetail {
             Paragraph::new(actions).block(Block::default().borders(Borders::ALL).title("Actions"));
         f.render_widget(actions_widget, chunks[2]);
 
-        // Show message if any
-        if let Some(ref msg) = self.message {
+        // Show non-exit message if any
+        if let Some(ref msg) = non_exit_message {
             let style = if msg.starts_with('✓') {
                 Styles::success()
             } else if msg.starts_with('⚠') {
@@ -230,6 +255,19 @@ impl ResultDetail {
                 .style(style)
                 .alignment(ratatui::layout::Alignment::Center);
             f.render_widget(message_widget, chunks[3]);
+        }
+
+        // Render exit prompt at the very bottom if needed
+        if is_exit {
+            let exit_idx = if non_exit_message.is_some() { 4 } else { 3 };
+            let exit_prompt = Paragraph::new("Press Ctrl+C again to exit")
+                .style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .alignment(ratatui::layout::Alignment::Center);
+            f.render_widget(exit_prompt, chunks[exit_idx]);
         }
     }
 }
