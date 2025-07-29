@@ -1,3 +1,4 @@
+use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::ui::components::{
     Component, list_viewer::ListViewer, view_layout::Styles,
 };
@@ -65,9 +66,9 @@ impl Component for ResultList {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(2), // Title
-                Constraint::Min(0),    // Content (list)
-                Constraint::Length(2), // Status
+                Constraint::Length(RESULT_LIST_TITLE_HEIGHT),  // Title
+                Constraint::Min(0),                            // Content (list)
+                Constraint::Length(RESULT_LIST_STATUS_HEIGHT), // Status
             ])
             .split(area);
 

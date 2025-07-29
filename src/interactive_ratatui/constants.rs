@@ -61,3 +61,33 @@ pub const MESSAGE_DETAIL_STATUS_HEIGHT: u16 = 1;
 // General UI layout constants
 /// Height of the exit prompt displayed at the bottom
 pub const EXIT_PROMPT_HEIGHT: u16 = 1;
+
+// Result list layout constants
+/// Height of the title area in result list
+pub const RESULT_LIST_TITLE_HEIGHT: u16 = 2;
+
+/// Height of the status bar in result list
+pub const RESULT_LIST_STATUS_HEIGHT: u16 = 2;
+
+// List viewer default values
+/// Default viewport height for list viewer
+pub const DEFAULT_VIEWPORT_HEIGHT: u16 = 10;
+
+/// Estimated viewport size for truncated mode
+pub const TRUNCATED_VIEWPORT_ESTIMATE: usize = 20;
+
+/// Estimated viewport size for full text mode
+pub const FULL_TEXT_VIEWPORT_ESTIMATE: usize = 10;
+
+// View layout border and sizing constants
+/// Width adjustment for borders (left and right)
+pub const BORDER_WIDTH_ADJUSTMENT: u16 = 2;
+
+/// Height adjustment for bottom border
+pub const BORDER_HEIGHT_ADJUSTMENT: u16 = 1;
+
+/// Minimum height for status bar
+pub const STATUS_BAR_MIN_HEIGHT: u16 = 1;
+
+/// Maximum height for status bar
+pub const STATUS_BAR_MAX_HEIGHT: u16 = 3;

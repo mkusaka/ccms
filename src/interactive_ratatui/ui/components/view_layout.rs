@@ -1,3 +1,4 @@
+use crate::interactive_ratatui::constants::*;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -59,10 +60,11 @@ impl ViewLayout {
         let paragraph = Paragraph::new(lines).wrap(Wrap { trim: true });
 
         // Use ratatui's line_count method to get the actual height needed
-        let content_height = paragraph.line_count(width.saturating_sub(2)) as u16;
+        let content_height =
+            paragraph.line_count(width.saturating_sub(BORDER_WIDTH_ADJUSTMENT)) as u16;
 
         // Add 1 for the bottom border
-        content_height + 1
+        content_height + BORDER_HEIGHT_ADJUSTMENT
     }
 
     fn calculate_status_bar_height(&self, width: u16) -> u16 {
@@ -78,7 +80,7 @@ impl ViewLayout {
         let content_height = paragraph.line_count(width) as u16;
 
         // Ensure at least 1 line, max 3 lines for status bar
-        content_height.clamp(1, 3)
+        content_height.clamp(STATUS_BAR_MIN_HEIGHT, STATUS_BAR_MAX_HEIGHT)
     }
 
     pub fn render<F>(&self, f: &mut Frame, area: Rect, render_content: F)
