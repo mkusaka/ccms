@@ -227,17 +227,17 @@ impl SessionMessage {
                                         }
                                         _ => "(image or other content)".to_string(),
                                     };
-                                    texts.push(format!("{}{}: {}]", error_prefix, tool_use_id, result_text));
+                                    texts.push(format!("{error_prefix}{tool_use_id}: {result_text}]"));
                                 }
                                 Content::ToolResult {
                                     tool_use_id,
                                     content: None,
                                     ..
                                 } => {
-                                    texts.push(format!("[Tool Result: {}: (no content)]", tool_use_id));
+                                    texts.push(format!("[Tool Result: {tool_use_id}: (no content)]"));
                                 }
                                 Content::ToolUse { name, id, .. } => {
-                                    texts.push(format!("[Tool Use: {} ({})]", name, id));
+                                    texts.push(format!("[Tool Use: {name} ({id})]"));
                                 }
                                 Content::Image { .. } => texts.push("[Image]".to_string()),
                                 Content::Thinking { thinking, .. } => texts.push(thinking.clone()),
@@ -256,7 +256,7 @@ impl SessionMessage {
                         Content::Text { text } => texts.push(text.clone()),
                         Content::Thinking { thinking, .. } => texts.push(thinking.clone()),
                         Content::ToolUse { name, id, .. } => {
-                            texts.push(format!("[Tool Use: {} ({})]", name, id));
+                            texts.push(format!("[Tool Use: {name} ({id})]"));
                         }
                         Content::ToolResult {
                             tool_use_id,
@@ -278,14 +278,14 @@ impl SessionMessage {
                                 }
                                 _ => "(image or other content)".to_string(),
                             };
-                            texts.push(format!("{}{}: {}]", error_prefix, tool_use_id, result_text));
+                            texts.push(format!("{error_prefix}{tool_use_id}: {result_text}]"));
                         }
                         Content::ToolResult {
                             tool_use_id,
                             content: None,
                             ..
                         } => {
-                            texts.push(format!("[Tool Result: {}: (no content)]", tool_use_id));
+                            texts.push(format!("[Tool Result: {tool_use_id}: (no content)]"));
                         }
                         Content::Image { .. } => texts.push("[Image]".to_string()),
                     }
@@ -434,7 +434,7 @@ mod tests {
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(msg.get_type(), "assistant");
-        assert_eq!(msg.get_content_text(), "I'll help you with that.");
+        assert_eq!(msg.get_content_text(), "I'll help you with that.\n[Tool Use: read_file (tool_1)]");
         assert!(msg.has_tool_use());
         assert!(!msg.has_thinking());
     }
@@ -559,7 +559,7 @@ mod tests {
         assert_eq!(msg.get_type(), "user");
         assert_eq!(
             msg.get_content_text(),
-            "Here's the result:\nFile contents: Hello World"
+            "Here's the result:\n[Tool Result: tool_1: File contents: Hello World]"
         );
     }
 
@@ -593,7 +593,7 @@ mod tests {
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(msg.get_type(), "user");
-        assert_eq!(msg.get_content_text(), "Line 1\nLine 2");
+        assert_eq!(msg.get_content_text(), "[Tool Result: tool_2: Line 1\nLine 2]");
     }
 
     #[test]
@@ -639,7 +639,7 @@ mod tests {
         assert_eq!(msg.get_type(), "assistant");
         assert_eq!(
             msg.get_content_text(),
-            "Starting analysis...\nAnalysis complete."
+            "Starting analysis...\n[Tool Use: analyze_code (tool_3)]\nAnalysis complete."
         );
         assert!(msg.has_tool_use());
     }
