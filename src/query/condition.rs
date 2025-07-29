@@ -151,7 +151,7 @@ pub struct SearchResult {
 }
 
 use crate::interactive_ratatui::ui::components::list_item::{
-    ListItem, truncate_message, wrap_text,
+    ListItem, wrap_text,
 };
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -169,16 +169,10 @@ impl ListItem for SearchResult {
         &self.text
     }
 
-    fn create_truncated_line(&self, max_width: usize, _query: &str) -> Line<'static> {
+    fn create_truncated_line(&self, _query: &str) -> Line<'static> {
         let timestamp = self.format_timestamp();
-        let content_raw = self.get_content().replace('\n', " ");
-        
-        // Only truncate if the content is actually longer than available width
-        let content = if content_raw.chars().count() > max_width {
-            truncate_message(&content_raw, max_width)
-        } else {
-            content_raw.clone()
-        };
+        // Let ratatui handle truncation - just remove newlines
+        let content = self.get_content().replace('\n', " ");
 
         let mut spans = vec![
             Span::styled(

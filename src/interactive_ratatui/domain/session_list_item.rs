@@ -1,5 +1,5 @@
 use crate::interactive_ratatui::ui::components::list_item::{
-    ListItem, highlight_text, truncate_message, wrap_text,
+    ListItem, highlight_text, wrap_text,
 };
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
@@ -101,9 +101,10 @@ impl ListItem for SessionListItem {
         &self.content
     }
 
-    fn create_truncated_line(&self, max_width: usize, query: &str) -> Line<'static> {
+    fn create_truncated_line(&self, query: &str) -> Line<'static> {
         let timestamp = self.format_timestamp();
-        let content = truncate_message(self.get_content(), max_width);
+        // Let ratatui handle truncation - just remove newlines
+        let content = self.get_content().replace('\n', " ");
         let highlighted_content = highlight_text(&content, query);
 
         let mut spans = vec![

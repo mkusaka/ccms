@@ -382,7 +382,7 @@ impl<T: ListItem> ListViewer<T> {
 
                         if self.truncation_enabled {
                             TuiListItem::new(
-                                item.create_truncated_line(available_text_width, &self.query),
+                                item.create_truncated_line(&self.query),
                             )
                             .style(style)
                         } else {
