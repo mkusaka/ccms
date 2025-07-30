@@ -9,6 +9,10 @@ description = "High-performance CLI for searching Claude session JSONL files"
 name = "ccms"
 path = "src/main.rs"
 
+[[bin]]
+name = "perf_test"
+path = "src/bin/perf_test.rs"
+
 [dependencies]
 # CLI and argument parsing
 clap = { version = "4.5", features = ["derive", "env"] }
@@ -62,6 +66,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Async runtime (optional)
 tokio = { version = "1.40", features = ["full"], optional = true }
 futures = { version = "0.3", optional = true }
+bytes = { version = "1.9", optional = true }
+num_cpus = { version = "1.17", optional = true }
 
 [dev-dependencies]
 codspeed-criterion-compat = "=3.0.4"
@@ -91,6 +97,10 @@ harness = false
 name = "interactive_ui_benchmark"
 harness = false
 
+[[bench]]
+name = "rayon_vs_tokio_benchmark"
+harness = false
+
 [profile.release]
 lto = true
 codegen-units = 1
@@ -99,4 +109,4 @@ opt-level = 3
 [features]
 default = []
 profiling = ["pprof"]
-async = ["tokio", "futures"]
+async = ["tokio", "futures", "bytes", "num_cpus"]
