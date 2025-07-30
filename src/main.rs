@@ -1,8 +1,14 @@
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 use anyhow::Result;
 use ccms::{
     SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
     interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
+#[cfg(feature = "profiling")]
+use ccms::profiling_enhanced;
 #[cfg(feature = "async")]
 use ccms::search::OptimizedAsyncSearchEngine;
 use chrono::{DateTime, Local, Utc};
@@ -148,7 +154,7 @@ fn main() -> Result<()> {
     // Initialize profiler if requested
     #[cfg(feature = "profiling")]
     let mut profiler = if cli.profile.is_some() {
-        Some(profiling::Profiler::new()?)
+        Some(profiling_enhanced::EnhancedProfiler::new("main")?)
     } else {
         None
     };
@@ -326,8 +332,9 @@ fn main() -> Result<()> {
     #[cfg(feature = "profiling")]
     if let Some(ref mut profiler) = profiler {
         if let Some(profile_path) = &cli.profile {
-            profiler.report(profile_path)?;
-            eprintln!("Profiling report saved to {profile_path}.svg");
+            let report = profiler.generate_comprehensive_report(profile_path)?;
+            eprintln!("\n{}", report);
+            eprintln!("\nDetailed profiling reports saved to {}_{{comprehensive.txt,svg}}", profile_path);
         }
     }
 

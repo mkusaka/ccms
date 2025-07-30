@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use super::fast_lowercase::FastLowercase;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -35,7 +36,7 @@ impl QueryCondition {
                 if *case_sensitive {
                     Ok(text.contains(pattern))
                 } else {
-                    Ok(text.to_lowercase().contains(&pattern.to_lowercase()))
+                    Ok(text.fast_contains_ignore_case(pattern))
                 }
             }
             QueryCondition::Regex { pattern, flags } => {
@@ -71,8 +72,8 @@ impl QueryCondition {
                 if *case_sensitive {
                     text.find(pattern).map(|pos| (pos, pattern.len()))
                 } else {
-                    let lower_text = text.to_lowercase();
-                    let lower_pattern = pattern.to_lowercase();
+                    let lower_text = text.fast_to_lowercase();
+                    let lower_pattern = pattern.fast_to_lowercase();
                     lower_text
                         .find(&lower_pattern)
                         .map(|pos| (pos, pattern.len()))

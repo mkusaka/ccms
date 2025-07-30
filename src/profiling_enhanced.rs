@@ -1,6 +1,7 @@
 use anyhow::Result;
 use std::time::{Duration, Instant};
 use tracing::{info, instrument};
+use tracing_subscriber::Layer;
 
 #[cfg(feature = "profiling")]
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};

@@ -431,8 +431,19 @@ fn process_line(
     }
     
     // Parse JSON with SIMD optimization
-    let mut json_bytes = line.to_vec();
-    match simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes) {
+    #[cfg(feature = "sonic")]
+    let message_result = {
+        let json_str = std::str::from_utf8(line).ok()?;
+        sonic_rs::from_str::<SessionMessage>(json_str)
+    };
+    
+    #[cfg(not(feature = "sonic"))]
+    let message_result = {
+        let mut json_bytes = line.to_vec();
+        simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes)
+    };
+    
+    match message_result {
         Ok(message) => {
             // Update timestamps
             if let Some(ts) = message.get_timestamp() {
