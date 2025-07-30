@@ -1,5 +1,6 @@
 pub mod interactive_ratatui;
 pub mod profiling;
+pub mod profiling_enhanced;
 pub mod query;
 pub mod schemas;
 pub mod search;
