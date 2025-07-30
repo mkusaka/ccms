@@ -8,6 +8,8 @@ pub mod optimized_async_engine;
 pub mod optimized_async_engine_v2;
 #[cfg(feature = "async")]
 pub mod optimized_async_engine_v3;
+#[cfg(feature = "async")]
+pub mod optimized_async_engine_v4;
 
 #[cfg(feature = "async")]
 pub use async_engine::{AsyncSearchEngine, AsyncSearchOptions, AsyncSearchResult};
