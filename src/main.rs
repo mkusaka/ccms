@@ -3,6 +3,8 @@ use ccms::{
     SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
     interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
+#[cfg(feature = "async")]
+use ccms::search::OptimizedAsyncSearchEngine;
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
 use clap_complete::{Generator, Shell, generate};
@@ -93,6 +95,10 @@ struct Cli {
     /// Generate shell completion script
     #[arg(long = "completion", value_enum)]
     generator: Option<Shell>,
+
+    /// Search engine to use
+    #[arg(long, value_enum, default_value = "rayon")]
+    engine: SearchEngineType,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -100,6 +106,15 @@ enum OutputFormat {
     Text,
     Json,
     JsonL,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum SearchEngineType {
+    /// Rayon parallel processing (default)
+    Rayon,
+    /// Tokio async processing
+    #[cfg(feature = "async")]
+    Tokio,
 }
 
 fn print_completions<G: Generator>(generator: G, cmd: &mut Command) {
@@ -209,9 +224,6 @@ fn main() -> Result<()> {
         eprintln!("Query: {query:?}");
     }
 
-    // Create search engine and search
-    let engine = SearchEngine::new(options);
-
     // Debug: only search specific file
     let debug_file = "/Users/masatomokusaka/.claude/projects/-Users-masatomokusaka-src-github-com-mkusaka-bookmark-agent/9ca2db47-82d6-4da7-998e-3d7cd28ce5b5.jsonl";
     let pattern_to_use = if std::env::var("DEBUG_SINGLE_FILE").is_ok() {
@@ -221,7 +233,29 @@ fn main() -> Result<()> {
         pattern
     };
 
-    let (results, duration, total_count) = engine.search(pattern_to_use, query)?;
+    // Execute search based on selected engine
+    let (results, duration, total_count) = match cli.engine {
+        SearchEngineType::Rayon => {
+            if cli.verbose {
+                eprintln!("Using Rayon parallel search engine");
+            }
+            let engine = SearchEngine::new(options);
+            engine.search(pattern_to_use, query)?
+        }
+        #[cfg(feature = "async")]
+        SearchEngineType::Tokio => {
+            if cli.verbose {
+                eprintln!("Using Tokio async search engine");
+            }
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()?;
+            rt.block_on(async {
+                let engine = OptimizedAsyncSearchEngine::new(options);
+                engine.search(pattern_to_use, query).await
+            })?
+        }
+    };
 
     // Output results
     let stdout = io::stdout();
