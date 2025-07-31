@@ -2,6 +2,9 @@
 pub mod async_engine;
 pub mod engine;
 pub mod file_discovery;
+pub mod optimized_rayon_engine;
+pub mod optimized_rayon_engine_v2;
+pub mod optimized_rayon_engine_v3;
 #[cfg(feature = "async")]
 pub mod optimized_async_engine;
 #[cfg(feature = "async")]
