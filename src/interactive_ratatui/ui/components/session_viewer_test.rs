@@ -284,14 +284,12 @@ mod tests {
     #[test]
     fn test_copy_project_path() {
         let mut viewer = SessionViewer::new();
+        // Set messages with cwd field
         viewer.set_messages(vec![
-            r#"{"type":"user","message":{"content":"test"}}"#.to_string(),
+            r#"{"type":"user","message":{"role":"user","content":"test"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/project/name","version":"1"}"#.to_string(),
         ]);
-        viewer.set_file_path(Some(
-            "/Users/masatomokusaka/.claude/projects/-Users-project-name/session.jsonl".to_string(),
-        ));
 
-        // Test copy project path
+        // Test copy project path (now it's cwd)
         let msg = viewer.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::empty()));
         assert!(
             matches!(msg, Some(Message::CopyToClipboard(CopyContent::ProjectPath(path))) if path == "/Users/project/name")
@@ -308,30 +306,18 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_project_path() {
+    fn test_cwd_extraction_from_messages() {
         let mut viewer = SessionViewer::new();
 
-        // Test with typical Claude project path
-        viewer.set_file_path(Some("/Users/masatomokusaka/.claude/projects/-Users-masatomokusaka-src-github-com-clerk-clerk-playwright-nextjs/fb101a01-0e24-4a45-9e42-74117ebc20e6.jsonl".to_string()));
+        // Test with messages containing cwd
+        let messages = vec![
+            r#"{"type":"user","message":{"role":"user","content":"Test"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/test/project","version":"1"}"#.to_string(),
+        ];
+
+        viewer.set_messages(messages);
 
         let buffer = render_component(&mut viewer, 180, 24);
-        assert!(buffer_contains(
-            &buffer,
-            "Project: /Users/masatomokusaka/src/github/com/clerk/clerk/playwright/nextjs"
-        ));
-
-        // Test with shorter path
-        viewer.set_file_path(Some(
-            "/home/user/.claude/projects/-tmp-test/session.jsonl".to_string(),
-        ));
-        let buffer = render_component(&mut viewer, 100, 24);
-        assert!(buffer_contains(&buffer, "Project: /tmp/test"));
-
-        // Test with no project path (invalid format)
-        viewer.set_file_path(Some("/invalid/path/file.jsonl".to_string()));
-        let buffer = render_component(&mut viewer, 100, 24);
-        // Should not show Project: line when extraction fails
-        assert!(!buffer_contains(&buffer, "Project:"));
+        assert!(buffer_contains(&buffer, "CWD: /Users/test/project"));
     }
 
     #[test]

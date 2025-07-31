@@ -97,8 +97,8 @@ impl MessageDetail {
                 Span::raw(&result.file),
             ]),
             Line::from(vec![
-                Span::styled("Project: ", Styles::label()),
-                Span::raw(&result.project_path),
+                Span::styled("CWD: ", Styles::label()),
+                Span::raw(&result.cwd),
             ]),
             Line::from(vec![
                 Span::styled("UUID: ", Styles::label()),
@@ -296,14 +296,14 @@ impl Component for MessageDetail {
                         )))
                     } else {
                         let formatted = format!(
-                            "File: {}\nUUID: {}\nTimestamp: {}\nSession ID: {}\nRole: {}\nText: {}\nProject: {}",
+                            "File: {}\nUUID: {}\nTimestamp: {}\nSession ID: {}\nRole: {}\nText: {}\nCWD: {}",
                             result.file,
                             result.uuid,
                             result.timestamp,
                             result.session_id,
                             result.role,
                             result.text,
-                            result.project_path
+                            result.cwd
                         );
                         Some(Message::CopyToClipboard(CopyContent::FullMessageDetails(
                             formatted,
@@ -321,7 +321,7 @@ impl Component for MessageDetail {
                 .as_ref()
                 .map(|result| Message::CopyToClipboard(CopyContent::FilePath(result.file.clone()))),
             KeyCode::Char('p') => self.result.as_ref().map(|result| {
-                Message::CopyToClipboard(CopyContent::ProjectPath(result.project_path.clone()))
+                Message::CopyToClipboard(CopyContent::ProjectPath(result.cwd.clone()))
             }),
             KeyCode::Esc => Some(Message::ExitToSearch),
             _ => None,

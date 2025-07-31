@@ -404,8 +404,8 @@ impl AppState {
                             pattern: String::new(),
                             case_sensitive: false,
                         },
-                        project_path: String::new(), // Not available from session viewer
-                        raw_json: Some(raw_json),    // Store full JSON
+                        cwd: String::new(), // Not available from session viewer
+                        raw_json: Some(raw_json), // Store full JSON
                     };
 
                     // If this is our first navigation, save the initial state

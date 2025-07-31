@@ -280,17 +280,11 @@ impl SearchEngine {
                                 }
                             }
 
-                            // Check project path filter
-                            if let Some(project_filter) = &self.options.project_path {
-                                // Instead of decoding the project path, encode the filter and compare
-                                let encoded_filter = Self::encode_project_path(project_filter);
-                                if let Some(parent) = file_path.parent() {
-                                    if let Some(project_name) = parent.file_name() {
-                                        if let Some(project_str) = project_name.to_str() {
-                                            if !project_str.starts_with(&encoded_filter) {
-                                                continue;
-                                            }
-                                        }
+                            // Check cwd filter
+                            if let Some(cwd_filter) = &self.options.project_path {
+                                if let Some(cwd) = message.get_cwd() {
+                                    if !cwd.starts_with(cwd_filter) {
+                                        continue;
                                     }
                                 }
                             }
@@ -344,7 +338,7 @@ impl SearchEngine {
                                 has_thinking: message.has_thinking(),
                                 message_type: message.get_type().to_string(),
                                 query: query.clone(),
-                                project_path: Self::extract_project_path(file_path),
+                                cwd: message.get_cwd().unwrap_or("").to_string(),
                                 raw_json: Some(line.clone()),
                             });
                         }
@@ -405,29 +399,6 @@ impl SearchEngine {
         }
 
         Ok(())
-    }
-
-    fn extract_project_path(file_path: &Path) -> String {
-        // Extract project path from file path
-        // Format: ~/.claude/projects/{encoded-project-path}/{session-id}.jsonl
-        if let Some(parent) = file_path.parent() {
-            if let Some(project_name) = parent.file_name() {
-                if let Some(project_str) = project_name.to_str() {
-                    // Decode the project path (replace hyphens with slashes)
-                    return project_str.replace('-', "/");
-                }
-            }
-        }
-        String::new()
-    }
-
-    fn encode_project_path(path: &str) -> String {
-        // Encode project path for comparison with Claude's encoding
-        // Claude's encoding replaces these characters with hyphens:
-        // - Path separators (/)
-        // - Dots (.)
-        // - Underscores (_)
-        path.replace(['/', '.', '_'], "-")
     }
 }
 
@@ -822,21 +793,7 @@ mod tests {
     }
 
     #[test]
-    fn test_project_path_extraction() -> Result<()> {
-        let project_path = SearchEngine::extract_project_path(Path::new(
-            "/home/user/.claude/projects/-Users-project-name/session.jsonl",
-        ));
-        assert_eq!(project_path, "/Users/project/name");
-
-        let project_path =
-            SearchEngine::extract_project_path(Path::new("/invalid/path/file.jsonl"));
-        assert_eq!(project_path, "path");
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_project_path_filter() -> Result<()> {
+    fn test_cwd_filter() -> Result<()> {
         let temp_dir = tempdir()?;
         let projects_dir = temp_dir.path().join(".claude").join("projects");
         std::fs::create_dir_all(&projects_dir)?;
@@ -854,16 +811,16 @@ mod tests {
         let mut f1 = File::create(&file1)?;
         writeln!(
             f1,
-            r#"{{"type":"user","message":{{"role":"user","content":"Project 1 message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+            r#"{{"type":"user","message":{{"role":"user","content":"Project 1 message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/project1","version":"1"}}"#
         )?;
 
         let mut f2 = File::create(&file2)?;
         writeln!(
             f2,
-            r#"{{"type":"user","message":{{"role":"user","content":"Project 2 message"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s2","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+            r#"{{"type":"user","message":{{"role":"user","content":"Project 2 message"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s2","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/project2","version":"1"}}"#
         )?;
 
-        // Search with project filter
+        // Search with cwd filter
         let options = SearchOptions {
             project_path: Some("/Users/project1".to_string()),
             ..Default::default()

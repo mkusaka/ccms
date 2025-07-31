@@ -77,7 +77,7 @@ struct Cli {
     #[arg(short = 'i', long)]
     interactive: bool,
 
-    /// Filter by project path (e.g., current directory: $(pwd))
+    /// Filter by working directory (cwd) path
     #[arg(long = "project")]
     project_path: Option<String>,
 
