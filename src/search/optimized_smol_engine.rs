@@ -68,7 +68,8 @@ impl OptimizedSmolSearchEngine {
         let max_results = self.options.max_results.unwrap_or(50);
 
         // Create semaphore to limit concurrent file operations
-        let semaphore = Arc::new(Semaphore::new(num_cpus::get() * 2));
+        // Use CPU count for optimal concurrency
+        let semaphore = Arc::new(Semaphore::new(num_cpus::get()));
 
         // Process files concurrently using multi-threaded executor
         let search_start = std::time::Instant::now();
