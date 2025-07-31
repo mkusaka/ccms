@@ -282,9 +282,16 @@ impl SearchEngine {
 
                             // Check project path filter
                             if let Some(project_filter) = &self.options.project_path {
-                                let project_path = Self::extract_project_path(file_path);
-                                if !project_path.starts_with(project_filter) {
-                                    continue;
+                                // Instead of decoding the project path, encode the filter and compare
+                                let encoded_filter = Self::encode_project_path(project_filter);
+                                if let Some(parent) = file_path.parent() {
+                                    if let Some(project_name) = parent.file_name() {
+                                        if let Some(project_str) = project_name.to_str() {
+                                            if !project_str.starts_with(&encoded_filter) {
+                                                continue;
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
@@ -412,6 +419,15 @@ impl SearchEngine {
             }
         }
         String::new()
+    }
+
+    fn encode_project_path(path: &str) -> String {
+        // Encode project path for comparison with Claude's encoding
+        // Claude's encoding replaces these characters with hyphens:
+        // - Path separators (/)
+        // - Dots (.)
+        // - Underscores (_)
+        path.replace(['/', '.', '_'], "-")
     }
 }
 
