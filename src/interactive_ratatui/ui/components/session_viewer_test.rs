@@ -313,9 +313,9 @@ mod tests {
         let messages = vec![
             r#"{"type":"user","message":{"role":"user","content":"Test"},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/test/project","version":"1"}"#.to_string(),
         ];
-        
+
         viewer.set_messages(messages);
-        
+
         let buffer = render_component(&mut viewer, 180, 24);
         assert!(buffer_contains(&buffer, "CWD: /Users/test/project"));
     }

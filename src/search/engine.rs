@@ -400,7 +400,6 @@ impl SearchEngine {
 
         Ok(())
     }
-
 }
 
 fn format_preview(text: &str, query: &QueryCondition, context_length: usize) -> String {
@@ -792,7 +791,6 @@ mod tests {
 
         Ok(())
     }
-
 
     #[test]
     fn test_cwd_filter() -> Result<()> {

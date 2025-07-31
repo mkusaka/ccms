@@ -403,7 +403,7 @@ impl AppState {
                             case_sensitive: false,
                         },
                         cwd: String::new(), // Not available from session viewer
-                        raw_json: Some(raw_json),    // Store full JSON
+                        raw_json: Some(raw_json), // Store full JSON
                     };
 
                     // If this is our first navigation, save the initial state

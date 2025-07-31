@@ -1,3 +1,4 @@
+use crate::SessionMessage;
 use crate::interactive_ratatui::domain::models::SessionOrder;
 use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
 use crate::interactive_ratatui::ui::components::{
@@ -7,7 +8,6 @@ use crate::interactive_ratatui::ui::components::{
     view_layout::{ColorScheme, ViewLayout},
 };
 use crate::interactive_ratatui::ui::events::{CopyContent, Message};
-use crate::SessionMessage;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
@@ -178,7 +178,6 @@ impl SessionViewer {
             SessionOrder::Descending => "Desc",
         }
     }
-
 
     fn render_content(&mut self, f: &mut Frame, area: Rect) {
         let chunks = Layout::default()
