@@ -397,6 +397,7 @@ dependencies = [
  "indicatif",
  "jemallocator",
  "lru 0.16.0",
+ "memchr",
  "memmap2",
  "mimalloc",
  "nom 8.0.0",
