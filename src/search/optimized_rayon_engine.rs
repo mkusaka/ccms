@@ -2,7 +2,6 @@ use anyhow::Result;
 use chrono::DateTime;
 use crossbeam::channel;
 use indicatif::{ProgressBar, ProgressStyle};
-use memchr::memchr_iter;
 use rayon::prelude::*;
 use std::fs::File;
 use std::path::Path;
@@ -80,25 +79,20 @@ impl OptimizedRayonEngine {
         let (sender, receiver) = channel::unbounded();
         let max_results = self.options.max_results.unwrap_or(50);
 
-        // Process files in parallel with batch size optimization
+        // Process files in parallel without manual batching
         let search_start = std::time::Instant::now();
         
-        // Batch files to reduce Rayon overhead
-        files
-            .par_chunks(std::cmp::max(1, files.len() / (rayon::current_num_threads() * 4)))
-            .for_each_with(sender, |s, chunk| {
-                for file_path in chunk {
-                    if let Some(pb) = &progress {
-                        pb.inc(1);
-                    }
+        files.par_iter().for_each_with(sender, |s, file_path| {
+            if let Some(pb) = &progress {
+                pb.inc(1);
+            }
 
-                    if let Ok(results) = self.search_file(file_path, &query) {
-                        for result in results {
-                            let _ = s.send(result);
-                        }
-                    }
+            if let Ok(results) = self.search_file(file_path, &query) {
+                for result in results {
+                    let _ = s.send(result);
                 }
-            });
+            }
+        });
             
         let search_time = search_start.elapsed();
 
@@ -147,7 +141,7 @@ impl OptimizedRayonEngine {
         let mut start = 0;
         
         // Use memchr for fast newline scanning
-        for line_end in memchr_iter(b'\n', content) {
+        for line_end in memchr::memchr_iter(b'\n', content) {
             let line = &content[start..line_end];
             
             if let Ok(result) = self.process_line(line, file_path, query) {
@@ -180,26 +174,19 @@ impl OptimizedRayonEngine {
         let reader = BufReader::with_capacity(64 * 1024, file);
         
         let mut results = Vec::new();
-        // Pre-allocate buffer to reuse
-        let mut line_buffer = Vec::with_capacity(8 * 1024);
         
-        let mut reader = reader;
-        while reader.read_until(b'\n', &mut line_buffer)? > 0 {
-            // Strip newline
-            if line_buffer.last() == Some(&b'\n') {
-                line_buffer.pop();
-                if line_buffer.last() == Some(&b'\r') {
-                    line_buffer.pop();
-                }
+        // Use simpler lines() iterator approach
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
             }
             
-            if let Ok(result) = self.process_line(&line_buffer, file_path, query) {
+            if let Ok(result) = self.process_line(line.as_bytes(), file_path, query) {
                 if let Some(res) = result {
                     results.push(res);
                 }
             }
-            
-            line_buffer.clear();
         }
         
         Ok(results)
@@ -216,26 +203,12 @@ impl OptimizedRayonEngine {
             return Ok(None);
         }
         
-        // Use sonic-rs if available, otherwise fall back to simd_json
-        #[cfg(feature = "sonic")]
+        // Always use sonic-rs for better performance
         let message: SessionMessage = sonic_rs::from_slice(line)?;
         
-        #[cfg(not(feature = "sonic"))]
-        let message: SessionMessage = {
-            let mut line_copy = line.to_vec();
-            simd_json::serde::from_slice(&mut line_copy)?
-        };
-        
-        // Apply ASCII lowercasing optimization for search
+        // Simple search without ASCII optimization
         let content_text = message.get_content_text();
-        let matches = if self.is_likely_ascii(&content_text) {
-            let mut content_lower = content_text.as_bytes().to_vec();
-            self.ascii_in_place_lowercase(&mut content_lower);
-            let content_str = unsafe { std::str::from_utf8_unchecked(&content_lower) };
-            query.evaluate(content_str)?
-        } else {
-            query.evaluate(&content_text.to_lowercase())?
-        };
+        let matches = query.evaluate(&content_text)?;
         
         if matches {
             let timestamp = message
@@ -263,18 +236,6 @@ impl OptimizedRayonEngine {
             Ok(Some(result))
         } else {
             Ok(None)
-        }
-    }
-    
-    fn is_likely_ascii(&self, s: &str) -> bool {
-        s.chars().take(100).all(|c| c.is_ascii())
-    }
-    
-    fn ascii_in_place_lowercase(&self, buf: &mut [u8]) {
-        for b in buf.iter_mut() {
-            if (b'A'..=b'Z').contains(b) {
-                *b |= 0x20;
-            }
         }
     }
     

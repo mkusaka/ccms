@@ -228,7 +228,7 @@ async fn search_file(
             })
             .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
         
-        let mut results = Vec::new();
+        let mut results = Vec::with_capacity(32); // Pre-allocate for typical result size
         let mut latest_timestamp: Option<String> = None;
         let mut first_timestamp: Option<String> = None;
         
@@ -238,16 +238,8 @@ async fn search_file(
                 continue;
             }
             
-            // Parse JSON
-            #[cfg(feature = "sonic")]
+            // Parse JSON - Always use sonic-rs
             let message: Result<SessionMessage, _> = sonic_rs::from_str(&line);
-            
-            #[cfg(not(feature = "sonic"))]
-            let message: Result<SessionMessage, _> = {
-                let mut line_bytes = line.as_bytes().to_vec();
-                simd_json::serde::from_slice(&mut line_bytes)
-                    .map_err(|e| anyhow::anyhow!("JSON parse error: {}", e))
-            };
             
             if let Ok(message) = message {
                 // Update timestamps
