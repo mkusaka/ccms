@@ -10,7 +10,7 @@ mod tests {
     fn create_test_result() -> SearchResult {
         SearchResult {
             file: "/path/to/test.jsonl".to_string(),
-            project_path: "/path/to/project".to_string(),
+            cwd: "/path/to/project".to_string(),
             uuid: "12345678-1234-5678-1234-567812345678".to_string(),
             session_id: "session-123".to_string(),
             timestamp: "2024-01-01T00:00:00Z".to_string(),
@@ -43,14 +43,14 @@ mod tests {
 
     fn create_test_result_with_long_project_path() -> SearchResult {
         let mut result = create_test_result();
-        result.project_path = "/Users/masatomokusaka/src/github/com/organization/very-long-project-name-with-multiple-segments/sub-project/workspace".to_string();
+        result.cwd = "/Users/masatomokusaka/src/github/com/organization/very-long-project-name-with-multiple-segments/sub-project/workspace".to_string();
         result
     }
 
     fn create_test_result_with_all_long_fields() -> SearchResult {
         let mut result = create_test_result();
         result.file = "/Users/masatomokusaka/.claude/projects/very-long-project-name/session-files/0ff88f7e-99a2-4c72-b7c1-fb95713d1832.jsonl".to_string();
-        result.project_path = "/Users/masatomokusaka/src/github/com/organization/very-long-project-name-with-multiple-segments/sub-project/workspace".to_string();
+        result.cwd = "/Users/masatomokusaka/src/github/com/organization/very-long-project-name-with-multiple-segments/sub-project/workspace".to_string();
         result.session_id = "extremely-long-session-id-0ff88f7e-99a2-4c72-b7c1-fb95713d1832-with-additional-segments".to_string();
         result.uuid =
             "12345678-1234-5678-1234-567812345678-extra-long-uuid-with-additional-information"
@@ -190,7 +190,7 @@ mod tests {
 
         // Check that project path components are present in the header section
         assert!(content.contains("Details"));
-        assert!(content.contains("Project:"));
+        assert!(content.contains("CWD:"));
         // Due to narrow width, the path might be truncated
         assert!(content.contains("masatomokusaka") || content.contains("workspace"));
     }
@@ -322,7 +322,7 @@ mod tests {
         // Check that all fields are present in the header section
         assert!(content.contains("Details"));
         assert!(content.contains("File:"));
-        assert!(content.contains("Project:"));
+        assert!(content.contains("CWD:"));
         assert!(content.contains("Session:"));
         assert!(content.contains("UUID:"));
 
@@ -410,7 +410,7 @@ mod tests {
                     assert!(text.contains("Session ID: session-123"));
                     assert!(text.contains("Role: user"));
                     assert!(text.contains("Text: This is a test message"));
-                    assert!(text.contains("Project: /path/to/project"));
+                    assert!(text.contains("CWD: /path/to/project"));
                 }
                 _ => panic!("Expected FullMessageDetails variant"),
             }
@@ -527,7 +527,7 @@ mod tests {
         assert!(content.contains("Role: user"));
         assert!(content.contains("Time:"));
         assert!(content.contains("File: /path/to/test.jsonl"));
-        assert!(content.contains("Project: /path/to/project"));
+        assert!(content.contains("CWD: /path/to/project"));
         assert!(content.contains("UUID: 12345678-1234-5678-1234-567812345678"));
         assert!(content.contains("Session: session-123"));
 

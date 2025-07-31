@@ -349,6 +349,15 @@ impl SessionMessage {
         }
     }
 
+    pub fn get_cwd(&self) -> Option<&str> {
+        match self {
+            SessionMessage::Summary { .. } => None,
+            SessionMessage::System { base, .. } => Some(&base.cwd),
+            SessionMessage::User { base, .. } => Some(&base.cwd),
+            SessionMessage::Assistant { base, .. } => Some(&base.cwd),
+        }
+    }
+
     pub fn has_tool_use(&self) -> bool {
         match self {
             SessionMessage::Assistant { message, .. } => message

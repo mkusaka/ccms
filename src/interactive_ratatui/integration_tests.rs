@@ -142,7 +142,7 @@ mod tests {
                 pattern: "test".to_string(),
                 case_sensitive: false,
             },
-            project_path: "/test".to_string(),
+            cwd: "/test".to_string(),
             raw_json: None,
         });
 
@@ -239,7 +239,7 @@ mod tests {
                 pattern: "test".to_string(),
                 case_sensitive: false,
             },
-            project_path: "/test/project".to_string(),
+            cwd: "/test/project".to_string(),
             raw_json: None,
         }
     }
@@ -776,7 +776,7 @@ mod tests {
         assert!(buffer_contains(buffer, "Role: user"));
         assert!(buffer_contains(buffer, "Time:"));
         assert!(buffer_contains(buffer, "File: /test/file.jsonl"));
-        assert!(buffer_contains(buffer, "Project: /test/project"));
+        assert!(buffer_contains(buffer, "CWD: /test/project"));
         assert!(buffer_contains(
             buffer,
             "UUID: 12345678-1234-5678-1234-567812345678"

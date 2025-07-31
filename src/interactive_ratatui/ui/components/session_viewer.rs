@@ -7,6 +7,7 @@ use crate::interactive_ratatui::ui::components::{
     view_layout::{ColorScheme, ViewLayout},
 };
 use crate::interactive_ratatui::ui::events::{CopyContent, Message};
+use crate::SessionMessage;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
@@ -17,7 +18,6 @@ use ratatui::{
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::path::Path;
 
 pub struct SessionViewer {
     #[cfg(test)]
@@ -29,7 +29,7 @@ pub struct SessionViewer {
     order: SessionOrder,
     is_searching: bool,
     file_path: Option<String>,
-    project_path: Option<String>,
+    cwd: Option<String>,
     session_id: Option<String>,
     messages_hash: u64,
     message: Option<String>,
@@ -54,7 +54,7 @@ impl SessionViewer {
             order: SessionOrder::Ascending,
             is_searching: false,
             file_path: None,
-            project_path: None,
+            cwd: None,
             session_id: None,
             messages_hash: 0,
             message: None,
@@ -72,6 +72,18 @@ impl SessionViewer {
         if new_hash != self.messages_hash {
             self.messages_hash = new_hash;
             self.raw_messages = messages;
+
+            // Extract cwd from the first message if not yet set
+            if self.cwd.is_none() {
+                for line in &self.raw_messages {
+                    if let Ok(msg) = serde_json::from_str::<SessionMessage>(line) {
+                        if let Some(cwd) = msg.get_cwd() {
+                            self.cwd = Some(cwd.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
 
             // Convert raw messages to SessionListItems
             let items: Vec<SessionListItem> = self
@@ -100,7 +112,7 @@ impl SessionViewer {
     pub fn set_file_path(&mut self, file_path: Option<String>) {
         self.file_path = file_path.clone();
         // Extract project path from file path
-        self.project_path = file_path.and_then(|path| Self::extract_project_path(&path));
+        // cwd will be extracted from messages when loaded
     }
 
     pub fn set_session_id(&mut self, session_id: Option<String>) {
@@ -167,29 +179,6 @@ impl SessionViewer {
         }
     }
 
-    fn extract_project_path(file_path: &str) -> Option<String> {
-        // Extract project path from file path
-        // Format: ~/.claude/projects/{encoded-project-path}/{session-id}.jsonl
-        let path = Path::new(file_path);
-
-        // Check if this is a Claude project path
-        if !file_path.contains(".claude/projects/") {
-            return None;
-        }
-
-        if let Some(parent) = path.parent() {
-            if let Some(project_name) = parent.file_name() {
-                if let Some(project_str) = project_name.to_str() {
-                    // Decode the project path (replace hyphens with slashes)
-                    let decoded = project_str.replace('-', "/");
-                    if !decoded.is_empty() && decoded != "/" {
-                        return Some(decoded);
-                    }
-                }
-            }
-        }
-        None
-    }
 
     fn render_content(&mut self, f: &mut Frame, area: Rect) {
         let chunks = Layout::default()
@@ -249,8 +238,8 @@ impl Component for SessionViewer {
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let mut subtitle_parts = Vec::new();
 
-        if let Some(project) = &self.project_path {
-            subtitle_parts.push(format!("Project: {project}"));
+        if let Some(cwd) = &self.cwd {
+            subtitle_parts.push(format!("CWD: {cwd}"));
         }
 
         if let Some(session) = &self.session_id {
@@ -497,7 +486,7 @@ impl Component for SessionViewer {
                     .clone()
                     .map(|id| Message::CopyToClipboard(CopyContent::SessionId(id))),
                 KeyCode::Char('p') => self
-                    .project_path
+                    .cwd
                     .clone()
                     .map(|path| Message::CopyToClipboard(CopyContent::ProjectPath(path))),
                 KeyCode::Char('f') => self
