@@ -64,7 +64,7 @@ tokio = { version = "1.40", features = ["full"], optional = true }
 futures = { version = "0.3", optional = true }
 
 [dev-dependencies]
-codspeed-criterion-compat = "=3.0.4"
+codspeed-criterion-compat = "=3.0.5"
 tempfile = "=3.20.0"
 
 [[bench]]
