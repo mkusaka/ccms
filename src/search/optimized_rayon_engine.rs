@@ -144,6 +144,8 @@ impl OptimizedRayonEngine {
         for line_end in memchr::memchr_iter(b'\n', content) {
             let line = &content[start..line_end];
             
+            // For mmap version, we don't have the summary processing
+            // This keeps the simple high-performance path for mmap
             if let Ok(result) = self.process_line(line, file_path, query) {
                 if let Some(res) = result {
                     results.push(res);
@@ -171,18 +173,64 @@ impl OptimizedRayonEngine {
         use std::io::{BufRead, BufReader};
         
         let file = File::open(file_path)?;
+        
+        // Get file metadata for fallback timestamp
+        let metadata = file.metadata()?;
+        let file_ctime = metadata
+            .created()
+            .ok()
+            .and_then(|created| {
+                created
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()
+                    .map(|d| {
+                        let timestamp = chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
+                            .unwrap_or_else(chrono::Utc::now);
+                        timestamp.to_rfc3339()
+                    })
+            })
+            .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+        
         let reader = BufReader::with_capacity(64 * 1024, file);
         
-        let mut results = Vec::new();
+        // First, collect all lines for summary message processing
+        let lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
         
-        // Use simpler lines() iterator approach
-        for line in reader.lines() {
-            let line = line?;
+        // Second pass: find first timestamp if first message is summary
+        let mut first_timestamp: Option<String> = None;
+        if !lines.is_empty() {
+            if let Ok(first_msg) = sonic_rs::from_str::<SessionMessage>(&lines[0]) {
+                if first_msg.get_type() == "summary" {
+                    // Look for first timestamp in subsequent messages
+                    for line in lines.iter().skip(1) {
+                        if let Ok(msg) = sonic_rs::from_str::<SessionMessage>(line) {
+                            if let Some(ts) = msg.get_timestamp() {
+                                first_timestamp = Some(ts.to_string());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        let mut results = Vec::new();
+        let mut latest_timestamp: Option<String> = None;
+        
+        // Process all lines
+        for line in lines.iter() {
             if line.trim().is_empty() {
                 continue;
             }
             
-            if let Ok(result) = self.process_line(line.as_bytes(), file_path, query) {
+            if let Ok(result) = self.process_line_with_timestamps(
+                line.as_bytes(), 
+                file_path, 
+                query,
+                &file_ctime,
+                &first_timestamp,
+                &mut latest_timestamp
+            ) {
                 if let Some(res) = result {
                     results.push(res);
                 }
@@ -223,6 +271,71 @@ impl OptimizedRayonEngine {
                 session_id: message.get_session_id().unwrap_or("").to_string(),
                 role: message.get_type().to_string(),
                 text: content_text,
+                has_tools: message.has_tool_use(),
+                has_thinking: message.has_thinking(),
+                message_type: message.get_type().to_string(),
+                query: query.clone(),
+                project_path: file_path.parent()
+                    .and_then(|p| p.file_name())
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+                raw_json: None,
+            };
+            Ok(Some(result))
+        } else {
+            Ok(None)
+        }
+    }
+    
+    #[allow(dead_code)]
+    fn process_line_with_timestamps(
+        &self,
+        line: &[u8],
+        file_path: &Path,
+        query: &QueryCondition,
+        file_ctime: &str,
+        first_timestamp: &Option<String>,
+        latest_timestamp: &mut Option<String>,
+    ) -> Result<Option<SearchResult>> {
+        // Skip empty lines
+        if line.is_empty() {
+            return Ok(None);
+        }
+        
+        // Always use sonic-rs for better performance
+        let message: SessionMessage = sonic_rs::from_slice(line)?;
+        
+        // Update latest timestamp if this message has one
+        if let Some(ts) = message.get_timestamp() {
+            *latest_timestamp = Some(ts.to_string());
+        }
+        
+        // Get searchable text
+        let text = message.get_searchable_text();
+        
+        // Apply query condition
+        if query.evaluate(&text)? {
+            // Determine timestamp based on message type (matching Rayon logic)
+            let final_timestamp = message
+                .get_timestamp()
+                .map(|ts| ts.to_string())
+                .or_else(|| {
+                    // For summary messages, prefer first_timestamp over latest_timestamp
+                    if message.get_type() == "summary" {
+                        first_timestamp.clone()
+                    } else {
+                        latest_timestamp.clone()
+                    }
+                })
+                .unwrap_or_else(|| file_ctime.to_string());
+                
+            let result = SearchResult {
+                file: file_path.to_string_lossy().to_string(),
+                uuid: message.get_uuid().unwrap_or("").to_string(),
+                timestamp: final_timestamp,
+                session_id: message.get_session_id().unwrap_or("").to_string(),
+                role: message.get_type().to_string(),
+                text: message.get_content_text(),
                 has_tools: message.has_tool_use(),
                 has_thinking: message.has_thinking(),
                 message_type: message.get_type().to_string(),
