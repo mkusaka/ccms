@@ -207,6 +207,9 @@ mod tests {
         assert_eq!(app.state.search.role_filter, Some("system".to_string()));
 
         app.handle_message(Message::ToggleRoleFilter);
+        assert_eq!(app.state.search.role_filter, Some("summary".to_string()));
+
+        app.handle_message(Message::ToggleRoleFilter);
         assert_eq!(app.state.search.role_filter, None);
     }
 
@@ -673,6 +676,9 @@ mod tests {
         assert_eq!(app.state.search.role_filter, Some("system".to_string()));
 
         app.handle_input(tab_key).unwrap();
+        assert_eq!(app.state.search.role_filter, Some("summary".to_string()));
+
+        app.handle_input(tab_key).unwrap();
         assert_eq!(app.state.search.role_filter, None);
     }
 
@@ -1049,6 +1055,10 @@ mod tests {
         // Tab again - cycles to system
         app.handle_input(tab_key).unwrap();
         assert_eq!(app.state.session.role_filter, Some("system".to_string()));
+
+        // Tab again - cycles to summary
+        app.handle_input(tab_key).unwrap();
+        assert_eq!(app.state.session.role_filter, Some("summary".to_string()));
 
         // Tab again - cycles back to None
         app.handle_input(tab_key).unwrap();

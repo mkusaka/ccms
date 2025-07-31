@@ -237,6 +237,7 @@ impl AppState {
                     None => Some("user".to_string()),
                     Some(r) if r == "user" => Some("assistant".to_string()),
                     Some(r) if r == "assistant" => Some("system".to_string()),
+                    Some(r) if r == "system" => Some("summary".to_string()),
                     _ => None,
                 };
                 // Update navigation history to preserve filter state
@@ -307,6 +308,7 @@ impl AppState {
                     None => Some("user".to_string()),
                     Some(r) if r == "user" => Some("assistant".to_string()),
                     Some(r) if r == "assistant" => Some("system".to_string()),
+                    Some(r) if r == "system" => Some("summary".to_string()),
                     _ => None,
                 };
                 // Re-apply filter with new role

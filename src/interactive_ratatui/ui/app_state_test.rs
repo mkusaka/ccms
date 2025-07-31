@@ -137,6 +137,9 @@ mod tests {
         assert_eq!(state.search.role_filter, Some("system".to_string()));
 
         let _command = state.update(Message::ToggleRoleFilter);
+        assert_eq!(state.search.role_filter, Some("summary".to_string()));
+
+        let _command = state.update(Message::ToggleRoleFilter);
         assert_eq!(state.search.role_filter, None);
     }
 
