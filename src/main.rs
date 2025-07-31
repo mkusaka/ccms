@@ -11,6 +11,8 @@ use ccms::{
 use ccms::profiling_enhanced;
 #[cfg(feature = "async")]
 use ccms::search::OptimizedAsyncSearchEngine;
+#[cfg(feature = "smol")]
+use ccms::search::smol_engine::SmolSearchEngine;
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
 use clap_complete::{Generator, Shell, generate};
@@ -121,6 +123,9 @@ enum SearchEngineType {
     /// Tokio async processing
     #[cfg(feature = "async")]
     Tokio,
+    /// Smol lightweight async processing
+    #[cfg(feature = "smol")]
+    Smol,
 }
 
 fn print_completions<G: Generator>(generator: G, cmd: &mut Command) {
@@ -258,6 +263,16 @@ fn main() -> Result<()> {
                 .build()?;
             rt.block_on(async {
                 let engine = OptimizedAsyncSearchEngine::new(options);
+                engine.search(pattern_to_use, query).await
+            })?
+        }
+        #[cfg(feature = "smol")]
+        SearchEngineType::Smol => {
+            if cli.verbose {
+                eprintln!("Using Smol lightweight async search engine");
+            }
+            smol::block_on(async {
+                let engine = SmolSearchEngine::new(options);
                 engine.search(pattern_to_use, query).await
             })?
         }

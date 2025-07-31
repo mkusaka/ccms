@@ -13,6 +13,10 @@ pub mod optimized_async_engine_v2;
 pub mod optimized_async_engine_v3;
 #[cfg(feature = "async")]
 pub mod optimized_async_engine_v4;
+#[cfg(feature = "smol")]
+pub mod smol_engine;
+#[cfg(feature = "smol")]
+pub mod optimized_smol_engine;
 
 #[cfg(feature = "async")]
 pub use async_engine::{AsyncSearchEngine, AsyncSearchOptions, AsyncSearchResult};

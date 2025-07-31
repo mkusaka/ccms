@@ -29,6 +29,10 @@ path = "src/bin/bench_tokio_mimalloc.rs"
 name = "bench_tokio_mmap"
 path = "src/bin/bench_tokio_mmap.rs"
 
+[[bin]]
+name = "bench_smol"
+path = "src/bin/bench_smol.rs"
+
 [dependencies]
 # CLI and argument parsing
 clap = { version = "4.5", features = ["derive", "env"] }
@@ -88,6 +92,15 @@ futures = { version = "0.3", optional = true }
 bytes = { version = "1.9", optional = true }
 num_cpus = { version = "1.17", optional = true }
 
+# Smol runtime (optional)
+smol = { version = "2.0", optional = true }
+async-fs = { version = "2.1", optional = true }
+futures-lite = { version = "2.5", optional = true }
+async-executor = { version = "1.13", optional = true }
+async-io = { version = "2.4", optional = true }
+blocking = { version = "1.6", optional = true }
+async-lock = { version = "3.4", optional = true }
+
 # Custom allocator for performance
 mimalloc = { version = "0.1", default-features = false, optional = true }
 jemallocator = { version = "0.5", optional = true }
@@ -143,3 +156,4 @@ mimalloc = ["dep:mimalloc"]
 jemalloc = ["jemallocator"]
 mmap = ["memmap2"]
 sonic = ["sonic-rs"]
+smol = ["dep:smol", "async-fs", "futures-lite", "async-executor", "async-io", "blocking", "async-lock", "num_cpus"]
