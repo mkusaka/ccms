@@ -5,8 +5,8 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
-use std::io::{self, Stdout};
 use smol::channel::{Receiver, Sender};
+use std::io::{self, Stdout};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -368,7 +368,13 @@ impl InteractiveSearch {
         }
     }
 
-    fn start_search_worker(&self) -> (Sender<SearchRequest>, Receiver<SearchResponse>, smol::Task<()>) {
+    fn start_search_worker(
+        &self,
+    ) -> (
+        Sender<SearchRequest>,
+        Receiver<SearchResponse>,
+        smol::Task<()>,
+    ) {
         let (request_tx, request_rx) = smol::channel::unbounded::<SearchRequest>();
         let (response_tx, response_rx) = smol::channel::unbounded::<SearchResponse>();
         let search_service = self.search_service.clone();
@@ -381,10 +387,12 @@ impl InteractiveSearch {
                     }
                     Err(e) => {
                         eprintln!("Search error: {e}");
-                        let _ = response_tx.send(SearchResponse {
-                            id: request.id,
-                            results: Vec::new(),
-                        }).await;
+                        let _ = response_tx
+                            .send(SearchResponse {
+                                id: request.id,
+                                results: Vec::new(),
+                            })
+                            .await;
                     }
                 }
             }
