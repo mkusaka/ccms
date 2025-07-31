@@ -1,0 +1,53 @@
+=== Enhanced Profiling Report: main ===
+Total runtime: 0.366s
+
+CPU Profiling Report (pprof)
+============================
+
+Top Functions by CPU Time:
+--------------------------
+  1.  67.42% (   950 samples, ~ 950.0ms) std::io::read_until
+  2.  39.32% (   554 samples, ~  20.0ms) blocking::unblock::{{closure}}
+  3.  38.11% (   537 samples, ~   0.0ms) std::sys::backtrace::__rust_begin_short_backtrace
+  4.  38.04% (   536 samples, ~   0.0ms) std::sys::pal::unix::thread::Thread::new::thread_start
+  5.  38.04% (   536 samples, ~   0.0ms) ops::function::FnOnce::call_once{{vtable.shim}}
+  6.  37.97% (   535 samples, ~   0.0ms) async_task::raw::RawTask<F,T,S,M>::run
+  7.   6.74% (    95 samples, ~  36.0ms) <&mut sonic_rs::serde::de::Deserializer<R> as serde::de::Deserializer>::deserialize_any
+  8.   4.19% (    59 samples, ~  56.0ms) sonic_rs::parser::Parser<R>::parse_string_escaped
+  9.   3.97% (    56 samples, ~  56.0ms) alloc::str::<impl str>::to_lowercase
+ 10.   3.48% (    49 samples, ~  20.0ms) ccms::query::condition::QueryCondition::evaluate
+ 11.   2.98% (    42 samples, ~  42.0ms) alloc::raw_vec::finish_grow
+ 12.   2.41% (    34 samples, ~  10.0ms) ccms::schemas::session_message::_::<impl serde::de::Deserialize for ccms::schemas::session_messag...
+ 13.   1.85% (    26 samples, ~   1.0ms) sonic_rs::serde::de::from_trait
+ 14.   1.85% (    26 samples, ~  19.0ms) <serde::__private::de::content::ContentDeserializer<E> as serde::de::Deserializer>::deserialize_any
+ 15.   1.14% (    16 samples, ~  16.0ms) alloc::str::join_generic_copy
+ 16.   0.92% (    13 samples, ~  13.0ms) _os_cpu_in_cksum_mbuf
+ 17.   0.85% (    12 samples, ~   7.0ms) <serde::__private::de::content::ContentVisitor as serde::de::Visitor>::visit_seq
+ 18.   0.85% (    12 samples, ~  12.0ms) alloc::collections::btree::map::BTreeMap<K,V,A>::insert
+ 19.   0.85% (    12 samples, ~  12.0ms) __os_unfair_lock_lock_slow
+ 20.   0.78% (    11 samples, ~  11.0ms) serde::de::impls::<impl serde::de::Deserialize for alloc::string::String>::deserialize
+ 21.   0.71% (    10 samples, ~  10.0ms) ptr::drop_in_place<serde_json::value::Value>
+ 22.   0.64% (     9 samples, ~   9.0ms) ccms::schemas::session_message::SessionMessage::get_searchable_text
+ 23.   0.64% (     9 samples, ~   9.0ms) ptr::drop_in_place<ccms::schemas::session_message::BaseMessage>
+ 24.   0.64% (     9 samples, ~   9.0ms) <std::fs::ReadDir as iter::traits::iterator::Iterator>::next
+ 25.   0.64% (     9 samples, ~   9.0ms) <serde::__private::de::FlatMapDeserializer<E> as serde::de::Deserializer>::deserialize_struct
+ 26.   0.64% (     9 samples, ~   9.0ms) <serde::__private::de::content::ContentRefDeserializer<E> as serde::de::Deserializer>::deserializ...
+ 27.   0.57% (     8 samples, ~   8.0ms) <serde::__private::de::content::Content as clone::Clone>::clone
+ 28.   0.57% (     8 samples, ~   7.0ms) ptr::drop_in_place<ccms::schemas::session_message::SessionMessage>
+ 29.   0.50% (     7 samples, ~   5.0ms) ccms::schemas::session_message::SessionMessage::get_content_text
+ 30.   0.50% (     7 samples, ~   5.0ms) <marker::PhantomData<T> as serde::de::DeserializeSeed>::deserialize
+ 31.   0.28% (     4 samples, ~   4.0ms) alloc::raw_vec::RawVec<T,A>::grow_one
+ 32.   0.28% (     4 samples, ~   0.0ms) std::fs::OpenOptions::_open
+ 33.   0.28% (     4 samples, ~   4.0ms) std::sys::fs::metadata
+ 34.   0.28% (     4 samples, ~   4.0ms) ptr::drop_in_place<ccms::schemas::session_message::AssistantMessageContent>
+ 35.   0.28% (     4 samples, ~   4.0ms) sonic_rs::reader::Read::new
+ 36.   0.21% (     3 samples, ~   3.0ms) serde::__private::de::flat_map_take_entry
+ 37.   0.14% (     2 samples, ~   2.0ms) serde::de::value::MapDeserializer<I,E>::end
+ 38.   0.14% (     2 samples, ~   0.0ms) async_io::driver::block_on
+ 39.   0.14% (     2 samples, ~   2.0ms) _posix_spawnattr_set_qos_clamp_np
+ 40.   0.14% (     2 samples, ~   2.0ms) rayon::iter::plumbing::bridge_producer_consumer::elper
+ 41.   0.14% (     2 samples, ~   2.0ms) ptr::drop_in_place<serde::__private::de::content::Content>
+
+Total samples: 1409
+Sampling frequency: 1000 Hz
+Estimated CPU time: 1.409s

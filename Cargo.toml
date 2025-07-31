@@ -9,6 +9,30 @@ description = "High-performance CLI for searching Claude session JSONL files"
 name = "ccms"
 path = "src/main.rs"
 
+[[bin]]
+name = "perf_test"
+path = "src/bin/perf_test.rs"
+
+[[bin]]
+name = "bench_tokio"
+path = "src/bin/bench_tokio.rs"
+
+[[bin]]
+name = "perf_compare"
+path = "src/bin/perf_compare.rs"
+
+[[bin]]
+name = "bench_tokio_mimalloc"
+path = "src/bin/bench_tokio_mimalloc.rs"
+
+[[bin]]
+name = "bench_tokio_mmap"
+path = "src/bin/bench_tokio_mmap.rs"
+
+[[bin]]
+name = "bench_smol"
+path = "src/bin/bench_smol.rs"
+
 [dependencies]
 # CLI and argument parsing
 clap = { version = "4.5", features = ["derive", "env"] }
@@ -16,6 +40,7 @@ clap_complete = "4.5"
 
 # JSON parsing with SIMD acceleration
 simd-json = "0.15.1"
+sonic-rs = { version = "0.3" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
@@ -57,11 +82,32 @@ crossterm = "0.29"
 # Profiling and tracing
 pprof = { version = "0.15", features = ["flamegraph", "prost-codec"], optional = true }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+tracing-flame = { version = "0.2", optional = true }
+console-subscriber = { version = "0.4", optional = true }
 
 # Async runtime (optional)
 tokio = { version = "1.40", features = ["full"], optional = true }
 futures = { version = "0.3", optional = true }
+bytes = { version = "1.9", optional = true }
+num_cpus = { version = "1.17", optional = true }
+
+# Smol runtime (optional)
+smol = { version = "2.0", optional = true }
+async-fs = { version = "2.1", optional = true }
+futures-lite = { version = "2.5", optional = true }
+async-executor = { version = "1.13", optional = true }
+async-io = { version = "2.4", optional = true }
+blocking = { version = "1.6", optional = true }
+async-lock = { version = "3.4", optional = true }
+
+# Custom allocator for performance
+mimalloc = { version = "0.1", default-features = false, optional = true }
+jemallocator = { version = "0.5", optional = true }
+
+# Memory-mapped file I/O
+memmap2 = { version = "0.9", optional = true }
+memchr = "2.7"
 
 [dev-dependencies]
 codspeed-criterion-compat = "=3.0.5"
@@ -91,12 +137,22 @@ harness = false
 name = "interactive_ui_benchmark"
 harness = false
 
+[[bench]]
+name = "rayon_vs_tokio_benchmark"
+harness = false
+
 [profile.release]
 lto = true
 codegen-units = 1
 opt-level = 3
+debug = true  # Enable debug symbols for better profiling
 
 [features]
 default = []
-profiling = ["pprof"]
-async = ["tokio", "futures"]
+profiling = ["pprof", "tracing-flame", "console-subscriber"]
+async = ["tokio", "futures", "bytes", "num_cpus"]
+tokio-console = ["console-subscriber", "tokio/tracing"]
+mimalloc = ["dep:mimalloc"]
+jemalloc = ["jemallocator"]
+mmap = ["memmap2"]
+smol = ["dep:smol", "async-fs", "futures-lite", "async-executor", "async-io", "blocking", "async-lock", "num_cpus"]

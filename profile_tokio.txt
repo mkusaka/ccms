@@ -1,0 +1,7 @@
+CPU Profiling Report
+===================
+
+Top Functions by Self Time:
+--------------------------
+  1.  87.88% (    29 samples) __pthread_cond_wait
+  2.  12.12% (     4 samples) _main

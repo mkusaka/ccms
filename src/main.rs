@@ -1,8 +1,21 @@
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 use anyhow::Result;
 use ccms::{
     SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
     interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
+#[cfg(feature = "profiling")]
+use ccms::profiling_enhanced;
+#[cfg(feature = "async")]
+use ccms::search::{OptimizedAsyncSearchEngine, OptimizedAsyncSearchEngineV2};
+#[cfg(feature = "smol")]
+use ccms::search::smol_engine::SmolSearchEngine;
+#[cfg(feature = "smol")]
+use ccms::search::optimized_smol_engine::OptimizedSmolSearchEngine;
+use ccms::search::optimized_rayon_engine::OptimizedRayonEngine;
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
 use clap_complete::{Generator, Shell, generate};
@@ -92,6 +105,10 @@ struct Cli {
     /// Generate shell completion script
     #[arg(long = "completion", value_enum)]
     generator: Option<Shell>,
+
+    /// Search engine to use
+    #[arg(long, value_enum, default_value = "rayon")]
+    engine: SearchEngineType,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -99,6 +116,26 @@ enum OutputFormat {
     Text,
     Json,
     JsonL,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum SearchEngineType {
+    /// Rayon parallel processing (default)
+    Rayon,
+    /// Optimized Rayon with sonic-rs + jemalloc
+    OptimizedRayon,
+    /// Tokio async processing
+    #[cfg(feature = "async")]
+    Tokio,
+    /// Optimized Tokio with indexed collection
+    #[cfg(feature = "async")]
+    OptimizedTokio,
+    /// Smol lightweight async processing
+    #[cfg(feature = "smol")]
+    Smol,
+    /// Optimized Smol with auto thread pool tuning
+    #[cfg(feature = "smol")]
+    OptimizedSmol,
 }
 
 fn print_completions<G: Generator>(generator: G, cmd: &mut Command) {
@@ -132,7 +169,7 @@ fn main() -> Result<()> {
     // Initialize profiler if requested
     #[cfg(feature = "profiling")]
     let mut profiler = if cli.profile.is_some() {
-        Some(profiling::Profiler::new()?)
+        Some(profiling_enhanced::EnhancedProfiler::new("main")?)
     } else {
         None
     };
@@ -206,9 +243,6 @@ fn main() -> Result<()> {
         eprintln!("Query: {query:?}");
     }
 
-    // Create search engine and search
-    let engine = SearchEngine::new(options);
-
     // Debug: only search specific file
     let debug_file = "/Users/masatomokusaka/.claude/projects/-Users-masatomokusaka-src-github-com-mkusaka-bookmark-agent/9ca2db47-82d6-4da7-998e-3d7cd28ce5b5.jsonl";
     let pattern_to_use = if std::env::var("DEBUG_SINGLE_FILE").is_ok() {
@@ -218,7 +252,69 @@ fn main() -> Result<()> {
         pattern
     };
 
-    let (results, duration, total_count) = engine.search(pattern_to_use, query)?;
+    // Execute search based on selected engine
+    let (results, duration, total_count) = match cli.engine {
+        SearchEngineType::Rayon => {
+            if cli.verbose {
+                eprintln!("Using Rayon parallel search engine");
+            }
+            let engine = SearchEngine::new(options);
+            engine.search(pattern_to_use, query)?
+        }
+        SearchEngineType::OptimizedRayon => {
+            if cli.verbose {
+                eprintln!("Using Optimized Rayon with sonic-rs + jemalloc");
+            }
+            let engine = OptimizedRayonEngine::new(options);
+            engine.search(pattern_to_use, query)?
+        }
+        #[cfg(feature = "async")]
+        SearchEngineType::Tokio => {
+            if cli.verbose {
+                eprintln!("Using Tokio async search engine");
+            }
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()?;
+            rt.block_on(async {
+                let engine = OptimizedAsyncSearchEngine::new(options);
+                engine.search(pattern_to_use, query).await
+            })?
+        }
+        #[cfg(feature = "async")]
+        SearchEngineType::OptimizedTokio => {
+            if cli.verbose {
+                eprintln!("Using Optimized Tokio with indexed collection");
+            }
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()?;
+            rt.block_on(async {
+                let engine = OptimizedAsyncSearchEngineV2::new(options);
+                engine.search(pattern_to_use, query).await
+            })?
+        }
+        #[cfg(feature = "smol")]
+        SearchEngineType::Smol => {
+            if cli.verbose {
+                eprintln!("Using Smol lightweight async search engine");
+            }
+            smol::block_on(async {
+                let engine = SmolSearchEngine::new(options);
+                engine.search(pattern_to_use, query).await
+            })?
+        }
+        #[cfg(feature = "smol")]
+        SearchEngineType::OptimizedSmol => {
+            if cli.verbose {
+                eprintln!("Using Optimized Smol with auto thread pool tuning");
+            }
+            smol::block_on(async {
+                let engine = OptimizedSmolSearchEngine::new(options);
+                engine.search(pattern_to_use, query).await
+            })?
+        }
+    };
 
     // Output results
     let stdout = io::stdout();
@@ -289,8 +385,9 @@ fn main() -> Result<()> {
     #[cfg(feature = "profiling")]
     if let Some(ref mut profiler) = profiler {
         if let Some(profile_path) = &cli.profile {
-            profiler.report(profile_path)?;
-            eprintln!("Profiling report saved to {profile_path}.svg");
+            let report = profiler.generate_comprehensive_report(profile_path)?;
+            eprintln!("\n{}", report);
+            eprintln!("\nDetailed profiling reports saved to {}_{{comprehensive.txt,svg}}", profile_path);
         }
     }
 

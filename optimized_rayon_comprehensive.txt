@@ -1,0 +1,49 @@
+=== Enhanced Profiling Report: main ===
+Total runtime: 0.383s
+
+CPU Profiling Report (pprof)
+============================
+
+Top Functions by CPU Time:
+--------------------------
+  1. 116.13% (  1742 samples, ~  61.0ms) rayon::iter::plumbing::bridge_producer_consumer::elper
+  2.  79.73% (  1196 samples, ~   0.0ms) rayon_join::join_context::{{closure}}
+  3.  65.33% (   980 samples, ~ 980.0ms) std::io::read_until
+  4.  42.47% (   637 samples, ~   0.0ms) <rayon_job::StackJob<L,F,R> as rayon_job::Job>::execute
+  5.  42.47% (   637 samples, ~   0.0ms) rayon_registry::WorkerThread::wait_until_cold
+  6.  36.53% (   548 samples, ~   0.0ms) ops::function::FnOnce::call_once{{vtable.shim}}
+  7.  36.53% (   548 samples, ~   0.0ms) std::sys::backtrace::__rust_begin_short_backtrace
+  8.  36.53% (   548 samples, ~   0.0ms) std::sys::pal::unix::thread::Thread::new::thread_start
+  9.   8.87% (   133 samples, ~ 120.0ms) simd_json::Deserializer::from_slice
+ 10.   7.27% (   109 samples, ~ 109.0ms) alloc::str::<impl str>::to_lowercase
+ 11.   2.00% (    30 samples, ~   9.0ms) ccms::query::condition::QueryCondition::evaluate
+ 12.   1.73% (    26 samples, ~  26.0ms) <serde::__private::de::content::ContentDeserializer<E> as serde::de::Deserializer>::deserialize_any
+ 13.   1.27% (    19 samples, ~  19.0ms) alloc::raw_vec::finish_grow
+ 14.   1.20% (    18 samples, ~  18.0ms) __os_unfair_lock_lock_slow
+ 15.   1.00% (    15 samples, ~  15.0ms) _os_cpu_in_cksum_mbuf
+ 16.   0.93% (    14 samples, ~  14.0ms) serde::de::impls::<impl serde::de::Deserialize for alloc::string::String>::deserialize
+ 17.   0.93% (    14 samples, ~  14.0ms) _posix_spawnattr_set_qos_clamp_np
+ 18.   0.73% (    11 samples, ~  10.0ms) ccms::schemas::session_message::_::<impl serde::de::Deserialize for ccms::schemas::session_messag...
+ 19.   0.60% (     9 samples, ~   9.0ms) simd_json::serde::de::<impl serde::de::Deserializer for &mut simd_json::Deserializer>::deserializ...
+ 20.   0.53% (     8 samples, ~   8.0ms) alloc::collections::btree::map::BTreeMap<K,V,A>::insert
+ 21.   0.53% (     8 samples, ~   8.0ms) ptr::drop_in_place<serde_json::value::Value>
+ 22.   0.53% (     8 samples, ~   7.0ms) <ccms::schemas::session_message::_::<impl serde::de::Deserialize for ccms::schemas::session_messa...
+ 23.   0.53% (     8 samples, ~   8.0ms) alloc::str::join_generic_copy
+ 24.   0.47% (     7 samples, ~   7.0ms) serde::de::value::MapDeserializer<I,E>::end
+ 25.   0.47% (     7 samples, ~   7.0ms) ccms::schemas::session_message::SessionMessage::get_content_text
+ 26.   0.40% (     6 samples, ~   6.0ms) <serde::__private::de::FlatMapDeserializer<E> as serde::de::Deserializer>::deserialize_struct
+ 27.   0.33% (     5 samples, ~   5.0ms) ptr::drop_in_place<ccms::schemas::session_message::BaseMessage>
+ 28.   0.33% (     5 samples, ~   5.0ms) <marker::PhantomData<T> as serde::de::DeserializeSeed>::deserialize
+ 29.   0.27% (     4 samples, ~   4.0ms) ptr::drop_in_place<ccms::schemas::session_message::SessionMessage>
+ 30.   0.27% (     4 samples, ~   4.0ms) serde::__private::de::flat_map_take_entry
+ 31.   0.20% (     3 samples, ~   3.0ms) std::sys::fs::metadata
+ 32.   0.13% (     2 samples, ~   0.0ms) std::fs::OpenOptions::_open
+ 33.   0.13% (     2 samples, ~   2.0ms) <serde::__private::de::content::ContentVisitor as serde::de::Visitor>::visit_seq
+ 34.   0.13% (     2 samples, ~   2.0ms) ptr::drop_in_place<ccms::schemas::session_message::AssistantMessageContent>
+ 35.   0.13% (     2 samples, ~   2.0ms) simd_json::impls::neon::deser::parse_str
+ 36.   0.13% (     2 samples, ~   2.0ms) <std::fs::ReadDir as iter::traits::iterator::Iterator>::next
+ 37.   0.13% (     2 samples, ~   2.0ms) <serde::__private::de::content::ContentRefDeserializer<E> as serde::de::Deserializer>::deserializ...
+
+Total samples: 1500
+Sampling frequency: 1000 Hz
+Estimated CPU time: 1.500s

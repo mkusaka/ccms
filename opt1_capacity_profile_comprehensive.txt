@@ -1,0 +1,62 @@
+=== Enhanced Profiling Report: main ===
+Total runtime: 0.194s
+
+CPU Profiling Report (pprof)
+============================
+
+Top Functions by CPU Time:
+--------------------------
+  1.  74.73% (   843 samples, ~ 843.0ms) std::io::read_until
+  2.  42.46% (   479 samples, ~   5.0ms) blocking::unblock::{{closure}}
+  3.  42.29% (   477 samples, ~   0.0ms) std::sys::backtrace::__rust_begin_short_backtrace
+  4.  42.11% (   475 samples, ~   0.0ms) ops::function::FnOnce::call_once{{vtable.shim}}
+  5.  42.11% (   475 samples, ~   1.0ms) async_task::raw::RawTask<F,T,S,M>::run
+  6.  42.11% (   475 samples, ~   0.0ms) std::sys::pal::unix::thread::Thread::new::thread_start
+  7.   7.18% (    81 samples, ~  16.0ms) <&mut sonic_rs::serde::de::Deserializer<R> as serde::de::Deserializer>::deserialize_any
+  8.   4.17% (    47 samples, ~  10.0ms) ccms::query::condition::QueryCondition::evaluate
+  9.   3.72% (    42 samples, ~  42.0ms) alloc::str::<impl str>::to_lowercase
+ 10.   3.28% (    37 samples, ~  27.0ms) sonic_rs::parser::Parser<R>::parse_string_escaped
+ 11.   2.39% (    27 samples, ~   1.0ms) ccms::schemas::session_message::_::<impl serde::de::Deserialize for ccms::schemas::session_messag...
+ 12.   2.39% (    27 samples, ~  27.0ms) _posix_spawnattr_set_qos_clamp_np
+ 13.   2.30% (    26 samples, ~  26.0ms) _host_get_special_port
+ 14.   2.30% (    26 samples, ~   0.0ms) sonic_rs::serde::de::from_trait
+ 15.   1.86% (    21 samples, ~  21.0ms) alloc::str::join_generic_copy
+ 16.   1.68% (    19 samples, ~  19.0ms) <serde::__private::de::content::ContentRefDeserializer<E> as serde::de::Deserializer>::deserializ...
+ 17.   1.42% (    16 samples, ~  14.0ms) __rjem_je_arena_ralloc
+ 18.   0.98% (    11 samples, ~   2.0ms) alloc::raw_vec::finish_grow
+ 19.   0.89% (    10 samples, ~   4.0ms) <serde::__private::de::content::ContentDeserializer<E> as serde::de::Deserializer>::deserialize_any
+ 20.   0.80% (     9 samples, ~   0.0ms) alloc::raw_vec::RawVecInner<A>::reserve::do_reserve_and_handle
+ 21.   0.80% (     9 samples, ~   2.0ms) ccms::schemas::session_message::SessionMessage::get_content_text
+ 22.   0.80% (     9 samples, ~   0.0ms) _do_rallocx
+ 23.   0.71% (     8 samples, ~   8.0ms) _os_cpu_in_cksum_mbuf
+ 24.   0.71% (     8 samples, ~   1.0ms) <marker::PhantomData<T> as serde::de::DeserializeSeed>::deserialize
+ 25.   0.62% (     7 samples, ~   0.0ms) __rjem_je_extent_alloc_wrapper
+ 26.   0.62% (     7 samples, ~   0.0ms) __rjem_je_extent_alloc_mmap
+ 27.   0.62% (     7 samples, ~   0.0ms) __rjem_je_ecache_alloc_grow
+ 28.   0.62% (     7 samples, ~   0.0ms) __rjem_je_pages_map
+ 29.   0.62% (     7 samples, ~   0.0ms) _os_pages_map
+ 30.   0.53% (     6 samples, ~   0.0ms) <serde::de::impls::OptionVisitor<T> as serde::de::Visitor>::visit_some
+ 31.   0.44% (     5 samples, ~   0.0ms) __rjem_je_large_ralloc
+ 32.   0.44% (     5 samples, ~   5.0ms) __rjem_sdallocx.cold.1
+ 33.   0.44% (     5 samples, ~   0.0ms) __rjem_je_pa_expand
+ 34.   0.44% (     5 samples, ~   0.0ms) _large_ralloc_no_move_expand
+ 35.   0.44% (     5 samples, ~   5.0ms) std::sys::fs::metadata
+ 36.   0.44% (     5 samples, ~   5.0ms) <serde::__private::de::content::Content as clone::Clone>::clone
+ 37.   0.44% (     5 samples, ~   0.0ms) _pac_expand_impl
+ 38.   0.44% (     5 samples, ~   0.0ms) <serde::__private::de::content::ContentVisitor as serde::de::Visitor>::visit_seq
+ 39.   0.44% (     5 samples, ~   0.0ms) __rjem_je_large_ralloc_no_move
+ 40.   0.35% (     4 samples, ~   4.0ms) <std::fs::ReadDir as iter::traits::iterator::Iterator>::next
+ 41.   0.35% (     4 samples, ~   1.0ms) ccms::schemas::session_message::SessionMessage::get_searchable_text
+ 42.   0.35% (     4 samples, ~   4.0ms) alloc::collections::btree::map::BTreeMap<K,V,A>::insert
+ 43.   0.27% (     3 samples, ~   3.0ms) __rjem_je_arena_ralloc_no_move
+ 44.   0.27% (     3 samples, ~   3.0ms) serde::__private::de::flat_map_take_entry
+ 45.   0.27% (     3 samples, ~   0.0ms) parking::Inner::park
+ 46.   0.27% (     3 samples, ~   0.0ms) async_io::driver::block_on
+ 47.   0.18% (     2 samples, ~   0.0ms) std::fs::OpenOptions::_open
+ 48.   0.18% (     2 samples, ~   0.0ms) _pac_alloc_impl
+ 49.   0.18% (     2 samples, ~   0.0ms) _arena_slab_alloc
+ 50.   0.18% (     2 samples, ~   0.0ms) __rjem_je_arena_cache_bin_fill_small
+
+Total samples: 1128
+Sampling frequency: 1000 Hz
+Estimated CPU time: 1.128s
