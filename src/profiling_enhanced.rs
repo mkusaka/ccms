@@ -1,10 +1,17 @@
 use anyhow::Result;
 use std::time::{Duration, Instant};
-use tracing::{info, instrument};
-use tracing_subscriber::Layer;
+use tracing::info;
+#[cfg(feature = "async")]
+use tracing::instrument;
 
 #[cfg(feature = "profiling")]
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};
+
+// Import futures and tokio only when async feature is enabled
+#[cfg(feature = "async")]
+use futures;
+#[cfg(feature = "async")]
+use tokio;
 
 /// Enhanced profiling system with multiple strategies
 pub struct EnhancedProfiler {
@@ -182,6 +189,7 @@ impl EnhancedProfiler {
 }
 
 /// Profile a specific async operation with detailed timing
+#[cfg(feature = "async")]
 #[instrument(level = "debug", skip(future))]
 pub async fn profile_async_operation<F, T>(
     operation_name: &str,

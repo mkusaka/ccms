@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use bytes::BytesMut;
 use chrono::DateTime;
+use simd_json;
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -14,24 +15,28 @@ use crate::interactive_ratatui::domain::models::SearchOrder;
 use crate::query::{QueryCondition, SearchOptions, SearchResult};
 use crate::schemas::SessionMessage;
 
-/// Optimized async search engine using advanced tokio patterns
-pub struct OptimizedAsyncSearchEngine {
+/// Optimized async search engine with batch processing
+pub struct OptimizedAsyncSearchEngineV2 {
     options: SearchOptions,
-    /// Maximum concurrent file operations
-    max_concurrent_files: usize,
+    /// Maximum concurrent tasks (not files)
+    max_concurrent_tasks: usize,
+    /// Files per batch
+    files_per_batch: usize,
     /// Buffer size for file reading
     buffer_size: usize,
     /// Whether to use hybrid rayon parsing
     use_hybrid_parsing: bool,
 }
 
-impl OptimizedAsyncSearchEngine {
+impl OptimizedAsyncSearchEngineV2 {
     pub fn new(options: SearchOptions) -> Self {
         let num_cpus = num_cpus::get();
         Self {
             options,
-            // Optimal concurrency: num_cpus * 2
-            max_concurrent_files: num_cpus * 2,
+            // Fewer tasks, each handling multiple files
+            max_concurrent_tasks: num_cpus,
+            // Process multiple files per task
+            files_per_batch: 10,
             // Large buffer for efficient I/O
             buffer_size: 64 * 1024,
             // Enable hybrid parsing by default
@@ -39,8 +44,8 @@ impl OptimizedAsyncSearchEngine {
         }
     }
     
-    pub fn with_concurrency(mut self, max_concurrent_files: usize) -> Self {
-        self.max_concurrent_files = max_concurrent_files;
+    pub fn with_files_per_batch(mut self, files_per_batch: usize) -> Self {
+        self.files_per_batch = files_per_batch;
         self
     }
     
@@ -97,46 +102,57 @@ impl OptimizedAsyncSearchEngine {
                 file_discovery_time.as_millis(),
                 files.len()
             );
-            if files.len() > 0 {
-                eprintln!("DEBUG: First file: {:?}", files[0]);
-                eprintln!("DEBUG: Last file: {:?}", files[files.len() - 1]);
-            }
         }
 
         if files.is_empty() {
             return Ok((Vec::new(), start_time.elapsed(), 0));
         }
 
-        // Semaphore for controlling concurrent file operations
-        let semaphore = Arc::new(Semaphore::new(self.max_concurrent_files));
+        // Batch files for processing
+        let file_batches: Vec<Vec<PathBuf>> = files
+            .chunks(self.files_per_batch)
+            .map(|chunk| chunk.to_vec())
+            .collect();
+
+        if self.options.verbose {
+            eprintln!(
+                "Processing {} files in {} batches ({} files per batch)",
+                files.len(),
+                file_batches.len(),
+                self.files_per_batch
+            );
+        }
+
+        // Semaphore for controlling concurrent tasks (not files)
+        let semaphore = Arc::new(Semaphore::new(self.max_concurrent_tasks));
         
-        // Channel for streaming indexed results to preserve file order
-        let (tx, mut rx) = mpsc::channel::<(usize, Vec<SearchResult>)>(100);
+        // Channel for streaming results with larger buffer
+        let (tx, mut rx) = mpsc::channel::<Vec<SearchResult>>(file_batches.len());
         let max_results = self.options.max_results.unwrap_or(50);
         
         let search_start = Instant::now();
         
-        // Spawn file processing tasks with index
+        // Process batches
         let query = Arc::new(query);
         let options = Arc::new(self.options.clone());
         let buffer_size = self.buffer_size;
         let use_hybrid_parsing = self.use_hybrid_parsing;
         
-        // Spawn processor task
-        let processor_handle = tokio::spawn(async move {
-            let mut tasks = Vec::new();
+        let mut tasks = Vec::new();
+        for batch in file_batches {
+            let semaphore = Arc::clone(&semaphore);
+            let tx = tx.clone();
+            let query = Arc::clone(&query);
+            let options = Arc::clone(&options);
             
-            // Process files with their index
-            for (idx, file_path) in files.into_iter().enumerate() {
-                let semaphore = Arc::clone(&semaphore);
-                let tx = tx.clone();
-                let query = Arc::clone(&query);
-                let options = Arc::clone(&options);
+            let task = tokio::spawn(async move {
+                // Acquire permit for this batch
+                let _permit = semaphore.acquire().await?;
                 
-                let task = tokio::spawn(async move {
-                    // Acquire permit for file operation
-                    let _permit = semaphore.acquire().await?;
-                    
+                let mut batch_results = Vec::new();
+                
+                // Process all files in this batch within a single task
+                for file_path in batch {
                     if let Ok(results) = Self::search_file_optimized(
                         &file_path,
                         &query,
@@ -144,55 +160,42 @@ impl OptimizedAsyncSearchEngine {
                         buffer_size,
                         use_hybrid_parsing,
                     ).await {
-                        // Send results with index
-                        let _ = tx.send((idx, results)).await;
+                        batch_results.extend(results);
                     }
-                    Ok::<_, anyhow::Error>(())
-                });
-                
-                tasks.push(task);
-            }
-            
-            // Drop tx to signal completion
-            drop(tx);
-            
-            // Wait for all tasks to complete
-            for task in tasks {
-                if let Err(e) = task.await {
-                    eprintln!("Task error: {}", e);
                 }
-            }
-        });
-        
-        // Collect results maintaining order
-        let mut indexed_results = Vec::new();
-        while let Some((idx, results)) = rx.recv().await {
-            indexed_results.push((idx, results));
+                
+                // Send batch results through channel
+                if !batch_results.is_empty() {
+                    let _ = tx.send(batch_results).await;
+                }
+                
+                Ok::<_, anyhow::Error>(())
+            });
+            
+            tasks.push(task);
         }
         
-        // Wait for processor to complete
-        processor_handle.await?;
+        // Drop the original sender to signal completion
+        drop(tx);
         
-        // Sort by file index to maintain order
-        indexed_results.sort_by_key(|(idx, _)| *idx);
-        
-        if self.options.verbose {
-            eprintln!("DEBUG: Collected {} file results", indexed_results.len());
-        }
-        
-        // Flatten results maintaining file order
+        // Collect results from channel
         let mut all_results = Vec::new();
         let mut total_count = 0;
         
-        for (idx, file_results) in indexed_results {
-            if self.options.verbose && !file_results.is_empty() {
-                eprintln!("DEBUG: File index {} has {} results", idx, file_results.len());
-            }
-            for result in file_results {
+        while let Some(batch_results) = rx.recv().await {
+            for result in batch_results {
                 total_count += 1;
                 if all_results.len() < max_results * 2 {
+                    // Collect more than needed for sorting
                     all_results.push(result);
                 }
+            }
+        }
+        
+        // Wait for all tasks to complete
+        for task in tasks {
+            if let Err(e) = task.await {
+                eprintln!("Task error: {}", e);
             }
         }
         
@@ -445,19 +448,8 @@ fn process_line(
     }
     
     // Parse JSON with SIMD optimization
-    #[cfg(feature = "sonic")]
-    let message_result = {
-        let json_str = std::str::from_utf8(line).ok()?;
-        sonic_rs::from_str::<SessionMessage>(json_str)
-    };
-    
-    #[cfg(not(feature = "sonic"))]
-    let message_result = {
-        let mut json_bytes = line.to_vec();
-        simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes)
-    };
-    
-    match message_result {
+    let mut json_bytes = line.to_vec();
+    match simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes) {
         Ok(message) => {
             // Update timestamps
             if let Some(ts) = message.get_timestamp() {

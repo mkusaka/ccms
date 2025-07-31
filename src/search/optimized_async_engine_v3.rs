@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
 use bytes::BytesMut;
 use chrono::DateTime;
+use simd_json;
 use std::fs::Metadata;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::fs::File;
@@ -14,8 +15,8 @@ use crate::interactive_ratatui::domain::models::SearchOrder;
 use crate::query::{QueryCondition, SearchOptions, SearchResult};
 use crate::schemas::SessionMessage;
 
-/// Optimized async search engine using advanced tokio patterns
-pub struct OptimizedAsyncSearchEngine {
+/// Optimized async search engine with channel batching
+pub struct OptimizedAsyncSearchEngineV3 {
     options: SearchOptions,
     /// Maximum concurrent file operations
     max_concurrent_files: usize,
@@ -23,9 +24,13 @@ pub struct OptimizedAsyncSearchEngine {
     buffer_size: usize,
     /// Whether to use hybrid rayon parsing
     use_hybrid_parsing: bool,
+    /// Channel buffer size (optimized for Tokio's 32-slot blocks)
+    channel_buffer_size: usize,
+    /// Batch size for sending results
+    result_batch_size: usize,
 }
 
-impl OptimizedAsyncSearchEngine {
+impl OptimizedAsyncSearchEngineV3 {
     pub fn new(options: SearchOptions) -> Self {
         let num_cpus = num_cpus::get();
         Self {
@@ -36,6 +41,10 @@ impl OptimizedAsyncSearchEngine {
             buffer_size: 64 * 1024,
             // Enable hybrid parsing by default
             use_hybrid_parsing: true,
+            // Channel buffer optimized for Tokio's 32-slot blocks
+            channel_buffer_size: 32 * 4, // 128 slots
+            // Batch results before sending
+            result_batch_size: 32,
         }
     }
     
@@ -51,6 +60,11 @@ impl OptimizedAsyncSearchEngine {
     
     pub fn with_hybrid_parsing(mut self, enabled: bool) -> Self {
         self.use_hybrid_parsing = enabled;
+        self
+    }
+    
+    pub fn with_result_batch_size(mut self, batch_size: usize) -> Self {
+        self.result_batch_size = batch_size;
         self
     }
 
@@ -97,10 +111,6 @@ impl OptimizedAsyncSearchEngine {
                 file_discovery_time.as_millis(),
                 files.len()
             );
-            if files.len() > 0 {
-                eprintln!("DEBUG: First file: {:?}", files[0]);
-                eprintln!("DEBUG: Last file: {:?}", files[files.len() - 1]);
-            }
         }
 
         if files.is_empty() {
@@ -110,24 +120,30 @@ impl OptimizedAsyncSearchEngine {
         // Semaphore for controlling concurrent file operations
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent_files));
         
-        // Channel for streaming indexed results to preserve file order
-        let (tx, mut rx) = mpsc::channel::<(usize, Vec<SearchResult>)>(100);
+        // Optimized channel with batching
+        let (tx, mut rx) = mpsc::channel::<Vec<SearchResult>>(self.channel_buffer_size);
         let max_results = self.options.max_results.unwrap_or(50);
         
         let search_start = Instant::now();
         
-        // Spawn file processing tasks with index
+        // Spawn file processing tasks
         let query = Arc::new(query);
         let options = Arc::new(self.options.clone());
         let buffer_size = self.buffer_size;
         let use_hybrid_parsing = self.use_hybrid_parsing;
+        let result_batch_size = self.result_batch_size;
         
         // Spawn processor task
+        let (files_tx, mut files_rx) = mpsc::channel(files.len());
+        for file in files {
+            let _ = files_tx.send(file).await;
+        }
+        drop(files_tx);
+        
         let processor_handle = tokio::spawn(async move {
             let mut tasks = Vec::new();
             
-            // Process files with their index
-            for (idx, file_path) in files.into_iter().enumerate() {
+            while let Some(file_path) = files_rx.recv().await {
                 let semaphore = Arc::clone(&semaphore);
                 let tx = tx.clone();
                 let query = Arc::clone(&query);
@@ -144,8 +160,16 @@ impl OptimizedAsyncSearchEngine {
                         buffer_size,
                         use_hybrid_parsing,
                     ).await {
-                        // Send results with index
-                        let _ = tx.send((idx, results)).await;
+                        // Batch results before sending
+                        if !results.is_empty() {
+                            // Send results in batches
+                            for chunk in results.chunks(result_batch_size) {
+                                let batch = chunk.to_vec();
+                                if tx.send(batch).await.is_err() {
+                                    break; // Receiver dropped
+                                }
+                            }
+                        }
                     }
                     Ok::<_, anyhow::Error>(())
                 });
@@ -153,7 +177,7 @@ impl OptimizedAsyncSearchEngine {
                 tasks.push(task);
             }
             
-            // Drop tx to signal completion
+            // Drop the sender to signal completion
             drop(tx);
             
             // Wait for all tasks to complete
@@ -164,37 +188,32 @@ impl OptimizedAsyncSearchEngine {
             }
         });
         
-        // Collect results maintaining order
-        let mut indexed_results = Vec::new();
-        while let Some((idx, results)) = rx.recv().await {
-            indexed_results.push((idx, results));
+        // Collect results using recv_many for efficiency
+        let mut all_results = Vec::new();
+        let mut total_count = 0;
+        let mut batch_buffer = Vec::with_capacity(self.result_batch_size);
+        
+        loop {
+            // Use recv_many to batch receive operations
+            let received = rx.recv_many(&mut batch_buffer, self.result_batch_size).await;
+            if received == 0 {
+                break; // Channel closed
+            }
+            
+            // Process received batches
+            for batch in batch_buffer.drain(..) {
+                for result in batch {
+                    total_count += 1;
+                    if all_results.len() < max_results * 2 {
+                        // Collect more than needed for sorting
+                        all_results.push(result);
+                    }
+                }
+            }
         }
         
         // Wait for processor to complete
         processor_handle.await?;
-        
-        // Sort by file index to maintain order
-        indexed_results.sort_by_key(|(idx, _)| *idx);
-        
-        if self.options.verbose {
-            eprintln!("DEBUG: Collected {} file results", indexed_results.len());
-        }
-        
-        // Flatten results maintaining file order
-        let mut all_results = Vec::new();
-        let mut total_count = 0;
-        
-        for (idx, file_results) in indexed_results {
-            if self.options.verbose && !file_results.is_empty() {
-                eprintln!("DEBUG: File index {} has {} results", idx, file_results.len());
-            }
-            for result in file_results {
-                total_count += 1;
-                if all_results.len() < max_results * 2 {
-                    all_results.push(result);
-                }
-            }
-        }
         
         let search_time = search_start.elapsed();
 
@@ -445,19 +464,8 @@ fn process_line(
     }
     
     // Parse JSON with SIMD optimization
-    #[cfg(feature = "sonic")]
-    let message_result = {
-        let json_str = std::str::from_utf8(line).ok()?;
-        sonic_rs::from_str::<SessionMessage>(json_str)
-    };
-    
-    #[cfg(not(feature = "sonic"))]
-    let message_result = {
-        let mut json_bytes = line.to_vec();
-        simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes)
-    };
-    
-    match message_result {
+    let mut json_bytes = line.to_vec();
+    match simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes) {
         Ok(message) => {
             // Update timestamps
             if let Some(ts) = message.get_timestamp() {

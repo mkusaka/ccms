@@ -1,0 +1,62 @@
+=== Enhanced Profiling Report: main ===
+Total runtime: 0.209s
+
+CPU Profiling Report (pprof)
+============================
+
+Top Functions by CPU Time:
+--------------------------
+  1.  72.07% (   823 samples, ~ 796.0ms) blocking::unblock::{{closure}}
+  2.  32.92% (   376 samples, ~   0.0ms) std::sys::backtrace::__rust_begin_short_backtrace
+  3.  32.84% (   375 samples, ~   0.0ms) ops::function::FnOnce::call_once{{vtable.shim}}
+  4.  32.84% (   375 samples, ~   0.0ms) std::sys::pal::unix::thread::Thread::new::thread_start
+  5.  32.66% (   373 samples, ~   0.0ms) async_task::raw::RawTask<F,T,S,M>::run
+  6.   5.95% (    68 samples, ~  37.0ms) <&mut sonic_rs::serde::de::Deserializer<R> as serde::de::Deserializer>::deserialize_any
+  7.   3.50% (    40 samples, ~  34.0ms) sonic_rs::parser::Parser<R>::parse_string_escaped
+  8.   3.15% (    36 samples, ~  36.0ms) <serde::__private::de::content::ContentRefDeserializer<E> as serde::de::Deserializer>::deserializ...
+  9.   2.98% (    34 samples, ~  34.0ms) alloc::str::<impl str>::to_lowercase
+ 10.   2.63% (    30 samples, ~  30.0ms) __rjem_je_arena_ralloc
+ 11.   2.28% (    26 samples, ~  26.0ms) _host_get_special_port
+ 12.   1.93% (    22 samples, ~  22.0ms) _posix_spawnattr_set_qos_clamp_np
+ 13.   1.84% (    21 samples, ~  21.0ms) alloc::str::join_generic_copy
+ 14.   1.75% (    20 samples, ~   3.0ms) ccms::schemas::session_message::_::<impl serde::de::Deserialize for ccms::schemas::session_messag...
+ 15.   1.40% (    16 samples, ~  16.0ms) <serde::__private::de::content::Content as clone::Clone>::clone
+ 16.   1.40% (    16 samples, ~  16.0ms) _os_cpu_in_cksum_mbuf
+ 17.   1.31% (    15 samples, ~   8.0ms) <serde::__private::de::content::ContentDeserializer<E> as serde::de::Deserializer>::deserialize_any
+ 18.   1.14% (    13 samples, ~   1.0ms) rayon::iter::plumbing::bridge_producer_consumer::elper
+ 19.   1.05% (    12 samples, ~   5.0ms) ccms::query::condition::QueryCondition::evaluate
+ 20.   0.96% (    11 samples, ~   0.0ms) rayon_join::join_context::{{closure}}
+ 21.   0.79% (     9 samples, ~   1.0ms) <marker::PhantomData<T> as serde::de::DeserializeSeed>::deserialize
+ 22.   0.70% (     8 samples, ~   2.0ms) _do_rallocx
+ 23.   0.70% (     8 samples, ~   1.0ms) <serde::de::impls::OptionVisitor<T> as serde::de::Visitor>::visit_some
+ 24.   0.53% (     6 samples, ~   0.0ms) alloc::raw_vec::finish_grow
+ 25.   0.53% (     6 samples, ~   0.0ms) alloc::raw_vec::RawVecInner<A>::reserve::do_reserve_and_handle
+ 26.   0.44% (     5 samples, ~   5.0ms) alloc::collections::btree::map::BTreeMap<K,V,A>::insert
+ 27.   0.44% (     5 samples, ~   4.0ms) ccms::schemas::session_message::SessionMessage::get_content_text
+ 28.   0.44% (     5 samples, ~   3.0ms) __rjem_je_large_ralloc
+ 29.   0.26% (     3 samples, ~   2.0ms) ptr::drop_in_place<alloc::vec::Vec<ccms::schemas::session_message::Content>>
+ 30.   0.26% (     3 samples, ~   3.0ms) __rjem_je_base_alloc_edata
+ 31.   0.26% (     3 samples, ~   3.0ms) <ccms::schemas::session_message::_::<impl serde::de::Deserialize for ccms::schemas::session_messa...
+ 32.   0.26% (     3 samples, ~   3.0ms) std::sys::fs::metadata
+ 33.   0.18% (     2 samples, ~   0.0ms) __rjem_je_extent_alloc_mmap
+ 34.   0.18% (     2 samples, ~   0.0ms) _large_ralloc_no_move_expand
+ 35.   0.18% (     2 samples, ~   0.0ms) <serde::__private::de::content::ContentVisitor as serde::de::Visitor>::visit_seq
+ 36.   0.18% (     2 samples, ~   0.0ms) _os_pages_map
+ 37.   0.18% (     2 samples, ~   2.0ms) serde::de::impls::<impl serde::de::Deserialize for alloc::string::String>::deserialize
+ 38.   0.18% (     2 samples, ~   2.0ms) ptr::drop_in_place<serde::__private::de::content::Content>
+ 39.   0.18% (     2 samples, ~   0.0ms) __rjem_je_pa_expand
+ 40.   0.18% (     2 samples, ~   0.0ms) __rjem_je_extent_alloc_wrapper
+ 41.   0.18% (     2 samples, ~   0.0ms) __rjem_je_large_ralloc_no_move
+ 42.   0.18% (     2 samples, ~   0.0ms) __rjem_je_pages_map
+ 43.   0.18% (     2 samples, ~   0.0ms) <rayon_job::StackJob<L,F,R> as rayon_job::Job>::execute
+ 44.   0.18% (     2 samples, ~   0.0ms) _pac_expand_impl
+ 45.   0.18% (     2 samples, ~   0.0ms) __rjem_je_ecache_alloc_grow
+ 46.   0.18% (     2 samples, ~   0.0ms) rayon_registry::WorkerThread::wait_until_cold
+ 47.   0.18% (     2 samples, ~   2.0ms) __rjem_je_arena_cache_bin_fill_small
+ 48.   0.18% (     2 samples, ~   0.0ms) std::sys::fs::read_dir
+ 49.   0.18% (     2 samples, ~   2.0ms) __rjem_je_tcache_bin_flush_small
+ 50.   0.18% (     2 samples, ~   2.0ms) <std::fs::ReadDir as iter::traits::iterator::Iterator>::next
+
+Total samples: 1142
+Sampling frequency: 1000 Hz
+Estimated CPU time: 1.142s
