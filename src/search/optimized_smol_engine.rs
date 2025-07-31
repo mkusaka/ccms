@@ -12,6 +12,22 @@ use crate::interactive_ratatui::domain::models::SearchOrder;
 use crate::query::{QueryCondition, SearchOptions, SearchResult};
 use crate::schemas::SessionMessage;
 
+// Initialize blocking thread pool optimization
+static INIT: std::sync::Once = std::sync::Once::new();
+
+fn initialize_blocking_threads() {
+    INIT.call_once(|| {
+        // Only set if not already set by user
+        if std::env::var("BLOCKING_MAX_THREADS").is_err() {
+            let cpu_count = num_cpus::get();
+            unsafe {
+                std::env::set_var("BLOCKING_MAX_THREADS", cpu_count.to_string());
+            }
+            eprintln!("Optimized BLOCKING_MAX_THREADS to {} (CPU count)", cpu_count);
+        }
+    });
+}
+
 // Global executor for multi-threaded execution
 static EXECUTOR: smol::Executor<'static> = smol::Executor::new();
 
@@ -21,6 +37,8 @@ pub struct OptimizedSmolSearchEngine {
 
 impl OptimizedSmolSearchEngine {
     pub fn new(options: SearchOptions) -> Self {
+        // Initialize blocking threads optimization on first use
+        initialize_blocking_threads();
         Self { options }
     }
 

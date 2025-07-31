@@ -4,6 +4,8 @@
 
 The Smol runtime's blocking thread pool defaults to 500 threads, which causes significant context switching overhead. By setting the `BLOCKING_MAX_THREADS` environment variable to match CPU core count, we achieved an 8% performance improvement.
 
+**Update**: The optimization is now built into both `SmolSearchEngine` and `OptimizedSmolSearchEngine`. They automatically set `BLOCKING_MAX_THREADS` to the CPU core count on initialization, so manual configuration is no longer required.
+
 ## Performance Results
 
 Test environment: 10-core CPU
@@ -27,16 +29,25 @@ Test environment: 10-core CPU
 
 ## Usage
 
-Run the Smol engine with optimized thread pool:
+### Automatic Optimization (Built-in)
 
-```bash
-BLOCKING_MAX_THREADS=$(sysctl -n hw.ncpu) ./target/release/bench_smol
+As of the latest update, both Smol engines automatically optimize the thread pool:
+
+```rust
+// No configuration needed - automatically optimized!
+let engine = SmolSearchEngine::new(options);
+let engine = OptimizedSmolSearchEngine::new(options);
 ```
 
-Or set it to a specific value:
+The engines automatically detect the CPU core count and set `BLOCKING_MAX_THREADS` accordingly.
+
+### Manual Override
+
+If you need to override the automatic setting:
 
 ```bash
-BLOCKING_MAX_THREADS=10 ./target/release/bench_smol
+# Override with specific value
+BLOCKING_MAX_THREADS=8 ./target/release/bench_smol
 ```
 
 ## Technical Details
@@ -52,12 +63,24 @@ By matching the thread count to CPU cores, we:
 - Improve CPU cache utilization
 - Reduce scheduling overhead
 
-## Recommendation
+## Implementation Details
 
-For production deployments of Smol-based applications, always set:
-```bash
-export BLOCKING_MAX_THREADS=$(nproc)  # Linux
-export BLOCKING_MAX_THREADS=$(sysctl -n hw.ncpu)  # macOS
+The automatic optimization is implemented using `std::sync::Once` to ensure it runs only once:
+
+```rust
+static INIT: std::sync::Once = std::sync::Once::new();
+
+fn initialize_blocking_threads() {
+    INIT.call_once(|| {
+        if std::env::var("BLOCKING_MAX_THREADS").is_err() {
+            let cpu_count = num_cpus::get();
+            unsafe {
+                std::env::set_var("BLOCKING_MAX_THREADS", cpu_count.to_string());
+            }
+            eprintln!("Optimized BLOCKING_MAX_THREADS to {} (CPU count)", cpu_count);
+        }
+    });
+}
 ```
 
-This provides optimal performance without code changes or unsafe blocks.
+The `unsafe` block is required for `set_var`, but it's called only once at initialization before any threads are spawned, making it safe in practice.
