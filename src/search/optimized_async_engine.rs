@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use bytes::BytesMut;
 use chrono::DateTime;
-use simd_json;
 use std::fs::Metadata;
 use std::path::Path;
 use std::sync::Arc;
