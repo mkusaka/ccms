@@ -36,7 +36,7 @@ fn main() -> anyhow::Result<()> {
         let engine = SearchEngine::new(options.clone());
         
         #[cfg(feature = "profiling")]
-        let mut profiler = if profile {
+        let profiler = if profile {
             Some(EnhancedProfiler::new("rayon")?)
         } else {
             None
@@ -67,7 +67,7 @@ fn main() -> anyhow::Result<()> {
             let engine = OptimizedAsyncSearchEngine::new(options.clone());
             
             #[cfg(feature = "profiling")]
-            let mut profiler = if profile {
+            let profiler = if profile {
                 Some(EnhancedProfiler::new("tokio_v1")?)
             } else {
                 None
@@ -101,7 +101,7 @@ fn main() -> anyhow::Result<()> {
             let engine = OptimizedAsyncSearchEngineV2::new(options.clone());
             
             #[cfg(feature = "profiling")]
-            let mut profiler = if profile {
+            let profiler = if profile {
                 Some(EnhancedProfiler::new("tokio_v2")?)
             } else {
                 None
@@ -153,7 +153,7 @@ fn main() -> anyhow::Result<()> {
             let engine = OptimizedAsyncSearchEngineV3::new(options.clone());
             
             #[cfg(feature = "profiling")]
-            let mut profiler = if profile {
+            let profiler = if profile {
                 Some(EnhancedProfiler::new("tokio_v3")?)
             } else {
                 None

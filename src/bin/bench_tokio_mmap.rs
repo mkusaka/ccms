@@ -1,5 +1,5 @@
 #[cfg(all(feature = "async", feature = "mmap"))]
-use ccms::search::OptimizedAsyncSearchEngineV4;
+use ccms::search::optimized_async_engine_v4::OptimizedAsyncSearchEngineV4;
 use ccms::{parse_query, SearchEngine, SearchOptions};
 use std::time::Instant;
 

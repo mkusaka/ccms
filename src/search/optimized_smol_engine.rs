@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::Arc;
-use smol::lock::Semaphore;
+// use smol::lock::Semaphore; // Disabled for testing
 
 use super::file_discovery::{discover_claude_files, expand_tilde};
 use crate::interactive_ratatui::domain::models::SearchOrder;
@@ -27,9 +27,6 @@ fn initialize_blocking_threads() {
         }
     });
 }
-
-// Global executor for multi-threaded execution
-static EXECUTOR: smol::Executor<'static> = smol::Executor::new();
 
 pub struct OptimizedSmolSearchEngine {
     options: SearchOptions,
@@ -82,12 +79,12 @@ impl OptimizedSmolSearchEngine {
         }
 
         // Channel for collecting results
-        let (sender, receiver) = channel::bounded(1024); // Bounded channel for backpressure
+        let (sender, receiver) = channel::unbounded(); // Changed to unbounded like basic Smol
         let max_results = self.options.max_results.unwrap_or(50);
 
         // Create semaphore to limit concurrent file operations
         // Use CPU count for optimal concurrency
-        let semaphore = Arc::new(Semaphore::new(num_cpus::get()));
+        // let semaphore = Arc::new(Semaphore::new(num_cpus::get())); // Disabled for testing
 
         // Process files concurrently using multi-threaded executor
         let search_start = std::time::Instant::now();
@@ -101,11 +98,11 @@ impl OptimizedSmolSearchEngine {
             let sender = sender.clone();
             let query = query.clone();
             let options = options.clone();
-            let semaphore = semaphore.clone();
+            // let semaphore = semaphore.clone(); // Disabled for testing
             
-            let task = EXECUTOR.spawn(async move {
+            let task = smol::spawn(async move {
                 // Acquire semaphore permit to limit concurrent file operations
-                let _permit = semaphore.acquire().await;
+                // let _permit = semaphore.acquire().await; // Disabled for testing
                 
                 if let Ok(results) = search_file(&file_path, &query, &options).await {
                     for result in results {
@@ -222,7 +219,7 @@ async fn search_file(
     blocking::unblock(move || {
         let file = File::open(&file_path_owned)?;
         // Increase buffer size for better I/O performance
-        let reader = BufReader::with_capacity(128 * 1024, file);
+        let reader = BufReader::with_capacity(64 * 1024, file); // Changed to 64KB like basic Smol
         
         let mut results = Vec::with_capacity(32); // Pre-allocate for typical result size
         let mut latest_timestamp: Option<String> = None;
@@ -300,14 +297,3 @@ fn extract_project_path(file_path: &Path) -> String {
         .to_string()
 }
 
-// Initialize the multi-threaded executor
-pub fn init_executor() {
-    let num_threads = num_cpus::get().max(1);
-    for _ in 0..num_threads {
-        std::thread::spawn(|| {
-            loop {
-                smol::block_on(EXECUTOR.run(smol::future::pending::<()>()));
-            }
-        });
-    }
-}

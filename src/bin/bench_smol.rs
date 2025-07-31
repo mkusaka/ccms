@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ccms::{parse_query, SearchOptions};
 use ccms::search::smol_engine::SmolSearchEngine;
-use ccms::search::optimized_smol_engine::{OptimizedSmolSearchEngine, init_executor};
+use ccms::search::optimized_smol_engine::OptimizedSmolSearchEngine;
 
 fn main() -> Result<()> {
     // Parse command line arguments
@@ -26,9 +26,7 @@ fn main() -> Result<()> {
     let pattern = ccms::default_claude_pattern();
     
     if optimized {
-        eprintln!("Using OptimizedSmolSearchEngine with multi-threaded executor");
-        // Initialize multi-threaded executor
-        init_executor();
+        eprintln!("Using OptimizedSmolSearchEngine");
         
         // Run search with optimized engine
         smol::block_on(async {

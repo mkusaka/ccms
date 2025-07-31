@@ -139,7 +139,7 @@ impl OptimizedRayonEngineV2 {
         let mut results = Vec::new();
         let mut line_buffer = String::with_capacity(8 * 1024);
         
-        let mut reader = reader;
+        let reader = reader;
         for line in reader.lines() {
             let line = line?;
             

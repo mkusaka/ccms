@@ -14,7 +14,7 @@ use ccms::search::{OptimizedAsyncSearchEngine, OptimizedAsyncSearchEngineV2};
 #[cfg(feature = "smol")]
 use ccms::search::smol_engine::SmolSearchEngine;
 #[cfg(feature = "smol")]
-use ccms::search::optimized_smol_engine::{OptimizedSmolSearchEngine, init_executor};
+use ccms::search::optimized_smol_engine::OptimizedSmolSearchEngine;
 use ccms::search::optimized_rayon_engine::OptimizedRayonEngine;
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
@@ -312,8 +312,6 @@ fn main() -> Result<()> {
             if cli.verbose {
                 eprintln!("Using Optimized Smol with auto thread pool tuning");
             }
-            // Initialize multi-threaded executor for OptimizedSmolSearchEngine
-            init_executor();
             smol::block_on(async {
                 let engine = OptimizedSmolSearchEngine::new(options);
                 engine.search(pattern_to_use, query).await

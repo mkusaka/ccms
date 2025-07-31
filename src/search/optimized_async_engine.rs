@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use bytes::BytesMut;
 use chrono::DateTime;
 use std::fs::Metadata;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::fs::File;

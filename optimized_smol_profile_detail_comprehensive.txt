@@ -1,0 +1,59 @@
+=== Enhanced Profiling Report: main ===
+Total runtime: 0.269s
+
+CPU Profiling Report (pprof)
+============================
+
+Top Functions by CPU Time:
+--------------------------
+  1.  68.80% (   794 samples, ~ 792.0ms) <std::io::Lines<B> as iter::traits::iterator::Iterator>::next
+  2.  41.25% (   476 samples, ~  24.0ms) blocking::unblock::{{closure}}
+  3.  39.25% (   453 samples, ~   0.0ms) ops::function::FnOnce::call_once{{vtable.shim}}
+  4.  39.25% (   453 samples, ~   0.0ms) std::sys::pal::unix::thread::Thread::new::thread_start
+  5.  39.25% (   453 samples, ~   0.0ms) std::sys::backtrace::__rust_begin_short_backtrace
+  6.  39.17% (   452 samples, ~   0.0ms) async_task::raw::RawTask<F,T,S,M>::run
+  7.   6.76% (    78 samples, ~  34.0ms) <&mut sonic_rs::serde::de::Deserializer<R> as serde::de::Deserializer>::deserialize_any
+  8.   4.07% (    47 samples, ~  47.0ms) alloc::str::<impl str>::to_lowercase
+  9.   3.38% (    39 samples, ~  33.0ms) sonic_rs::parser::Parser<R>::parse_string_escaped
+ 10.   2.60% (    30 samples, ~   2.0ms) ccms::schemas::session_message::_::<impl serde::de::Deserialize for ccms::schemas::session_messag...
+ 11.   2.43% (    28 samples, ~   0.0ms) sonic_rs::serde::de::from_trait
+ 12.   2.08% (    24 samples, ~  24.0ms) _posix_spawnattr_set_qos_clamp_np
+ 13.   1.99% (    23 samples, ~  23.0ms) _host_get_special_port
+ 14.   1.99% (    23 samples, ~  23.0ms) <serde::__private::de::content::ContentRefDeserializer<E> as serde::de::Deserializer>::deserializ...
+ 15.   1.91% (    22 samples, ~   2.0ms) ccms::query::condition::QueryCondition::evaluate
+ 16.   1.82% (    21 samples, ~  21.0ms) alloc::str::join_generic_copy
+ 17.   1.65% (    19 samples, ~  19.0ms) __rjem_je_arena_ralloc
+ 18.   1.30% (    15 samples, ~  15.0ms) _os_cpu_in_cksum_mbuf
+ 19.   1.13% (    13 samples, ~   2.0ms) <marker::PhantomData<T> as serde::de::DeserializeSeed>::deserialize
+ 20.   1.04% (    12 samples, ~  12.0ms) <serde::__private::de::content::Content as clone::Clone>::clone
+ 21.   0.95% (    11 samples, ~   5.0ms) _do_rallocx
+ 22.   0.87% (    10 samples, ~   3.0ms) <serde::__private::de::content::ContentDeserializer<E> as serde::de::Deserializer>::deserialize_any
+ 23.   0.78% (     9 samples, ~   3.0ms) alloc::raw_vec::finish_grow
+ 24.   0.61% (     7 samples, ~   0.0ms) <serde::de::impls::OptionVisitor<T> as serde::de::Visitor>::visit_some
+ 25.   0.61% (     7 samples, ~   6.0ms) <serde::__private::de::FlatMapDeserializer<E> as serde::de::Deserializer>::deserialize_struct
+ 26.   0.61% (     7 samples, ~   7.0ms) alloc::collections::btree::map::BTreeMap<K,V,A>::insert
+ 27.   0.52% (     6 samples, ~   1.0ms) __rjem_je_large_ralloc
+ 28.   0.52% (     6 samples, ~   0.0ms) std::fs::OpenOptions::_open
+ 29.   0.52% (     6 samples, ~   0.0ms) alloc::raw_vec::RawVecInner<A>::reserve::do_reserve_and_handle
+ 30.   0.43% (     5 samples, ~   0.0ms) __rjem_je_pa_expand
+ 31.   0.43% (     5 samples, ~   0.0ms) __rjem_je_extent_alloc_mmap
+ 32.   0.43% (     5 samples, ~   0.0ms) __rjem_je_pages_map
+ 33.   0.43% (     5 samples, ~   1.0ms) ccms::schemas::session_message::SessionMessage::get_content_text
+ 34.   0.43% (     5 samples, ~   0.0ms) __rjem_je_ecache_alloc_grow
+ 35.   0.43% (     5 samples, ~   0.0ms) _pac_expand_impl
+ 36.   0.43% (     5 samples, ~   0.0ms) __rjem_je_large_ralloc_no_move
+ 37.   0.43% (     5 samples, ~   0.0ms) _os_pages_map
+ 38.   0.43% (     5 samples, ~   0.0ms) _large_ralloc_no_move_expand
+ 39.   0.43% (     5 samples, ~   0.0ms) __rjem_je_extent_alloc_wrapper
+ 40.   0.35% (     4 samples, ~   3.0ms) <serde::__private::de::content::ContentVisitor as serde::de::Visitor>::visit_seq
+ 41.   0.35% (     4 samples, ~   3.0ms) <ccms::schemas::session_message::_::<impl serde::de::Deserialize for ccms::schemas::session_messa...
+ 42.   0.35% (     4 samples, ~   4.0ms) serde::__private::de::flat_map_take_entry
+ 43.   0.35% (     4 samples, ~   4.0ms) __rjem_malloc
+ 44.   0.35% (     4 samples, ~   4.0ms) std::sys::fs::metadata
+ 45.   0.26% (     3 samples, ~   2.0ms) ccms::schemas::session_message::SessionMessage::get_searchable_text
+ 46.   0.17% (     2 samples, ~   2.0ms) __rjem_sdallocx.cold.1
+ 47.   0.17% (     2 samples, ~   2.0ms) serde::de::impls::<impl serde::de::Deserialize for alloc::string::String>::deserialize
+
+Total samples: 1154
+Sampling frequency: 1000 Hz
+Estimated CPU time: 1.154s
