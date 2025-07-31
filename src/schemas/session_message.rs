@@ -258,7 +258,7 @@ impl SessionMessage {
                                             "Read" | "Write" | "Edit" => {
                                                 if let Some(path) = obj.get("file_path").and_then(|v| v.as_str()) {
                                                     tool_text.push_str(": ");
-                                                    tool_text.push_str(path.split('/').last().unwrap_or(path));
+                                                    tool_text.push_str(path.split('/').next_back().unwrap_or(path));
                                                 }
                                             }
                                             "Grep" => {
@@ -322,7 +322,7 @@ impl SessionMessage {
                                     "Read" | "Write" | "Edit" => {
                                         if let Some(path) = obj.get("file_path").and_then(|v| v.as_str()) {
                                             tool_text.push_str(": ");
-                                            tool_text.push_str(path.split('/').last().unwrap_or(path));
+                                            tool_text.push_str(path.split('/').next_back().unwrap_or(path));
                                         }
                                     }
                                     "Grep" => {
@@ -551,7 +551,7 @@ mod tests {
         let msg: SessionMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(msg.get_type(), "assistant");
-        assert_eq!(msg.get_content_text(), "I'll help you with that.");
+        assert_eq!(msg.get_content_text(), "I'll help you with that.\nread_file");
         assert!(msg.has_tool_use());
         assert!(!msg.has_thinking());
     }
@@ -756,7 +756,7 @@ mod tests {
         assert_eq!(msg.get_type(), "assistant");
         assert_eq!(
             msg.get_content_text(),
-            "Starting analysis...\nAnalysis complete."
+            "Starting analysis...\nanalyze_code\nAnalysis complete."
         );
         assert!(msg.has_tool_use());
     }
