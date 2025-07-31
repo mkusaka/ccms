@@ -191,10 +191,28 @@ async fn search_file(
     // Use smol's blocking executor for file I/O
     blocking::unblock(move || {
         let file = File::open(&file_path_owned)?;
+        let metadata = file.metadata()?;
         let reader = BufReader::with_capacity(64 * 1024, file);
+        
+        // Get file creation time for fallback
+        let file_ctime = metadata
+            .created()
+            .ok()
+            .and_then(|created| {
+                created
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()
+                    .map(|d| {
+                        let timestamp = chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
+                            .unwrap_or_else(chrono::Utc::now);
+                        timestamp.to_rfc3339()
+                    })
+            })
+            .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
         
         let mut results = Vec::new();
         let mut latest_timestamp: Option<String> = None;
+        let mut first_timestamp: Option<String> = None;
         
         for line in reader.lines() {
             let line = line?;
@@ -214,9 +232,13 @@ async fn search_file(
             };
             
             if let Ok(message) = message {
-                // Update latest timestamp
+                // Update timestamps
                 if let Some(ts) = message.get_timestamp() {
                     latest_timestamp = Some(ts.to_string());
+                    // Track first non-summary message timestamp
+                    if first_timestamp.is_none() && message.get_type() != "summary" {
+                        first_timestamp = Some(ts.to_string());
+                    }
                 }
                 
                 // Get searchable text
@@ -238,11 +260,19 @@ async fn search_file(
                             }
                         }
                         
+                        // Determine timestamp based on message type (matching Rayon logic)
                         let final_timestamp = message
                             .get_timestamp()
                             .map(|ts| ts.to_string())
-                            .or_else(|| latest_timestamp.clone())
-                            .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+                            .or_else(|| {
+                                // For summary messages, prefer first_timestamp over latest_timestamp
+                                if message.get_type() == "summary" {
+                                    first_timestamp.clone()
+                                } else {
+                                    latest_timestamp.clone()
+                                }
+                            })
+                            .unwrap_or_else(|| file_ctime.clone());
                         
                         let result = SearchResult {
                             file: file_path_owned.to_string_lossy().to_string(),
