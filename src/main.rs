@@ -18,7 +18,6 @@ use std::io::{self, Write};
 )]
 struct Cli {
     /// Search query (supports literal, regex, AND/OR/NOT operators)
-    #[arg(required_unless_present_any = ["interactive", "generator"])]
     query: Option<String>,
 
     /// File pattern to search (default: ~/.claude/projects/**/*.jsonl)
@@ -162,8 +161,8 @@ fn main() -> Result<()> {
     let default_pattern = default_claude_pattern();
     let pattern = cli.pattern.as_deref().unwrap_or(&default_pattern);
 
-    // Interactive mode
-    if cli.interactive {
+    // Interactive mode or no query provided
+    if cli.interactive || cli.query.is_none() {
         let options = SearchOptions {
             max_results: Some(cli.max_results), // Use the CLI value directly
             role: cli.role,
@@ -178,10 +177,8 @@ fn main() -> Result<()> {
         return interactive.run(pattern);
     }
 
-    // Regular search mode - query is required
-    let query_str = cli.query.ok_or_else(|| {
-        anyhow::anyhow!("Query argument is required (use --interactive for interactive mode)")
-    })?;
+    // Regular search mode - query is provided
+    let query_str = cli.query.unwrap();
 
     // Parse the query
     let query = match parse_query(&query_str) {
