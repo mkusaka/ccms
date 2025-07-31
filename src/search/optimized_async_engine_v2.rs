@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use bytes::BytesMut;
 use chrono::DateTime;
-use simd_json;
+use sonic_rs;
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -447,9 +447,8 @@ fn process_line(
         return None;
     }
     
-    // Parse JSON with SIMD optimization
-    let mut json_bytes = line.to_vec();
-    match simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes) {
+    // Parse JSON with sonic-rs for optimized engine
+    match sonic_rs::from_slice::<SessionMessage>(line) {
         Ok(message) => {
             // Update timestamps
             if let Some(ts) = message.get_timestamp() {

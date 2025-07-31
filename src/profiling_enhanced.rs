@@ -273,6 +273,7 @@ impl OperationProfile {
 pub fn init_tokio_console() {
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
+    use tracing_subscriber::Layer;
     
     let console_layer = console_subscriber::spawn();
     

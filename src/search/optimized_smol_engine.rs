@@ -233,16 +233,8 @@ async fn search_file(
                 continue;
             }
             
-            // Parse JSON
-            #[cfg(feature = "sonic")]
+            // Parse JSON - Always use sonic-rs for optimized engine
             let message: Result<SessionMessage, _> = sonic_rs::from_str(&line);
-            
-            #[cfg(not(feature = "sonic"))]
-            let message: Result<SessionMessage, _> = {
-                let mut line_bytes = line.as_bytes().to_vec();
-                simd_json::serde::from_slice(&mut line_bytes)
-                    .map_err(|e| anyhow::anyhow!("JSON parse error: {}", e))
-            };
             
             if let Ok(message) = message {
                 // Update latest timestamp
