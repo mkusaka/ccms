@@ -137,7 +137,7 @@ impl OptimizedRayonEngine {
         let mmap = unsafe { Mmap::map(&file)? };
         let content = &mmap[..];
         
-        let mut results = Vec::new();
+        let mut results = Vec::with_capacity(256); // 4x larger initial capacity to reduce reallocations
         let mut start = 0;
         
         // Use memchr for fast newline scanning
@@ -170,7 +170,7 @@ impl OptimizedRayonEngine {
     
     #[cfg(not(feature = "mmap"))]
     fn search_file(&self, file_path: &Path, query: &QueryCondition) -> Result<Vec<SearchResult>> {
-        use std::io::{BufRead, BufReader};
+        use std::io::{BufRead, BufReader, Read};
         
         let file = File::open(file_path)?;
         
@@ -191,48 +191,96 @@ impl OptimizedRayonEngine {
             })
             .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
         
-        let reader = BufReader::with_capacity(64 * 1024, file);
+        let mut reader = BufReader::with_capacity(64 * 1024, file);
         
-        // First, collect all lines for summary message processing
-        let lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
-        
-        // Second pass: find first timestamp if first message is summary
-        let mut first_timestamp: Option<String> = None;
-        if !lines.is_empty() {
-            if let Ok(first_msg) = sonic_rs::from_str::<SessionMessage>(&lines[0]) {
-                if first_msg.get_type() == "summary" {
-                    // Look for first timestamp in subsequent messages
-                    for line in lines.iter().skip(1) {
-                        if let Ok(msg) = sonic_rs::from_str::<SessionMessage>(line) {
-                            if let Some(ts) = msg.get_timestamp() {
-                                first_timestamp = Some(ts.to_string());
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        let mut results = Vec::new();
+        let mut results = Vec::with_capacity(256); // 4x larger initial capacity to reduce reallocations
         let mut latest_timestamp: Option<String> = None;
+        let mut first_timestamp: Option<String> = None;
+        let mut line_buffer = Vec::with_capacity(16 * 1024); // 2x larger reusable line buffer
         
-        // Process all lines
-        for line in lines.iter() {
-            if line.trim().is_empty() {
+        loop {
+            line_buffer.clear();
+            let bytes_read = reader.read_until(b'\n', &mut line_buffer)?;
+            if bytes_read == 0 {
+                break; // EOF
+            }
+            
+            // Skip empty lines
+            if line_buffer.trim_ascii().is_empty() {
                 continue;
             }
             
-            if let Ok(result) = self.process_line_with_timestamps(
-                line.as_bytes(), 
-                file_path, 
-                query,
-                &file_ctime,
-                &first_timestamp,
-                &mut latest_timestamp
-            ) {
-                if let Some(res) = result {
-                    results.push(res);
+            // Remove newline if present
+            if line_buffer.ends_with(&[b'\n']) {
+                line_buffer.pop();
+                if line_buffer.ends_with(&[b'\r']) {
+                    line_buffer.pop();
+                }
+            }
+            
+            // Parse JSON - Always use sonic-rs for optimized engine
+            // Use from_slice to avoid UTF-8 string conversion
+            let message: Result<SessionMessage, _> = sonic_rs::from_slice(&line_buffer);
+            
+            if let Ok(message) = message {
+                // Update timestamps
+                if let Some(ts) = message.get_timestamp() {
+                    latest_timestamp = Some(ts.to_string());
+                    // Track first non-summary message timestamp
+                    if first_timestamp.is_none() && message.get_type() != "summary" {
+                        first_timestamp = Some(ts.to_string());
+                    }
+                }
+                
+                // Get searchable text
+                let text = message.get_searchable_text();
+                
+                // Apply query condition
+                if let Ok(matches) = query.evaluate(&text) {
+                    if matches {
+                        // Apply inline filters
+                        if let Some(role) = &self.options.role {
+                            if message.get_type() != role {
+                                continue;
+                            }
+                        }
+                        
+                        if let Some(session_id) = &self.options.session_id {
+                            if message.get_session_id() != Some(session_id) {
+                                continue;
+                            }
+                        }
+                        
+                        // Determine timestamp based on message type (matching Rayon logic)
+                        let final_timestamp = message
+                            .get_timestamp()
+                            .map(|ts| ts.to_string())
+                            .or_else(|| {
+                                // For summary messages, prefer first_timestamp over latest_timestamp
+                                if message.get_type() == "summary" {
+                                    first_timestamp.clone()
+                                } else {
+                                    latest_timestamp.clone()
+                                }
+                            })
+                            .unwrap_or_else(|| file_ctime.clone());
+                        
+                        let result = SearchResult {
+                            file: file_path.to_string_lossy().to_string(),
+                            uuid: message.get_uuid().unwrap_or("").to_string(),
+                            timestamp: final_timestamp,
+                            session_id: message.get_session_id().unwrap_or("").to_string(),
+                            role: message.get_type().to_string(),
+                            text: message.get_content_text(),
+                            has_tools: message.has_tool_use(),
+                            has_thinking: message.has_thinking(),
+                            message_type: message.get_type().to_string(),
+                            query: query.clone(),
+                            project_path: extract_project_path(file_path),
+                            raw_json: None,
+                        };
+                        results.push(result);
+                    }
                 }
             }
         }
@@ -390,4 +438,13 @@ impl OptimizedRayonEngine {
 
         Ok(())
     }
+}
+
+fn extract_project_path(file_path: &Path) -> String {
+    file_path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string()
 }
