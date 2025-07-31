@@ -6,9 +6,8 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io::{self, Stdout};
-use std::sync::mpsc::{self, Receiver, Sender};
+use smol::channel::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
 
 use crate::SearchOptions;
@@ -44,6 +43,7 @@ pub struct InteractiveSearch {
     session_service: Arc<SessionService>,
     search_sender: Option<Sender<SearchRequest>>,
     search_receiver: Option<Receiver<SearchResponse>>,
+    search_task: Option<smol::Task<()>>,
     current_search_id: u64,
     last_search_timer: Option<std::time::Instant>,
     scheduled_search_delay: Option<u64>,
@@ -67,6 +67,7 @@ impl InteractiveSearch {
             session_service,
             search_sender: None,
             search_receiver: None,
+            search_task: None,
             current_search_id: 0,
             last_search_timer: None,
             scheduled_search_delay: None,
@@ -78,19 +79,29 @@ impl InteractiveSearch {
     }
 
     pub fn run(&mut self, pattern: &str) -> Result<()> {
+        smol::block_on(self.run_async(pattern))
+    }
+
+    async fn run_async(&mut self, pattern: &str) -> Result<()> {
         self.pattern = pattern.to_string();
         let mut terminal = self.setup_terminal()?;
 
-        // Start search worker thread
-        let (tx, rx) = self.start_search_worker();
+        // Start search worker task
+        let (tx, rx, task) = self.start_search_worker();
         self.search_sender = Some(tx);
         self.search_receiver = Some(rx);
+        self.search_task = Some(task);
 
         // Initial search (even with empty pattern to show all results)
         // Note: pattern is stored internally but not shown in search bar
-        self.execute_command(Command::ExecuteSearch);
+        self.execute_command(Command::ExecuteSearch).await;
 
-        let result = self.run_app(&mut terminal, pattern);
+        let result = self.run_app(&mut terminal, pattern).await;
+
+        // Clean up search task
+        if let Some(task) = self.search_task.take() {
+            task.cancel().await;
+        }
 
         self.cleanup_terminal(&mut terminal)?;
         result
@@ -112,7 +123,7 @@ impl InteractiveSearch {
         Ok(())
     }
 
-    fn run_app(
+    async fn run_app(
         &mut self,
         terminal: &mut Terminal<CrosstermBackend<Stdout>>,
         _pattern: &str,
@@ -138,7 +149,7 @@ impl InteractiveSearch {
                     if timer.elapsed() >= Duration::from_millis(delay) {
                         self.scheduled_search_delay = None;
                         self.last_search_timer = None;
-                        self.execute_command(Command::ExecuteSearch);
+                        self.execute_command(Command::ExecuteSearch).await;
                     }
                 }
             }
@@ -147,7 +158,7 @@ impl InteractiveSearch {
             if let Some(timer) = self.message_timer {
                 if timer.elapsed() >= Duration::from_millis(self.message_clear_delay) {
                     self.message_timer = None;
-                    self.execute_command(Command::ClearMessage);
+                    self.execute_command(Command::ClearMessage).await;
                 }
             }
 
@@ -255,14 +266,14 @@ impl InteractiveSearch {
 
     fn handle_message(&mut self, message: Message) {
         let command = self.state.update(message);
-        self.execute_command(command);
+        smol::block_on(self.execute_command(command));
     }
 
-    fn execute_command(&mut self, command: Command) {
+    async fn execute_command(&mut self, command: Command) {
         match command {
             Command::None => {}
             Command::ExecuteSearch => {
-                self.execute_search();
+                self.execute_search().await;
             }
             Command::ScheduleSearch(delay) => {
                 self.last_search_timer = Some(std::time::Instant::now());
@@ -316,7 +327,7 @@ impl InteractiveSearch {
         }
     }
 
-    fn execute_search(&mut self) {
+    async fn execute_search(&mut self) {
         // Allow empty query to show all results
         // if self.state.search.query.is_empty() {
         //     self.state.search.results.clear();
@@ -336,7 +347,7 @@ impl InteractiveSearch {
                 pattern: self.pattern.clone(),
                 order: self.state.search.order,
             };
-            let _ = sender.send(request);
+            let _ = sender.send(request).await;
         }
     }
 
@@ -357,29 +368,29 @@ impl InteractiveSearch {
         }
     }
 
-    fn start_search_worker(&self) -> (Sender<SearchRequest>, Receiver<SearchResponse>) {
-        let (request_tx, request_rx) = mpsc::channel::<SearchRequest>();
-        let (response_tx, response_rx) = mpsc::channel::<SearchResponse>();
+    fn start_search_worker(&self) -> (Sender<SearchRequest>, Receiver<SearchResponse>, smol::Task<()>) {
+        let (request_tx, request_rx) = smol::channel::unbounded::<SearchRequest>();
+        let (response_tx, response_rx) = smol::channel::unbounded::<SearchResponse>();
         let search_service = self.search_service.clone();
 
-        thread::spawn(move || {
-            while let Ok(request) = request_rx.recv() {
+        let task = smol::spawn(async move {
+            while let Ok(request) = request_rx.recv().await {
                 match search_service.search(request.clone()) {
                     Ok(response) => {
-                        let _ = response_tx.send(response);
+                        let _ = response_tx.send(response).await;
                     }
                     Err(e) => {
                         eprintln!("Search error: {e}");
                         let _ = response_tx.send(SearchResponse {
                             id: request.id,
                             results: Vec::new(),
-                        });
+                        }).await;
                     }
                 }
             }
         });
 
-        (request_tx, response_rx)
+        (request_tx, response_rx, task)
     }
 
     fn copy_to_clipboard(&self, text: &str) -> Result<()> {

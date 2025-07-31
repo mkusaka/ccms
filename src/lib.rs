@@ -10,5 +10,3 @@ pub use search::{
     SearchEngine, default_claude_pattern, discover_claude_files, expand_tilde, format_search_result,
 };
 
-#[cfg(feature = "async")]
-pub use search::{AsyncSearchEngine, AsyncSearchOptions, AsyncSearchResult};
