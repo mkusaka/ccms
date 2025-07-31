@@ -40,7 +40,7 @@ clap_complete = "4.5"
 
 # JSON parsing with SIMD acceleration
 simd-json = "0.15.1"
-sonic-rs = { version = "0.3", optional = true }
+sonic-rs = { version = "0.3" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
@@ -155,5 +155,4 @@ tokio-console = ["console-subscriber", "tokio/tracing"]
 mimalloc = ["dep:mimalloc"]
 jemalloc = ["jemallocator"]
 mmap = ["memmap2"]
-sonic = ["sonic-rs"]
 smol = ["dep:smol", "async-fs", "futures-lite", "async-executor", "async-io", "blocking", "async-lock", "num_cpus"]

@@ -2,7 +2,7 @@ use anyhow::Result;
 use chrono::DateTime;
 use smol::channel;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::sync::Arc;
 // use smol::lock::Semaphore; // Disabled for testing
@@ -218,25 +218,63 @@ async fn search_file(
     // Use smol's blocking executor with larger buffer for better throughput
     blocking::unblock(move || {
         let file = File::open(&file_path_owned)?;
+        let metadata = file.metadata()?;
         // Increase buffer size for better I/O performance
-        let reader = BufReader::with_capacity(64 * 1024, file); // Changed to 64KB like basic Smol
+        let mut reader = BufReader::with_capacity(64 * 1024, file); // Changed to 64KB like basic Smol
         
-        let mut results = Vec::with_capacity(32); // Pre-allocate for typical result size
+        // Get file creation time for fallback
+        let file_ctime = metadata
+            .created()
+            .ok()
+            .and_then(|created| {
+                created
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()
+                    .map(|d| {
+                        let timestamp = chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
+                            .unwrap_or_else(chrono::Utc::now);
+                        timestamp.to_rfc3339()
+                    })
+            })
+            .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+        
+        let mut results = Vec::with_capacity(256); // 4x larger initial capacity to reduce reallocations
         let mut latest_timestamp: Option<String> = None;
+        let mut first_timestamp: Option<String> = None;
+        let mut line_buffer = Vec::with_capacity(16 * 1024); // 2x larger reusable line buffer
         
-        for line in reader.lines() {
-            let line = line?;
-            if line.trim().is_empty() {
+        loop {
+            line_buffer.clear();
+            let bytes_read = reader.read_until(b'\n', &mut line_buffer)?;
+            if bytes_read == 0 {
+                break; // EOF
+            }
+            
+            // Skip empty lines
+            if line_buffer.trim_ascii().is_empty() {
                 continue;
             }
             
+            // Remove newline if present
+            if line_buffer.ends_with(&[b'\n']) {
+                line_buffer.pop();
+                if line_buffer.ends_with(&[b'\r']) {
+                    line_buffer.pop();
+                }
+            }
+            
             // Parse JSON - Always use sonic-rs for optimized engine
-            let message: Result<SessionMessage, _> = sonic_rs::from_str(&line);
+            // Use from_slice to avoid UTF-8 string conversion
+            let message: Result<SessionMessage, _> = sonic_rs::from_slice(&line_buffer);
             
             if let Ok(message) = message {
-                // Update latest timestamp
+                // Update timestamps
                 if let Some(ts) = message.get_timestamp() {
                     latest_timestamp = Some(ts.to_string());
+                    // Track first non-summary message timestamp
+                    if first_timestamp.is_none() && message.get_type() != "summary" {
+                        first_timestamp = Some(ts.to_string());
+                    }
                 }
                 
                 // Get searchable text
@@ -258,11 +296,19 @@ async fn search_file(
                             }
                         }
                         
+                        // Determine timestamp based on message type (matching Rayon logic)
                         let final_timestamp = message
                             .get_timestamp()
                             .map(|ts| ts.to_string())
-                            .or_else(|| latest_timestamp.clone())
-                            .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+                            .or_else(|| {
+                                // For summary messages, prefer first_timestamp over latest_timestamp
+                                if message.get_type() == "summary" {
+                                    first_timestamp.clone()
+                                } else {
+                                    latest_timestamp.clone()
+                                }
+                            })
+                            .unwrap_or_else(|| file_ctime.clone());
                         
                         let result = SearchResult {
                             file: file_path_owned.to_string_lossy().to_string(),
