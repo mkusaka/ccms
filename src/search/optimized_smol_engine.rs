@@ -19,13 +19,11 @@ fn initialize_blocking_threads() {
     INIT.call_once(|| {
         // Only set if not already set by user
         if std::env::var("BLOCKING_MAX_THREADS").is_err() {
-            // Use physical CPU cores instead of logical cores
-            // This can reduce cache contention and improve performance
-            let physical_cores = num_cpus::get_physical();
+            let cpu_count = num_cpus::get();
             unsafe {
-                std::env::set_var("BLOCKING_MAX_THREADS", physical_cores.to_string());
+                std::env::set_var("BLOCKING_MAX_THREADS", cpu_count.to_string());
             }
-            eprintln!("Optimized BLOCKING_MAX_THREADS to {} (physical CPU cores)", physical_cores);
+            eprintln!("Optimized BLOCKING_MAX_THREADS to {} (CPU count)", cpu_count);
         }
     });
 }
