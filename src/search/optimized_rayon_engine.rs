@@ -152,7 +152,7 @@ impl OptimizedRayonEngine {
         let mmap = unsafe { Mmap::map(&file)? };
         let content = &mmap[..];
         
-        let mut results: SmallVec<[SearchResult; 64]> = SmallVec::with_capacity(256); // Use SmallVec with inline capacity 64 (> default 50)
+        let mut results: SmallVec<[SearchResult; 64]> = SmallVec::with_capacity(512); // Use SmallVec with 512 capacity based on typical search patterns
         let mut start = 0;
         
         // Use memchr for fast newline scanning
@@ -208,7 +208,7 @@ impl OptimizedRayonEngine {
         
         let mut reader = BufReader::with_capacity(64 * 1024, file);
         
-        let mut results: SmallVec<[SearchResult; 64]> = SmallVec::with_capacity(256); // Use SmallVec with inline capacity 64 (> default 50)
+        let mut results: SmallVec<[SearchResult; 64]> = SmallVec::with_capacity(512); // Use SmallVec with 512 capacity based on typical search patterns
         let mut latest_timestamp: Option<String> = None;
         let mut first_timestamp: Option<String> = None;
         let mut line_buffer = Vec::with_capacity(16 * 1024); // 2x larger reusable line buffer
