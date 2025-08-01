@@ -9,13 +9,6 @@ use ccms::{
 };
 #[cfg(feature = "profiling")]
 use ccms::profiling_enhanced;
-#[cfg(feature = "async")]
-use ccms::search::{OptimizedAsyncSearchEngine, OptimizedAsyncSearchEngineV2};
-#[cfg(feature = "smol")]
-use ccms::search::smol_engine::SmolSearchEngine;
-#[cfg(feature = "smol")]
-use ccms::search::optimized_smol_engine::OptimizedSmolSearchEngine;
-use ccms::search::optimized_rayon_engine::OptimizedRayonEngine;
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
 use clap_complete::{Generator, Shell, generate};
@@ -106,10 +99,6 @@ struct Cli {
     /// Generate shell completion script
     #[arg(long = "completion", value_enum)]
     generator: Option<Shell>,
-
-    /// Search engine to use
-    #[arg(long, value_enum, default_value = "rayon")]
-    engine: SearchEngineType,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -117,26 +106,6 @@ enum OutputFormat {
     Text,
     Json,
     JsonL,
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-enum SearchEngineType {
-    /// Rayon parallel processing (default)
-    Rayon,
-    /// Optimized Rayon with sonic-rs + jemalloc
-    OptimizedRayon,
-    /// Tokio async processing
-    #[cfg(feature = "async")]
-    Tokio,
-    /// Optimized Tokio with indexed collection
-    #[cfg(feature = "async")]
-    OptimizedTokio,
-    /// Smol lightweight async processing
-    #[cfg(feature = "smol")]
-    Smol,
-    /// Optimized Smol with auto thread pool tuning
-    #[cfg(feature = "smol")]
-    OptimizedSmol,
 }
 
 fn print_completions<G: Generator>(generator: G, cmd: &mut Command) {
@@ -255,69 +224,12 @@ fn main() -> Result<()> {
         pattern
     };
 
-    // Execute search based on selected engine
-    let (results, duration, total_count) = match cli.engine {
-        SearchEngineType::Rayon => {
-            if cli.verbose {
-                eprintln!("Using Rayon parallel search engine");
-            }
-            let engine = SearchEngine::new(options);
-            engine.search(pattern_to_use, query)?
-        }
-        SearchEngineType::OptimizedRayon => {
-            if cli.verbose {
-                eprintln!("Using Optimized Rayon with sonic-rs + jemalloc");
-            }
-            let engine = OptimizedRayonEngine::new(options);
-            engine.search(pattern_to_use, query)?
-        }
-        #[cfg(feature = "async")]
-        SearchEngineType::Tokio => {
-            if cli.verbose {
-                eprintln!("Using Tokio async search engine");
-            }
-            let rt = tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()?;
-            rt.block_on(async {
-                let engine = OptimizedAsyncSearchEngine::new(options);
-                engine.search(pattern_to_use, query).await
-            })?
-        }
-        #[cfg(feature = "async")]
-        SearchEngineType::OptimizedTokio => {
-            if cli.verbose {
-                eprintln!("Using Optimized Tokio with indexed collection");
-            }
-            let rt = tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()?;
-            rt.block_on(async {
-                let engine = OptimizedAsyncSearchEngineV2::new(options);
-                engine.search(pattern_to_use, query).await
-            })?
-        }
-        #[cfg(feature = "smol")]
-        SearchEngineType::Smol => {
-            if cli.verbose {
-                eprintln!("Using Smol lightweight async search engine");
-            }
-            smol::block_on(async {
-                let engine = SmolSearchEngine::new(options);
-                engine.search(pattern_to_use, query).await
-            })?
-        }
-        #[cfg(feature = "smol")]
-        SearchEngineType::OptimizedSmol => {
-            if cli.verbose {
-                eprintln!("Using Optimized Smol with auto thread pool tuning");
-            }
-            smol::block_on(async {
-                let engine = OptimizedSmolSearchEngine::new(options);
-                engine.search(pattern_to_use, query).await
-            })?
-        }
-    };
+    // Execute search
+    if cli.verbose {
+        eprintln!("Using optimized search engine");
+    }
+    let engine = SearchEngine::new(options);
+    let (results, duration, total_count) = engine.search(pattern_to_use, query)?;
 
     // Output results
     let stdout = io::stdout();

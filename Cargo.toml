@@ -14,24 +14,8 @@ name = "perf_test"
 path = "src/bin/perf_test.rs"
 
 [[bin]]
-name = "bench_tokio"
-path = "src/bin/bench_tokio.rs"
-
-[[bin]]
 name = "perf_compare"
 path = "src/bin/perf_compare.rs"
-
-[[bin]]
-name = "bench_tokio_mimalloc"
-path = "src/bin/bench_tokio_mimalloc.rs"
-
-[[bin]]
-name = "bench_tokio_mmap"
-path = "src/bin/bench_tokio_mmap.rs"
-
-[[bin]]
-name = "bench_smol"
-path = "src/bin/bench_smol.rs"
 
 [dependencies]
 # CLI and argument parsing
@@ -148,7 +132,7 @@ opt-level = 3
 debug = true  # Enable debug symbols for better profiling
 
 [features]
-default = []
+default = ["smol"]
 profiling = ["pprof", "tracing-flame", "console-subscriber"]
 async = ["tokio", "futures", "bytes"]
 tokio-console = ["console-subscriber", "tokio/tracing"]

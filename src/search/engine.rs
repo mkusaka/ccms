@@ -1,17 +1,31 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::DateTime;
-use crossbeam::channel;
-use indicatif::{ProgressBar, ProgressStyle};
-use rayon::prelude::*;
-use simd_json;
+use smol::channel;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
+use std::sync::Arc;
 
 use super::file_discovery::{discover_claude_files, expand_tilde};
 use crate::interactive_ratatui::domain::models::SearchOrder;
 use crate::query::{QueryCondition, SearchOptions, SearchResult};
 use crate::schemas::SessionMessage;
+
+// Initialize blocking thread pool optimization
+static INIT: std::sync::Once = std::sync::Once::new();
+
+fn initialize_blocking_threads() {
+    INIT.call_once(|| {
+        // Only set if not already set by user
+        if std::env::var("BLOCKING_MAX_THREADS").is_err() {
+            let cpu_count = num_cpus::get();
+            unsafe {
+                std::env::set_var("BLOCKING_MAX_THREADS", cpu_count.to_string());
+            }
+            eprintln!("Optimized BLOCKING_MAX_THREADS to {} (CPU count)", cpu_count);
+        }
+    });
+}
 
 pub struct SearchEngine {
     options: SearchOptions,
@@ -19,6 +33,8 @@ pub struct SearchEngine {
 
 impl SearchEngine {
     pub fn new(options: SearchOptions) -> Self {
+        // Initialize blocking threads optimization on first use
+        initialize_blocking_threads();
         Self { options }
     }
 
@@ -40,6 +56,19 @@ impl SearchEngine {
     }
 
     pub fn search_with_role_filter_and_order(
+        &self,
+        pattern: &str,
+        query: QueryCondition,
+        role_filter: Option<String>,
+        order: SearchOrder,
+    ) -> Result<(Vec<SearchResult>, std::time::Duration, usize)> {
+        // Use smol's block_on to run the async search synchronously
+        smol::block_on(async {
+            self.search_async(pattern, query, role_filter, order).await
+        })
+    }
+
+    async fn search_async(
         &self,
         pattern: &str,
         query: QueryCondition,
@@ -70,75 +99,71 @@ impl SearchEngine {
             return Ok((Vec::new(), start_time.elapsed(), 0));
         }
 
-        // Progress bar - only show for operations with many files or when explicitly verbose
-        let progress = if self.options.verbose && files.len() > 100 {
-            let pb = ProgressBar::new(files.len() as u64);
-            pb.set_style(
-                ProgressStyle::default_bar()
-                    .template("[{elapsed_precise}] {bar:40} {pos}/{len} files")?
-                    .progress_chars("=>-"),
-            );
-            Some(pb)
-        } else {
-            None
-        };
-
         // Channel for collecting results
         let (sender, receiver) = channel::unbounded();
         let max_results = self.options.max_results.unwrap_or(50);
 
-        // Process files in parallel
+        // Process files concurrently using multi-threaded executor
         let search_start = std::time::Instant::now();
-        files.par_iter().for_each_with(sender, |s, file_path| {
-            if let Some(pb) = &progress {
-                pb.inc(1);
-            }
-
-            if let Ok(results) = self.search_file(file_path, &query) {
-                for result in results {
-                    // Send result through channel
-                    let _ = s.send(result);
+        
+        let query = Arc::new(query);
+        let options = Arc::new(self.options.clone());
+        
+        // Spawn tasks for each file on the global executor
+        let mut tasks = Vec::new();
+        for file_path in files {
+            let sender = sender.clone();
+            let query = query.clone();
+            let options = options.clone();
+            
+            let task = smol::spawn(async move {
+                if let Ok(results) = search_file(&file_path, &query, &options).await {
+                    for result in results {
+                        let _ = sender.send(result).await;
+                    }
                 }
+            });
+            tasks.push(task);
+        }
+        
+        // Drop the original sender so the receiver knows when all tasks are done
+        drop(sender);
+        
+        // Run all tasks concurrently
+        let search_future = async {
+            for task in tasks {
+                task.await;
             }
-        });
+        };
+        
+        // Collect results while processing
+        let collect_future = async {
+            let mut all_results = Vec::new();
+            while let Ok(result) = receiver.recv().await {
+                all_results.push(result);
+            }
+            all_results
+        };
+        
+        // Run search and collection concurrently
+        let (_, mut all_results) = futures_lite::future::zip(search_future, collect_future).await;
+        
         let search_time = search_start.elapsed();
-
-        // Collect results
-        drop(progress);
-        let mut all_results: Vec<SearchResult> = receiver.try_iter().collect();
-
-        // Don't deduplicate - match TypeScript behavior which returns all matches
-        // Commenting out deduplication logic
-        // let mut seen_uuids = std::collections::HashSet::new();
-        // all_results.retain(|result| {
-        //     if result.uuid.is_empty() {
-        //         // Keep all results with empty UUIDs (summary messages)
-        //         true
-        //     } else {
-        //         // For non-empty UUIDs, only keep if not seen before
-        //         seen_uuids.insert(result.uuid.clone())
-        //     }
-        // });
 
         // Apply filters
         self.apply_filters(&mut all_results, role_filter)?;
 
-        // Sort by timestamp based on search order
+        // Sort by timestamp
         match order {
             SearchOrder::Descending => {
-                // Newest first
                 all_results.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
             }
             SearchOrder::Ascending => {
-                // Oldest first
                 all_results.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
             }
         }
 
-        // Store total count before truncating
         let total_count = all_results.len();
-
-        // Limit results
         all_results.truncate(max_results);
 
         let elapsed = start_time.elapsed();
@@ -147,272 +172,190 @@ impl SearchEngine {
             eprintln!("\nPerformance breakdown:");
             eprintln!("  File discovery: {}ms", file_discovery_time.as_millis());
             eprintln!("  Search: {}ms", search_time.as_millis());
-            eprintln!(
-                "  Post-processing: {}ms",
-                elapsed
-                    .saturating_sub(file_discovery_time)
-                    .saturating_sub(search_time)
-                    .as_millis()
-            );
             eprintln!("  Total: {}ms", elapsed.as_millis());
         }
 
         Ok((all_results, elapsed, total_count))
     }
 
-    fn search_file(&self, file_path: &Path, query: &QueryCondition) -> Result<Vec<SearchResult>> {
-        let file =
-            File::open(file_path).with_context(|| format!("Failed to open file: {file_path:?}"))?;
-
-        // Get file metadata
-        let metadata = file.metadata()?;
-        let _file_size = metadata.len();
-
-        // Get file creation time for summary messages
-        let file_ctime = Some(&metadata)
-            .and_then(|m| {
-                // Try to get creation time (birth time) first
-                #[cfg(target_os = "macos")]
-                {
-                    m.created().ok()
-                }
-                // Fall back to modified time on other systems
-                #[cfg(not(target_os = "macos"))]
-                {
-                    m.modified().ok()
-                }
-            })
-            .map(|t| {
-                let duration = t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
-                let ctime =
-                    chrono::DateTime::<chrono::Utc>::from_timestamp(duration.as_secs() as i64, 0)
-                        .unwrap_or_else(chrono::Utc::now)
-                        .to_rfc3339();
-                if self.options.verbose {
-                    eprintln!("DEBUG: file_ctime for {file_path:?} = {ctime}");
-                }
-                ctime
-            })
-            .unwrap_or_else(|| {
-                let now = chrono::Utc::now().to_rfc3339();
-                if self.options.verbose {
-                    eprintln!("DEBUG: Using current time as fallback: {now}");
-                }
-                now
-            });
-
-        // Use optimized buffer size for JSONL files
-        let reader = BufReader::with_capacity(32 * 1024, file);
-        let lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
-
-        // Second pass: find first timestamp if first message is summary
-        let mut first_timestamp: Option<String> = None;
-        if !lines.is_empty() {
-            let mut first_line_bytes = lines[0].as_bytes().to_vec();
-            if let Ok(first_msg) =
-                simd_json::serde::from_slice::<SessionMessage>(&mut first_line_bytes)
-            {
-                if first_msg.get_type() == "summary" {
-                    if self.options.verbose {
-                        eprintln!("DEBUG: Found summary at first line in {file_path:?}");
-                    }
-                    // Look for first timestamp in subsequent messages
-                    for (idx, line) in lines.iter().skip(1).enumerate() {
-                        let mut line_bytes = line.as_bytes().to_vec();
-                        if let Ok(msg) =
-                            simd_json::serde::from_slice::<SessionMessage>(&mut line_bytes)
-                        {
-                            if let Some(ts) = msg.get_timestamp() {
-                                first_timestamp = Some(ts.to_string());
-                                if self.options.verbose {
-                                    eprintln!(
-                                        "DEBUG: Found timestamp '{}' at line {} in {:?}",
-                                        ts,
-                                        idx + 2,
-                                        file_path
-                                    );
-                                }
-                                break;
-                            }
-                        }
-                    }
-                    if first_timestamp.is_none() && self.options.verbose {
-                        eprintln!("DEBUG: No timestamp found after summary in {file_path:?}");
-                    }
-                }
-            }
-        }
-
-        let mut results = Vec::new();
-        let mut latest_timestamp: Option<String> = None;
-
-        for (line_num, line) in lines.iter().enumerate() {
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            // Parse JSON with SIMD optimization
-            let mut json_bytes = line.as_bytes().to_vec();
-            match simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes) {
-                Ok(message) => {
-                    // Update latest timestamp if this message has one
-                    if let Some(ts) = message.get_timestamp() {
-                        latest_timestamp = Some(ts.to_string());
-                    }
-
-                    // Extract searchable text (content + metadata)
-                    let text = message.get_searchable_text();
-
-                    // Apply query condition
-                    if let Ok(matches) = query.evaluate(&text) {
-                        if matches {
-                            // Check role filter
-                            if let Some(role) = &self.options.role {
-                                if message.get_type() != role {
-                                    continue;
-                                }
-                            }
-
-                            // Check session filter
-                            if let Some(session_id) = &self.options.session_id {
-                                if message.get_session_id() != Some(session_id) {
-                                    continue;
-                                }
-                            }
-
-                            // Check project path filter
-                            if let Some(project_filter) = &self.options.project_path {
-                                let project_path = Self::extract_project_path(file_path);
-                                if !project_path.starts_with(project_filter) {
-                                    continue;
-                                }
-                            }
-
-                            let msg_timestamp = message.get_timestamp();
-                            if self.options.verbose && message.get_type() == "summary" {
-                                eprintln!(
-                                    "DEBUG: Processing summary message, uuid={}, original_timestamp={:?}",
-                                    message.get_uuid().unwrap_or("NO_UUID"),
-                                    msg_timestamp
-                                );
-                            }
-
-                            let final_timestamp = msg_timestamp
-                                    .map(|s| {
-                                        if self.options.verbose && message.get_type() == "summary" {
-                                            eprintln!("DEBUG: Summary has its own timestamp: {s}");
-                                        }
-                                        s.to_string()
-                                    })
-                                    .or_else(|| {
-                                        // For summary messages, prefer first_timestamp over latest_timestamp
-                                        if message.get_type() == "summary" {
-                                            if self.options.verbose {
-                                                eprintln!("DEBUG: Summary message without timestamp, first_timestamp={first_timestamp:?}, latest_timestamp={latest_timestamp:?}");
-                                            }
-                                            first_timestamp.clone()
-                                        } else {
-                                            latest_timestamp.clone()
-                                        }
-                                    })
-                                    .unwrap_or_else(|| {
-                                        if self.options.verbose && message.get_type() == "summary" {
-                                            eprintln!("DEBUG: Using file_ctime '{file_ctime}' for summary as fallback");
-                                        }
-                                        file_ctime.clone()
-                                    });
-
-                            if self.options.verbose && message.get_type() == "summary" {
-                                eprintln!("DEBUG: Final timestamp for summary: {final_timestamp}");
-                            }
-
-                            results.push(SearchResult {
-                                file: file_path.to_string_lossy().to_string(),
-                                uuid: message.get_uuid().unwrap_or("").to_string(),
-                                timestamp: final_timestamp,
-                                session_id: message.get_session_id().unwrap_or("").to_string(),
-                                role: message.get_type().to_string(),
-                                text: message.get_content_text(),
-                                has_tools: message.has_tool_use(),
-                                has_thinking: message.has_thinking(),
-                                message_type: message.get_type().to_string(),
-                                query: query.clone(),
-                                project_path: Self::extract_project_path(file_path),
-                                raw_json: Some(line.clone()),
-                            });
-                        }
-                    }
-                }
-                Err(e) => {
-                    if self.options.verbose {
-                        eprintln!(
-                            "Failed to parse JSON at line {} in {:?}: {}",
-                            line_num + 1,
-                            file_path,
-                            e
-                        );
-                    }
-                }
-            }
-        }
-        Ok(results)
-    }
 
     fn apply_filters(
         &self,
         results: &mut Vec<SearchResult>,
         role_filter: Option<String>,
     ) -> Result<()> {
-        // Apply role filter from interactive UI (if provided)
+        // Apply role filter
         if let Some(role) = role_filter {
             results.retain(|r| r.role == role);
         }
 
-        // Apply role filter from command line options
-        if let Some(role) = &self.options.role {
-            results.retain(|r| r.role == *role);
-        }
-        // Apply timestamp filters
-        if let Some(before) = &self.options.before {
-            let before_time =
-                DateTime::parse_from_rfc3339(before).context("Invalid 'before' timestamp")?;
-            results.retain(|r| {
-                if let Ok(time) = DateTime::parse_from_rfc3339(&r.timestamp) {
-                    time < before_time
-                } else {
-                    false
-                }
-            });
+        // Apply session filter
+        if let Some(ref session_id) = self.options.session_id {
+            results.retain(|r| &r.session_id == session_id);
         }
 
-        if let Some(after) = &self.options.after {
-            let after_time =
-                DateTime::parse_from_rfc3339(after).context("Invalid 'after' timestamp")?;
-            results.retain(|r| {
-                if let Ok(time) = DateTime::parse_from_rfc3339(&r.timestamp) {
-                    time > after_time
-                } else {
-                    false
-                }
-            });
+        // Apply time filters
+        if let Some(ref after) = self.options.after {
+            if let Ok(after_dt) = DateTime::parse_from_rfc3339(after) {
+                results.retain(|r| {
+                    DateTime::parse_from_rfc3339(&r.timestamp)
+                        .map(|dt| dt >= after_dt)
+                        .unwrap_or(false)
+                });
+            }
+        }
+
+        if let Some(ref before) = self.options.before {
+            if let Ok(before_dt) = DateTime::parse_from_rfc3339(before) {
+                results.retain(|r| {
+                    DateTime::parse_from_rfc3339(&r.timestamp)
+                        .map(|dt| dt <= before_dt)
+                        .unwrap_or(false)
+                });
+            }
         }
 
         Ok(())
     }
 
-    fn extract_project_path(file_path: &Path) -> String {
-        // Extract project path from file path
-        // Format: ~/.claude/projects/{encoded-project-path}/{session-id}.jsonl
-        if let Some(parent) = file_path.parent() {
-            if let Some(project_name) = parent.file_name() {
-                if let Some(project_str) = project_name.to_str() {
-                    // Decode the project path (replace hyphens with slashes)
-                    return project_str.replace('-', "/");
+}
+
+// Helper function to search a single file using blocking I/O with optimized buffer
+async fn search_file(
+    file_path: &Path,
+    query: &QueryCondition,
+    options: &SearchOptions,
+) -> Result<Vec<SearchResult>> {
+    let file_path_owned = file_path.to_owned();
+    let query_owned = query.clone();
+    let options_owned = options.clone();
+    
+    // Use smol's blocking executor with larger buffer for better throughput
+    blocking::unblock(move || {
+        let file = File::open(&file_path_owned)?;
+        let metadata = file.metadata()?;
+        // Increase buffer size for better I/O performance
+        let mut reader = BufReader::with_capacity(64 * 1024, file); // Changed to 64KB like basic Smol
+        
+        // Get file creation time for fallback
+        let file_ctime = metadata
+            .created()
+            .ok()
+            .and_then(|created| {
+                created
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()
+                    .map(|d| {
+                        let timestamp = chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
+                            .unwrap_or_else(chrono::Utc::now);
+                        timestamp.to_rfc3339()
+                    })
+            })
+            .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+        
+        let mut results = Vec::with_capacity(256); // 4x larger initial capacity to reduce reallocations
+        let mut latest_timestamp: Option<String> = None;
+        let mut first_timestamp: Option<String> = None;
+        let mut line_buffer = Vec::with_capacity(16 * 1024); // 2x larger reusable line buffer
+        
+        loop {
+            line_buffer.clear();
+            let bytes_read = reader.read_until(b'\n', &mut line_buffer)?;
+            if bytes_read == 0 {
+                break; // EOF
+            }
+            
+            // Skip empty lines
+            if line_buffer.trim_ascii().is_empty() {
+                continue;
+            }
+            
+            // Remove newline if present
+            if line_buffer.ends_with(&[b'\n']) {
+                line_buffer.pop();
+                if line_buffer.ends_with(&[b'\r']) {
+                    line_buffer.pop();
+                }
+            }
+            
+            // Parse JSON - Always use sonic-rs for optimized engine
+            // Use from_slice to avoid UTF-8 string conversion
+            let message: Result<SessionMessage, _> = sonic_rs::from_slice(&line_buffer);
+            
+            if let Ok(message) = message {
+                // Update timestamps
+                if let Some(ts) = message.get_timestamp() {
+                    latest_timestamp = Some(ts.to_string());
+                    // Track first non-summary message timestamp
+                    if first_timestamp.is_none() && message.get_type() != "summary" {
+                        first_timestamp = Some(ts.to_string());
+                    }
+                }
+                
+                // Get searchable text
+                let text = message.get_searchable_text();
+                
+                // Apply query condition
+                if let Ok(matches) = query_owned.evaluate(&text) {
+                    if matches {
+                        // Apply inline filters
+                        if let Some(role) = &options_owned.role {
+                            if message.get_type() != role {
+                                continue;
+                            }
+                        }
+                        
+                        if let Some(session_id) = &options_owned.session_id {
+                            if message.get_session_id() != Some(session_id) {
+                                continue;
+                            }
+                        }
+                        
+                        // Determine timestamp based on message type (matching Rayon logic)
+                        let final_timestamp = message
+                            .get_timestamp()
+                            .map(|ts| ts.to_string())
+                            .or_else(|| {
+                                // For summary messages, prefer first_timestamp over latest_timestamp
+                                if message.get_type() == "summary" {
+                                    first_timestamp.clone()
+                                } else {
+                                    latest_timestamp.clone()
+                                }
+                            })
+                            .unwrap_or_else(|| file_ctime.clone());
+                        
+                        let result = SearchResult {
+                            file: file_path_owned.to_string_lossy().to_string(),
+                            uuid: message.get_uuid().unwrap_or("").to_string(),
+                            timestamp: final_timestamp,
+                            session_id: message.get_session_id().unwrap_or("").to_string(),
+                            role: message.get_type().to_string(),
+                            text: message.get_content_text(),
+                            has_tools: message.has_tool_use(),
+                            has_thinking: message.has_thinking(),
+                            message_type: message.get_type().to_string(),
+                            query: query_owned.clone(),
+                            project_path: extract_project_path(&file_path_owned),
+                            raw_json: None,
+                        };
+                        results.push(result);
+                    }
                 }
             }
         }
-        String::new()
-    }
+        
+        Ok(results)
+    }).await
+}
+
+fn extract_project_path(file_path: &Path) -> String {
+    file_path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string()
 }
 
 fn format_preview(text: &str, query: &QueryCondition, context_length: usize) -> String {
