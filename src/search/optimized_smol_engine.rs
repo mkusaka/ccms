@@ -2,9 +2,10 @@ use anyhow::Result;
 use chrono::DateTime;
 use smol::channel;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
+use smallvec::SmallVec;
 // use smol::lock::Semaphore; // Disabled for testing
 
 use super::file_discovery::{discover_claude_files, expand_tilde};
@@ -205,7 +206,7 @@ impl OptimizedSmolSearchEngine {
     }
 }
 
-// Helper function to search a single file using blocking I/O with optimized buffer
+// Helper function to search a single file using blocking I/O with optimized chunk reading
 async fn search_file(
     file_path: &Path,
     query: &QueryCondition,
@@ -215,12 +216,14 @@ async fn search_file(
     let query_owned = query.clone();
     let options_owned = options.clone();
     
-    // Use smol's blocking executor with larger buffer for better throughput
+    // Use smol's blocking executor with chunk-based reading
     blocking::unblock(move || {
-        let file = File::open(&file_path_owned)?;
+        // Constants for chunk-based reading
+        const CHUNK_SIZE: usize = 64 * 1024;  // 64KB chunks for APFS optimization
+        type LineBuf = SmallVec<[u8; 8192]>;  // 8KB inline capacity for typical lines
+        
+        let mut file = File::open(&file_path_owned)?;
         let metadata = file.metadata()?;
-        // Increase buffer size for better I/O performance
-        let mut reader = BufReader::with_capacity(64 * 1024, file); // Changed to 64KB like basic Smol
         
         // Get file creation time for fallback
         let file_ctime = metadata
@@ -241,92 +244,132 @@ async fn search_file(
         let mut results = Vec::with_capacity(256); // 4x larger initial capacity to reduce reallocations
         let mut latest_timestamp: Option<String> = None;
         let mut first_timestamp: Option<String> = None;
-        let mut line_buffer = Vec::with_capacity(16 * 1024); // 2x larger reusable line buffer
+        
+        // Chunk-based reading with memchr
+        let mut chunk_buffer = vec![0u8; CHUNK_SIZE];
+        let mut carry: LineBuf = LineBuf::new();  // For lines that span chunks
         
         loop {
-            line_buffer.clear();
-            let bytes_read = reader.read_until(b'\n', &mut line_buffer)?;
-            if bytes_read == 0 {
-                break; // EOF
+            let bytes_read = file.read(&mut chunk_buffer)?;
+            if bytes_read == 0 && carry.is_empty() {
+                break;  // EOF
             }
             
-            // Skip empty lines
-            if line_buffer.trim_ascii().is_empty() {
-                continue;
-            }
+            // Process chunk with carry-over from previous chunk
+            let chunk = &chunk_buffer[..bytes_read];
             
-            // Remove newline if present
-            if line_buffer.ends_with(&[b'\n']) {
-                line_buffer.pop();
-                if line_buffer.ends_with(&[b'\r']) {
-                    line_buffer.pop();
+            // If we have carry-over, we need to handle it specially
+            let (process_slice, start_offset) = if !carry.is_empty() {
+                // Append chunk to carry buffer
+                carry.extend_from_slice(chunk);
+                (carry.as_slice(), 0)
+            } else {
+                (chunk, 0)
+            };
+            
+            // Find all newlines in the current processing slice
+            let mut last_line_end = start_offset;
+            for line_end in memchr::memchr_iter(b'\n', process_slice) {
+                let line = &process_slice[last_line_end..line_end];
+                
+                // Skip empty lines
+                if line.trim_ascii().is_empty() {
+                    last_line_end = line_end + 1;
+                    continue;
                 }
-            }
-            
-            // Parse JSON - Always use sonic-rs for optimized engine
-            // Use from_slice to avoid UTF-8 string conversion
-            let message: Result<SessionMessage, _> = sonic_rs::from_slice(&line_buffer);
-            
-            if let Ok(message) = message {
-                // Update timestamps
-                if let Some(ts) = message.get_timestamp() {
-                    latest_timestamp = Some(ts.to_string());
-                    // Track first non-summary message timestamp
-                    if first_timestamp.is_none() && message.get_type() != "summary" {
-                        first_timestamp = Some(ts.to_string());
+                
+                // Parse JSON - Always use sonic-rs for optimized engine
+                let message: Result<SessionMessage, _> = sonic_rs::from_slice(line);
+                
+                if let Ok(message) = message {
+                    // Update timestamps
+                    if let Some(ts) = message.get_timestamp() {
+                        latest_timestamp = Some(ts.to_string());
+                        // Track first non-summary message timestamp
+                        if first_timestamp.is_none() && message.get_type() != "summary" {
+                            first_timestamp = Some(ts.to_string());
+                        }
                     }
-                }
-                
-                // Get searchable text
-                let text = message.get_searchable_text();
-                
-                // Apply query condition
-                if let Ok(matches) = query_owned.evaluate(&text) {
-                    if matches {
-                        // Apply inline filters
-                        if let Some(role) = &options_owned.role {
-                            if message.get_type() != role {
-                                continue;
-                            }
-                        }
-                        
-                        if let Some(session_id) = &options_owned.session_id {
-                            if message.get_session_id() != Some(session_id) {
-                                continue;
-                            }
-                        }
-                        
-                        // Determine timestamp based on message type (matching Rayon logic)
-                        let final_timestamp = message
-                            .get_timestamp()
-                            .map(|ts| ts.to_string())
-                            .or_else(|| {
-                                // For summary messages, prefer first_timestamp over latest_timestamp
-                                if message.get_type() == "summary" {
-                                    first_timestamp.clone()
-                                } else {
-                                    latest_timestamp.clone()
+                    
+                    // Get searchable text
+                    let text = message.get_searchable_text();
+                    
+                    // Apply query condition
+                    if let Ok(matches) = query_owned.evaluate(&text) {
+                        if matches {
+                            // Apply inline filters
+                            if let Some(role) = &options_owned.role {
+                                if message.get_type() != role {
+                                    last_line_end = line_end + 1;
+                                    continue;
                                 }
-                            })
-                            .unwrap_or_else(|| file_ctime.clone());
-                        
-                        let result = SearchResult {
-                            file: file_path_owned.to_string_lossy().to_string(),
-                            uuid: message.get_uuid().unwrap_or("").to_string(),
-                            timestamp: final_timestamp,
-                            session_id: message.get_session_id().unwrap_or("").to_string(),
-                            role: message.get_type().to_string(),
-                            text: message.get_content_text(),
-                            has_tools: message.has_tool_use(),
-                            has_thinking: message.has_thinking(),
-                            message_type: message.get_type().to_string(),
-                            query: query_owned.clone(),
-                            project_path: extract_project_path(&file_path_owned),
-                            raw_json: None,
-                        };
-                        results.push(result);
+                            }
+                            
+                            if let Some(session_id) = &options_owned.session_id {
+                                if message.get_session_id() != Some(session_id) {
+                                    last_line_end = line_end + 1;
+                                    continue;
+                                }
+                            }
+                            
+                            // Determine timestamp based on message type (matching Rayon logic)
+                            let final_timestamp = message
+                                .get_timestamp()
+                                .map(|ts| ts.to_string())
+                                .or_else(|| {
+                                    // For summary messages, prefer first_timestamp over latest_timestamp
+                                    if message.get_type() == "summary" {
+                                        first_timestamp.clone()
+                                    } else {
+                                        latest_timestamp.clone()
+                                    }
+                                })
+                                .unwrap_or_else(|| file_ctime.clone());
+                            
+                            let result = SearchResult {
+                                file: file_path_owned.to_string_lossy().to_string(),
+                                uuid: message.get_uuid().unwrap_or("").to_string(),
+                                timestamp: final_timestamp,
+                                session_id: message.get_session_id().unwrap_or("").to_string(),
+                                role: message.get_type().to_string(),
+                                text: message.get_content_text(),
+                                has_tools: message.has_tool_use(),
+                                has_thinking: message.has_thinking(),
+                                message_type: message.get_type().to_string(),
+                                query: query_owned.clone(),
+                                project_path: extract_project_path(&file_path_owned),
+                                raw_json: None,
+                            };
+                            results.push(result);
+                        }
                     }
                 }
+                
+                last_line_end = line_end + 1;
+            }
+            
+            // Handle incomplete line at end of chunk
+            if !carry.is_empty() {
+                // We were processing the carry buffer
+                if last_line_end < carry.len() {
+                    // Move unprocessed portion to beginning
+                    carry.drain(..last_line_end);
+                } else {
+                    // All processed, clear carry
+                    carry.clear();
+                }
+            } else {
+                // We were processing the chunk directly
+                if last_line_end < bytes_read {
+                    // Save incomplete line for next iteration
+                    carry.clear();
+                    carry.extend_from_slice(&chunk[last_line_end..]);
+                }
+            }
+            
+            // If we've read less than a full chunk, we're at EOF
+            if bytes_read < CHUNK_SIZE {
+                break;
             }
         }
         
