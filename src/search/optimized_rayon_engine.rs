@@ -3,7 +3,6 @@ use chrono::DateTime;
 use crossbeam::channel;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
-use smallvec::SmallVec;
 use std::fs::File;
 use std::path::Path;
 
@@ -152,7 +151,7 @@ impl OptimizedRayonEngine {
         let mmap = unsafe { Mmap::map(&file)? };
         let content = &mmap[..];
         
-        let mut results: SmallVec<[SearchResult; 16]> = SmallVec::with_capacity(256); // Use SmallVec with inline capacity 16
+        let mut results = Vec::with_capacity(256); // 4x larger initial capacity to reduce reallocations
         let mut start = 0;
         
         // Use memchr for fast newline scanning
@@ -180,7 +179,7 @@ impl OptimizedRayonEngine {
             }
         }
         
-        Ok(results.into_vec())
+        Ok(results)
     }
     
     #[cfg(not(feature = "mmap"))]
@@ -208,7 +207,7 @@ impl OptimizedRayonEngine {
         
         let mut reader = BufReader::with_capacity(64 * 1024, file);
         
-        let mut results: SmallVec<[SearchResult; 16]> = SmallVec::with_capacity(256); // Use SmallVec with inline capacity 16
+        let mut results = Vec::with_capacity(256); // 4x larger initial capacity to reduce reallocations
         let mut latest_timestamp: Option<String> = None;
         let mut first_timestamp: Option<String> = None;
         let mut line_buffer = Vec::with_capacity(16 * 1024); // 2x larger reusable line buffer
@@ -300,7 +299,7 @@ impl OptimizedRayonEngine {
             }
         }
         
-        Ok(results.into_vec())
+        Ok(results)
     }
     
     fn process_line(
