@@ -93,20 +93,34 @@ impl OptimizedRayonEngine {
         let (sender, receiver) = channel::unbounded();
         let max_results = self.options.max_results.unwrap_or(50);
 
-        // Process files in parallel without manual batching
+        // Process files in parallel with chunk-based batching to reduce Rayon overhead
         let search_start = std::time::Instant::now();
         
-        files.par_iter().for_each_with(sender, |s, file_path| {
-            if let Some(pb) = &progress {
-                pb.inc(1);
-            }
+        // Determine optimal chunk size based on file count
+        // For 582 files, we want chunks of ~20-50 files to reduce overhead
+        let chunk_size = match files.len() {
+            0..=50 => 1,      // Small file count, process individually
+            51..=200 => 10,   // Medium file count
+            201..=500 => 25,  // Large file count
+            _ => 50,          // Very large file count
+        };
+        
+        files.par_chunks(chunk_size)
+            .with_min_len(2)  // Prevent over-splitting of chunks
+            .for_each_with(sender, |s, file_chunk| {
+                // Process all files in the chunk sequentially
+                for file_path in file_chunk {
+                    if let Some(pb) = &progress {
+                        pb.inc(1);
+                    }
 
-            if let Ok(results) = self.search_file(file_path, &query) {
-                for result in results {
-                    let _ = s.send(result);
+                    if let Ok(results) = self.search_file(file_path, &query) {
+                        for result in results {
+                            let _ = s.send(result);
+                        }
+                    }
                 }
-            }
-        });
+            });
             
         let search_time = search_start.elapsed();
 
