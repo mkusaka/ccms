@@ -548,6 +548,7 @@ dependencies = [
  "serde",
  "serde_json",
  "simd-json",
+ "smallvec",
  "smol",
  "sonic-rs",
  "tempfile",

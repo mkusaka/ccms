@@ -206,24 +206,37 @@ impl OptimizedSmolSearchEngine {
     }
 }
 
-// Helper function to search a single file using blocking I/O with optimized chunk reading
+// Helper function to search a single file - only file open is blocking
 async fn search_file(
     file_path: &Path,
     query: &QueryCondition,
     options: &SearchOptions,
 ) -> Result<Vec<SearchResult>> {
     let file_path_owned = file_path.to_owned();
-    let query_owned = query.clone();
-    let options_owned = options.clone();
     
-    // Use smol's blocking executor with chunk-based reading
-    blocking::unblock(move || {
+    // Only file opening uses blocking pool to minimize overhead
+    let (mut file, metadata) = blocking::unblock(move || {
+        let file = File::open(&file_path_owned)?;
+        let metadata = file.metadata()?;
+        Ok::<_, anyhow::Error>((file, metadata))
+    }).await?;
+    
+    // Process file synchronously in the current task
+    process_file_sync(&mut file, file_path, &metadata, query, options)
+}
+
+// Synchronous file processing to avoid blocking::unblock overhead
+fn process_file_sync(
+    file: &mut File,
+    file_path: &Path,
+    metadata: &std::fs::Metadata,
+    query: &QueryCondition,
+    options: &SearchOptions,
+) -> Result<Vec<SearchResult>> {
         // Constants for chunk-based reading
         const CHUNK_SIZE: usize = 64 * 1024;  // 64KB chunks for APFS optimization
         type LineBuf = SmallVec<[u8; 8192]>;  // 8KB inline capacity for typical lines
         
-        let mut file = File::open(&file_path_owned)?;
-        let metadata = file.metadata()?;
         
         // Get file creation time for fallback
         let file_ctime = metadata
@@ -295,17 +308,17 @@ async fn search_file(
                     let text = message.get_searchable_text();
                     
                     // Apply query condition
-                    if let Ok(matches) = query_owned.evaluate(&text) {
+                    if let Ok(matches) = query.evaluate(&text) {
                         if matches {
                             // Apply inline filters
-                            if let Some(role) = &options_owned.role {
+                            if let Some(role) = &options.role {
                                 if message.get_type() != role {
                                     last_line_end = line_end + 1;
                                     continue;
                                 }
                             }
                             
-                            if let Some(session_id) = &options_owned.session_id {
+                            if let Some(session_id) = &options.session_id {
                                 if message.get_session_id() != Some(session_id) {
                                     last_line_end = line_end + 1;
                                     continue;
@@ -327,7 +340,7 @@ async fn search_file(
                                 .unwrap_or_else(|| file_ctime.clone());
                             
                             let result = SearchResult {
-                                file: file_path_owned.to_string_lossy().to_string(),
+                                file: file_path.to_string_lossy().to_string(),
                                 uuid: message.get_uuid().unwrap_or("").to_string(),
                                 timestamp: final_timestamp,
                                 session_id: message.get_session_id().unwrap_or("").to_string(),
@@ -336,8 +349,8 @@ async fn search_file(
                                 has_tools: message.has_tool_use(),
                                 has_thinking: message.has_thinking(),
                                 message_type: message.get_type().to_string(),
-                                query: query_owned.clone(),
-                                project_path: extract_project_path(&file_path_owned),
+                                query: query.clone(),
+                                project_path: extract_project_path(file_path),
                                 raw_json: None,
                             };
                             results.push(result);
@@ -374,7 +387,6 @@ async fn search_file(
         }
         
         Ok(results)
-    }).await
 }
 
 fn extract_project_path(file_path: &Path) -> String {
