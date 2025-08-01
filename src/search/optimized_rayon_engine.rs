@@ -20,6 +20,20 @@ pub struct OptimizedRayonEngine {
 
 impl OptimizedRayonEngine {
     pub fn new(options: SearchOptions) -> Self {
+        // Configure Rayon to use physical CPU cores
+        // This can reduce cache contention and improve performance
+        let physical_cores = num_cpus::get_physical();
+        if let Err(e) = rayon::ThreadPoolBuilder::new()
+            .num_threads(physical_cores)
+            .build_global() 
+        {
+            if options.verbose {
+                eprintln!("Warning: Could not set Rayon thread pool size: {}", e);
+            }
+        } else if options.verbose {
+            eprintln!("Configured Rayon to use {} physical CPU cores", physical_cores);
+        }
+        
         Self { options }
     }
 

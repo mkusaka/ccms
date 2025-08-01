@@ -90,7 +90,7 @@ console-subscriber = { version = "0.4", optional = true }
 tokio = { version = "1.40", features = ["full"], optional = true }
 futures = { version = "0.3", optional = true }
 bytes = { version = "1.9", optional = true }
-num_cpus = { version = "1.17", optional = true }
+num_cpus = { version = "1.17" }
 
 # Smol runtime (optional)
 smol = { version = "2.0", optional = true }
@@ -150,9 +150,9 @@ debug = true  # Enable debug symbols for better profiling
 [features]
 default = []
 profiling = ["pprof", "tracing-flame", "console-subscriber"]
-async = ["tokio", "futures", "bytes", "num_cpus"]
+async = ["tokio", "futures", "bytes"]
 tokio-console = ["console-subscriber", "tokio/tracing"]
 mimalloc = ["dep:mimalloc"]
 jemalloc = ["jemallocator"]
 mmap = ["memmap2"]
-smol = ["dep:smol", "async-fs", "futures-lite", "async-executor", "async-io", "blocking", "async-lock", "num_cpus"]
+smol = ["dep:smol", "async-fs", "futures-lite", "async-executor", "async-io", "blocking", "async-lock"]
