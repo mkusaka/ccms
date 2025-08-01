@@ -70,7 +70,7 @@ mod tests {
                 pattern: "test".to_string(),
                 case_sensitive: false,
             },
-            project_path: "/test".to_string(),
+            cwd: "/test".to_string(),
             raw_json: None,
         }];
 

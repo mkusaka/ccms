@@ -175,7 +175,7 @@ mod tests {
                 pattern: "test".to_string(),
                 case_sensitive: false,
             },
-            project_path: "/test/project".to_string(),
+            cwd: "/test/project".to_string(),
             raw_json: Some(
                 r#"{"type":"user","content":[{"type":"text","text":"Test content"}]}"#.to_string(),
             ),

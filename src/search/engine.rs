@@ -2,7 +2,7 @@ use anyhow::Result;
 use chrono::DateTime;
 use smol::channel;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -194,6 +194,11 @@ impl SearchEngine {
             results.retain(|r| &r.session_id == session_id);
         }
 
+        // Apply cwd filter (project_path)
+        if let Some(ref cwd_filter) = self.options.project_path {
+            results.retain(|r| r.cwd.starts_with(cwd_filter));
+        }
+
         // Apply time filters
         if let Some(ref after) = self.options.after {
             if let Ok(after_dt) = DateTime::parse_from_rfc3339(after) {
@@ -336,7 +341,7 @@ async fn search_file(
                             has_thinking: message.has_thinking(),
                             message_type: message.get_type().to_string(),
                             query: query_owned.clone(),
-                            project_path: extract_project_path(&file_path_owned),
+                            cwd: message.get_cwd().unwrap_or("").to_string(),
                             raw_json: None,
                         };
                         results.push(result);
@@ -349,14 +354,6 @@ async fn search_file(
     }).await
 }
 
-fn extract_project_path(file_path: &Path) -> String {
-    file_path
-        .parent()
-        .and_then(|p| p.file_name())
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .to_string()
-}
 
 fn format_preview(text: &str, query: &QueryCondition, context_length: usize) -> String {
     // Find the first match position
@@ -748,19 +745,6 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_project_path_extraction() -> Result<()> {
-        let project_path = SearchEngine::extract_project_path(Path::new(
-            "/home/user/.claude/projects/-Users-project-name/session.jsonl",
-        ));
-        assert_eq!(project_path, "/Users/project/name");
-
-        let project_path =
-            SearchEngine::extract_project_path(Path::new("/invalid/path/file.jsonl"));
-        assert_eq!(project_path, "path");
-
-        Ok(())
-    }
 
     #[test]
     fn test_project_path_filter() -> Result<()> {
@@ -781,13 +765,13 @@ mod tests {
         let mut f1 = File::create(&file1)?;
         writeln!(
             f1,
-            r#"{{"type":"user","message":{{"role":"user","content":"Project 1 message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+            r#"{{"type":"user","message":{{"role":"user","content":"Project 1 message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/project1","version":"1"}}"#
         )?;
 
         let mut f2 = File::create(&file2)?;
         writeln!(
             f2,
-            r#"{{"type":"user","message":{{"role":"user","content":"Project 2 message"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s2","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+            r#"{{"type":"user","message":{{"role":"user","content":"Project 2 message"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s2","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/project2","version":"1"}}"#
         )?;
 
         // Search with project filter

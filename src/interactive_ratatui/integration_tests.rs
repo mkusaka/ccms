@@ -142,7 +142,7 @@ mod tests {
                 pattern: "test".to_string(),
                 case_sensitive: false,
             },
-            project_path: "/test".to_string(),
+            cwd: "/test".to_string(),
             raw_json: None,
         });
 
@@ -181,7 +181,7 @@ mod tests {
         app.state.search.query = "test query".to_string();
 
         // Execute search
-        app.execute_search();
+        smol::block_on(app.execute_search());
 
         // Verify search state
         assert!(app.state.search.is_searching);
@@ -205,6 +205,9 @@ mod tests {
 
         app.handle_message(Message::ToggleRoleFilter);
         assert_eq!(app.state.search.role_filter, Some("system".to_string()));
+
+        app.handle_message(Message::ToggleRoleFilter);
+        assert_eq!(app.state.search.role_filter, Some("summary".to_string()));
 
         app.handle_message(Message::ToggleRoleFilter);
         assert_eq!(app.state.search.role_filter, None);
@@ -239,7 +242,7 @@ mod tests {
                 pattern: "test".to_string(),
                 case_sensitive: false,
             },
-            project_path: "/test/project".to_string(),
+            cwd: "/test/project".to_string(),
             raw_json: None,
         }
     }
@@ -673,6 +676,9 @@ mod tests {
         assert_eq!(app.state.search.role_filter, Some("system".to_string()));
 
         app.handle_input(tab_key).unwrap();
+        assert_eq!(app.state.search.role_filter, Some("summary".to_string()));
+
+        app.handle_input(tab_key).unwrap();
         assert_eq!(app.state.search.role_filter, None);
     }
 
@@ -682,9 +688,11 @@ mod tests {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
         // Test file path copy feedback
-        app.execute_command(Command::CopyToClipboard(CopyContent::FilePath(
-            "/path/to/file.jsonl".to_string(),
-        )));
+        smol::block_on(
+            app.execute_command(Command::CopyToClipboard(CopyContent::FilePath(
+                "/path/to/file.jsonl".to_string(),
+            ))),
+        );
         // In CI environment, clipboard might fail
         if let Some(msg) = &app.state.ui.message {
             assert!(
@@ -695,9 +703,11 @@ mod tests {
 
         // Test session ID copy feedback
         app.state.ui.message = None;
-        app.execute_command(Command::CopyToClipboard(CopyContent::SessionId(
-            "12345678-1234-5678-1234-567812345678".to_string(),
-        )));
+        smol::block_on(
+            app.execute_command(Command::CopyToClipboard(CopyContent::SessionId(
+                "12345678-1234-5678-1234-567812345678".to_string(),
+            ))),
+        );
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied session ID" || msg.starts_with("Failed to copy:"),
@@ -707,9 +717,11 @@ mod tests {
 
         // Test short text copy feedback
         app.state.ui.message = None;
-        app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(
-            "short text".to_string(),
-        )));
+        smol::block_on(
+            app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(
+                "short text".to_string(),
+            ))),
+        );
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied message text" || msg.starts_with("Failed to copy:"),
@@ -720,9 +732,11 @@ mod tests {
         // Test long message copy feedback
         app.state.ui.message = None;
         let long_text = "a".repeat(200);
-        app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(
-            long_text,
-        )));
+        smol::block_on(
+            app.execute_command(Command::CopyToClipboard(CopyContent::MessageContent(
+                long_text,
+            ))),
+        );
         if let Some(msg) = &app.state.ui.message {
             assert!(
                 msg == "✓ Copied message text" || msg.starts_with("Failed to copy:"),
@@ -738,7 +752,7 @@ mod tests {
 
         // Empty query should trigger search
         app.state.search.query = "".to_string();
-        app.execute_search();
+        smol::block_on(app.execute_search());
 
         // Verify search is initiated even with empty query
         assert!(app.state.search.is_searching);
@@ -776,7 +790,7 @@ mod tests {
         assert!(buffer_contains(buffer, "Role: user"));
         assert!(buffer_contains(buffer, "Time:"));
         assert!(buffer_contains(buffer, "File: /test/file.jsonl"));
-        assert!(buffer_contains(buffer, "Project: /test/project"));
+        assert!(buffer_contains(buffer, "CWD: /test/project"));
         assert!(buffer_contains(
             buffer,
             "UUID: 12345678-1234-5678-1234-567812345678"
@@ -904,9 +918,11 @@ mod tests {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
         // Execute copy command to show message
-        app.execute_command(Command::CopyToClipboard(CopyContent::SessionId(
-            "test-id-1234".to_string(),
-        )));
+        smol::block_on(
+            app.execute_command(Command::CopyToClipboard(CopyContent::SessionId(
+                "test-id-1234".to_string(),
+            ))),
+        );
 
         // Message should be displayed
         assert!(app.state.ui.message.is_some());
@@ -930,7 +946,7 @@ mod tests {
         if let Some(timer) = app.message_timer {
             if timer.elapsed() >= std::time::Duration::from_millis(app.message_clear_delay) {
                 app.message_timer = None;
-                app.execute_command(Command::ClearMessage);
+                smol::block_on(app.execute_command(Command::ClearMessage));
             }
         }
 
@@ -1049,6 +1065,10 @@ mod tests {
         // Tab again - cycles to system
         app.handle_input(tab_key).unwrap();
         assert_eq!(app.state.session.role_filter, Some("system".to_string()));
+
+        // Tab again - cycles to summary
+        app.handle_input(tab_key).unwrap();
+        assert_eq!(app.state.session.role_filter, Some("summary".to_string()));
 
         // Tab again - cycles back to None
         app.handle_input(tab_key).unwrap();
