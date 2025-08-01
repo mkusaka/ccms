@@ -1,2 +1,0 @@
-error: `cargo run` could not determine which binary to run. Use the `--bin` option to specify a binary, or the `default-run` manifest key.
-available binaries: bench_rayon_optimized, bench_rayon_v2, bench_rayon_v3, bench_smol, bench_tokio, bench_tokio_mimalloc, bench_tokio_mmap, bench_tokio_optimized, bench_v4, best_tokio, ccms, perf_compare, perf_test, test_v4
