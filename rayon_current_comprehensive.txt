@@ -1,0 +1,52 @@
+=== Enhanced Profiling Report: main ===
+Total runtime: 0.533s
+
+CPU Profiling Report (pprof)
+============================
+
+Top Functions by CPU Time:
+--------------------------
+  1. 125.89% (  1386 samples, ~ 979.0ms) rayon::iter::plumbing::bridge_producer_consumer::elper
+  2.  46.87% (   516 samples, ~   0.0ms) rayon_join::join_context::{{closure}}
+  3.  46.41% (   511 samples, ~   0.0ms) std::sys::pal::unix::thread::Thread::new::thread_start
+  4.  46.41% (   511 samples, ~   0.0ms) std::sys::backtrace::__rust_begin_short_backtrace
+  5.  46.41% (   511 samples, ~   0.0ms) rayon_registry::WorkerThread::wait_until_cold
+  6.  46.41% (   511 samples, ~   0.0ms) ops::function::FnOnce::call_once{{vtable.shim}}
+  7.  46.41% (   511 samples, ~   0.0ms) <rayon_job::StackJob<L,F,R> as rayon_job::Job>::execute
+  8.   2.63% (    29 samples, ~   6.0ms) <&mut sonic_rs::serde::de::Deserializer<R> as serde::de::Deserializer>::deserialize_any
+  9.   2.36% (    26 samples, ~  26.0ms) _posix_spawnattr_set_qos_clamp_np
+ 10.   2.09% (    23 samples, ~   2.0ms) search::optimized_rayon_engine::OptimizedRayonEngine::process_line
+ 11.   1.73% (    19 samples, ~  18.0ms) <serde::__private::de::content::ContentRefDeserializer<E> as serde::de::Deserializer>::deserializ...
+ 12.   1.63% (    18 samples, ~   1.0ms) ccms::schemas::session_message::_::<impl serde::de::Deserialize for ccms::schemas::session_messag...
+ 13.   1.63% (    18 samples, ~   1.0ms) sonic_rs::serde::de::from_trait
+ 14.   1.27% (    14 samples, ~   9.0ms) sonic_rs::parser::Parser<R>::parse_string_escaped
+ 15.   1.27% (    14 samples, ~  14.0ms) _host_get_special_port
+ 16.   1.09% (    12 samples, ~   3.0ms) <serde::__private::de::content::ContentDeserializer<E> as serde::de::Deserializer>::deserialize_any
+ 17.   1.00% (    11 samples, ~  11.0ms) _os_cpu_in_cksum_mbuf
+ 18.   0.91% (    10 samples, ~  10.0ms) alloc::str::<impl str>::to_lowercase
+ 19.   0.91% (    10 samples, ~   0.0ms) <marker::PhantomData<T> as serde::de::DeserializeSeed>::deserialize
+ 20.   0.82% (     9 samples, ~   0.0ms) <serde::de::impls::OptionVisitor<T> as serde::de::Visitor>::visit_some
+ 21.   0.54% (     6 samples, ~   1.0ms) _do_rallocx
+ 22.   0.45% (     5 samples, ~   0.0ms) __rjem_je_extent_alloc_wrapper
+ 23.   0.45% (     5 samples, ~   0.0ms) alloc::raw_vec::RawVecInner<A>::reserve::do_reserve_and_handle
+ 24.   0.45% (     5 samples, ~   0.0ms) __rjem_je_pages_map
+ 25.   0.45% (     5 samples, ~   0.0ms) __rjem_je_extent_alloc_mmap
+ 26.   0.45% (     5 samples, ~   1.0ms) __rjem_je_large_ralloc
+ 27.   0.45% (     5 samples, ~   0.0ms) __rjem_je_ecache_alloc_grow
+ 28.   0.45% (     5 samples, ~   0.0ms) alloc::raw_vec::finish_grow
+ 29.   0.45% (     5 samples, ~   0.0ms) _os_pages_map
+ 30.   0.36% (     4 samples, ~   0.0ms) _large_ralloc_no_move_expand
+ 31.   0.36% (     4 samples, ~   0.0ms) std::fs::OpenOptions::_open
+ 32.   0.36% (     4 samples, ~   4.0ms) <serde::__private::de::content::Content as clone::Clone>::clone.2156
+ 33.   0.36% (     4 samples, ~   0.0ms) __rjem_je_pa_expand
+ 34.   0.36% (     4 samples, ~   0.0ms) ccms::query::condition::QueryCondition::evaluate
+ 35.   0.36% (     4 samples, ~   0.0ms) _pac_expand_impl
+ 36.   0.36% (     4 samples, ~   0.0ms) __rjem_je_large_ralloc_no_move
+ 37.   0.27% (     3 samples, ~   3.0ms) std::sys::fs::metadata
+ 38.   0.18% (     2 samples, ~   2.0ms) __rjem_je_arena_ralloc
+ 39.   0.18% (     2 samples, ~   0.0ms) std::sys::fs::read_dir
+ 40.   0.18% (     2 samples, ~   1.0ms) <serde::__private::de::content::ContentVisitor as serde::de::Visitor>::visit_seq
+
+Total samples: 1101
+Sampling frequency: 1000 Hz
+Estimated CPU time: 1.101s
