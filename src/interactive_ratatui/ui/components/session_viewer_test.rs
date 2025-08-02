@@ -380,7 +380,12 @@ mod tests {
         // Should display parsed messages with role and time
         // Note: The new ListViewer displays role without brackets and padded to 10 chars
         assert!(buffer_contains(&buffer, "user"));
-        assert!(buffer_contains(&buffer, "01/01 12:00"));
+        // Check that timestamp is displayed (will be in local timezone)
+        use chrono::{DateTime, Local, TimeZone};
+        let utc_dt = DateTime::parse_from_rfc3339("2024-01-01T12:00:00Z").unwrap();
+        let local_dt = Local.from_utc_datetime(&utc_dt.naive_utc());
+        let expected_time = local_dt.format("%m/%d %H:%M").to_string();
+        assert!(buffer_contains(&buffer, &expected_time));
         assert!(buffer_contains(&buffer, "Hello world"));
         assert!(buffer_contains(&buffer, "assistant"));
         assert!(buffer_contains(&buffer, "Hi there!"));

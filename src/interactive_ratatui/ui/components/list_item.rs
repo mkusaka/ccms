@@ -29,7 +29,10 @@ pub trait ListItem: Clone {
     fn format_timestamp(&self) -> String {
         let timestamp = self.get_timestamp();
         if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
-            dt.format("%m/%d %H:%M").to_string()
+            // Convert to local timezone
+            use chrono::{Local, TimeZone};
+            let local_dt = Local.from_utc_datetime(&dt.naive_utc());
+            local_dt.format("%m/%d %H:%M").to_string()
         } else if timestamp.len() >= 16 {
             timestamp.chars().take(16).collect()
         } else {
