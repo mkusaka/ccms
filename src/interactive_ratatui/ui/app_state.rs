@@ -262,14 +262,14 @@ impl AppState {
                 // Re-execute the search with the new order to get different results
                 Command::ExecuteSearch
             }
-            Message::ToggleTruncation => {
-                self.ui.truncation_enabled = !self.ui.truncation_enabled;
-                let status = if self.ui.truncation_enabled {
-                    "Truncated"
+            Message::TogglePreview => {
+                self.search.preview_enabled = !self.search.preview_enabled;
+                let status = if self.search.preview_enabled {
+                    "Preview ON"
                 } else {
-                    "Full Text"
+                    "Preview OFF"
                 };
-                self.ui.message = Some(format!("Message display: {status}"));
+                self.ui.message = Some(format!("Split view: {status}"));
                 Command::None
             }
             Message::SessionQueryChanged(q) => {

@@ -198,27 +198,27 @@ mod tests {
     }
 
     #[test]
-    fn test_toggle_truncation() {
+    fn test_toggle_preview() {
         let mut state = create_test_state();
 
-        // Initial state should be truncated
-        assert!(state.ui.truncation_enabled);
+        // Initial state should have preview enabled
+        assert!(state.search.preview_enabled);
 
-        // Toggle to full text
-        let command = state.update(Message::ToggleTruncation);
-        assert!(!state.ui.truncation_enabled);
+        // Toggle to preview off
+        let command = state.update(Message::TogglePreview);
+        assert!(!state.search.preview_enabled);
         assert_eq!(
             state.ui.message,
-            Some("Message display: Full Text".to_string())
+            Some("Split view: Preview OFF".to_string())
         );
         assert!(matches!(command, Command::None));
 
-        // Toggle back to truncated
-        let command = state.update(Message::ToggleTruncation);
-        assert!(state.ui.truncation_enabled);
+        // Toggle back to preview on
+        let command = state.update(Message::TogglePreview);
+        assert!(state.search.preview_enabled);
         assert_eq!(
             state.ui.message,
-            Some("Message display: Truncated".to_string())
+            Some("Split view: Preview ON".to_string())
         );
         assert!(matches!(command, Command::None));
     }

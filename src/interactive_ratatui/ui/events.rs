@@ -48,7 +48,7 @@ pub enum Message {
     ToggleRoleFilter,
 
     // Display options
-    ToggleTruncation,
+    TogglePreview,
 
     // Clipboard
     CopyToClipboard(CopyContent),
