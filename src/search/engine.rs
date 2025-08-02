@@ -2,7 +2,7 @@ use anyhow::Result;
 use chrono::DateTime;
 use smol::channel;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::Arc;
 

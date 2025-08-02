@@ -1,3 +1,11 @@
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+// #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
+// #[global_allocator]
+// static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 use anyhow::Result;
 use ccms::{
     SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
