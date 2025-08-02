@@ -189,7 +189,15 @@ impl InteractiveSearch {
             // First press or timeout expired
             self.last_ctrl_c_press = Some(std::time::Instant::now());
             self.state.ui.message = Some("Press Ctrl+C again to exit".to_string());
+            // Set timer to clear message
+            self.message_timer = Some(std::time::Instant::now());
+            // Reset any other Ctrl+C tracking that might be elsewhere
             return Ok(false);
+        }
+        
+        // Reset Ctrl+C tracking on any other key press
+        if self.last_ctrl_c_press.is_some() {
+            self.last_ctrl_c_press = None;
         }
 
         // Global keys
@@ -388,7 +396,16 @@ impl InteractiveSearch {
 
         let task = smol::spawn(async move {
             while let Ok(request) = request_rx.recv().await {
-                match search_service.search(request.clone()) {
+                // Use blocking::unblock to run the synchronous search in a separate thread
+                // This prevents deadlock when SmolEngine uses block_on internally
+                let result = blocking::unblock({
+                    let search_service = search_service.clone();
+                    let request = request.clone();
+                    move || search_service.search(request)
+                })
+                .await;
+
+                match result {
                     Ok(response) => {
                         let _ = response_tx.send(response).await;
                     }
