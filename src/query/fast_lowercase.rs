@@ -1,6 +1,5 @@
 /// Fast case-insensitive string comparison utilities
 /// Optimized for ASCII strings but handles Unicode correctly
-
 /// Trait for fast lowercase comparison
 pub trait FastLowercase {
     fn fast_to_lowercase(&self) -> String;
@@ -43,7 +42,7 @@ impl FastLowercase for str {
                     let b = pattern_bytes[j];
                     
                     // Fast ASCII case-insensitive comparison
-                    if a != b && a.to_ascii_lowercase() != b.to_ascii_lowercase() {
+                    if a != b && !a.eq_ignore_ascii_case(&b) {
                         continue 'outer;
                     }
                 }
