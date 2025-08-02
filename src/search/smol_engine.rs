@@ -11,6 +11,7 @@ use super::file_discovery::{discover_claude_files, expand_tilde};
 use crate::interactive_ratatui::domain::models::SearchOrder;
 use crate::query::{QueryCondition, SearchOptions, SearchResult};
 use crate::schemas::SessionMessage;
+use crate::utils::path_encoding;
 
 // Initialize blocking thread pool optimization
 static INIT: std::sync::Once = std::sync::Once::new();
@@ -342,7 +343,12 @@ async fn search_file(
                         if matches {
                             // Apply inline filters
                             if let Some(role) = &options_owned.role {
-                                if message.get_type() != role {
+                                // For summary messages, only match if explicitly filtering for "summary"
+                                if message.get_type() == "summary" {
+                                    if role != "summary" {
+                                        continue;
+                                    }
+                                } else if message.get_type() != role {
                                     continue;
                                 }
                             }
@@ -353,12 +359,11 @@ async fn search_file(
                                 }
                             }
 
-                            // Check project_path filter (matches against cwd field)
+                            // Check project_path filter (matches against file path)
                             if let Some(project_path) = &options_owned.project_path {
-                                if let Some(cwd) = message.get_cwd() {
-                                    if !cwd.starts_with(project_path) {
-                                        continue;
-                                    }
+                                let file_path_str = file_path_owned.to_string_lossy();
+                                if !path_encoding::file_belongs_to_project(&file_path_str, project_path) {
+                                    continue;
                                 }
                             }
 
