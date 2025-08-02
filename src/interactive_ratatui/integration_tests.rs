@@ -1078,4 +1078,49 @@ mod tests {
         app.handle_input(tab_key).unwrap();
         assert_eq!(app.state.session.role_filter, None);
     }
+
+    /// Test Esc key closes preview in search mode
+    #[test]
+    fn test_esc_closes_preview() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+        
+        // Add some search results
+        app.state.search.results = vec![
+            SearchResult {
+                file: "test.jsonl".to_string(),
+                uuid: "test-uuid".to_string(),
+                timestamp: "2024-01-01T12:00:00Z".to_string(),
+                session_id: "test-session".to_string(),
+                role: "user".to_string(),
+                text: "Test message".to_string(),
+                has_tools: false,
+                has_thinking: false,
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: "test".to_string(),
+                    case_sensitive: false,
+                },
+                cwd: "/test".to_string(),
+                raw_json: None,
+            }
+        ];
+        
+        // Initially preview should be disabled
+        assert!(!app.state.search.preview_enabled);
+        
+        // Toggle preview with Ctrl+T
+        app.handle_input(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL)).unwrap();
+        assert!(app.state.search.preview_enabled, "Preview should be enabled after Ctrl+T");
+        
+        // Render to update the renderer state
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| {
+            app.renderer.render(f, &app.state);
+        }).unwrap();
+        
+        // Press Esc to close preview
+        app.handle_input(KeyEvent::from(KeyCode::Esc)).unwrap();
+        assert!(!app.state.search.preview_enabled, "Preview should be disabled after Esc");
+    }
 }

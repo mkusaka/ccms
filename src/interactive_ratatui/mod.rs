@@ -260,6 +260,11 @@ impl InteractiveSearch {
             KeyCode::Char('u') | KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
                 self.renderer.get_result_list_mut().handle_key(key)
             }
+            KeyCode::Esc => {
+                // Try result list first (for closing preview), then fall back to search bar
+                self.renderer.get_result_list_mut().handle_key(key)
+                    .or_else(|| self.renderer.get_search_bar_mut().handle_key(key))
+            }
             _ => self.renderer.get_search_bar_mut().handle_key(key),
         }
     }
