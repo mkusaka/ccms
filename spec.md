@@ -257,7 +257,10 @@ Applied before other filters in the search pipeline.
 ### Base Options Filters
 
 1. **Session ID**: Filters messages by session_id field
-2. **Timestamp Filters**:
+2. **Project Path**: Filters messages by working directory (cwd) path
+   - Default: Current directory (when not specified)
+   - Use `--project /` to search all projects
+3. **Timestamp Filters**:
    - `before`: RFC3339 timestamp - excludes messages after this time
    - `after`: RFC3339 timestamp - excludes messages before this time
 
@@ -266,9 +269,10 @@ Applied before other filters in the search pipeline.
 1. Query condition evaluation
 2. Role filter (if active)
 3. Session ID filter (if specified)
-4. Timestamp filters (if specified)
-5. Sort by timestamp (newest first)
-6. Limit to max_results
+4. Project path filter (defaults to current directory)
+5. Timestamp filters (if specified)
+6. Sort by timestamp (newest first)
+7. Limit to max_results
 
 ## Search Behavior
 
