@@ -5,7 +5,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem as TuiListItem, Paragraph},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
 };
 
 pub struct ListViewer<T: ListItem> {
@@ -18,6 +18,7 @@ pub struct ListViewer<T: ListItem> {
     pub empty_message: String,
     query: String,
     last_viewport_height: u16,
+    table_state: TableState,
 }
 
 impl<T: ListItem> Default for ListViewer<T> {
@@ -32,6 +33,7 @@ impl<T: ListItem> Default for ListViewer<T> {
             empty_message: String::new(),
             query: String::new(),
             last_viewport_height: DEFAULT_VIEWPORT_HEIGHT,
+            table_state: TableState::default(),
         }
     }
 }
@@ -51,7 +53,7 @@ impl<T: ListItem> ListViewer<T> {
         (position, viewport_size, total)
     }
     pub fn new(title: String, empty_message: String) -> Self {
-        Self {
+        let mut viewer = Self {
             items: Vec::new(),
             filtered_indices: Vec::new(),
             selected_index: 0,
@@ -61,7 +63,19 @@ impl<T: ListItem> ListViewer<T> {
             empty_message,
             query: String::new(),
             last_viewport_height: DEFAULT_VIEWPORT_HEIGHT,
-        }
+            table_state: TableState::default(),
+        };
+        viewer.sync_table_state();
+        viewer
+    }
+
+    /// Sync table_state with selected_index
+    fn sync_table_state(&mut self) {
+        self.table_state.select(if self.filtered_indices.is_empty() {
+            None
+        } else {
+            Some(self.selected_index)
+        });
     }
 
     pub fn set_items(&mut self, items: Vec<T>) {
@@ -69,6 +83,7 @@ impl<T: ListItem> ListViewer<T> {
         self.filtered_indices = (0..self.items.len()).collect();
         self.selected_index = 0;
         self.scroll_offset = 0;
+        self.sync_table_state();
     }
 
     pub fn set_filtered_indices(&mut self, indices: Vec<usize>) {
@@ -77,6 +92,7 @@ impl<T: ListItem> ListViewer<T> {
             self.selected_index = 0;
             self.scroll_offset = 0;
         }
+        self.sync_table_state();
     }
 
     pub fn set_selected_index(&mut self, index: usize) {
@@ -85,6 +101,7 @@ impl<T: ListItem> ListViewer<T> {
             // Find the position of this index in filtered_indices
             if let Some(pos) = self.filtered_indices.iter().position(|&i| i == index) {
                 self.selected_index = pos;
+                self.sync_table_state();
             }
         }
     }
@@ -93,6 +110,7 @@ impl<T: ListItem> ListViewer<T> {
         // Set the position directly in the filtered list
         if position < self.filtered_indices.len() {
             self.selected_index = position;
+            self.sync_table_state();
         }
     }
 
@@ -141,6 +159,7 @@ impl<T: ListItem> ListViewer<T> {
     pub fn move_up(&mut self) -> bool {
         if self.selected_index > 0 {
             self.selected_index -= 1;
+            self.sync_table_state();
             true
         } else {
             false
@@ -150,6 +169,7 @@ impl<T: ListItem> ListViewer<T> {
     pub fn move_down(&mut self) -> bool {
         if self.selected_index + 1 < self.filtered_indices.len() {
             self.selected_index += 1;
+            self.sync_table_state();
             true
         } else {
             false
@@ -160,6 +180,7 @@ impl<T: ListItem> ListViewer<T> {
         let new_index = self.selected_index.saturating_sub(PAGE_SIZE);
         if new_index != self.selected_index {
             self.selected_index = new_index;
+            self.sync_table_state();
             true
         } else {
             false
@@ -171,6 +192,7 @@ impl<T: ListItem> ListViewer<T> {
             (self.selected_index + PAGE_SIZE).min(self.filtered_indices.len().saturating_sub(1));
         if new_index != self.selected_index {
             self.selected_index = new_index;
+            self.sync_table_state();
             true
         } else {
             false
@@ -182,6 +204,7 @@ impl<T: ListItem> ListViewer<T> {
         let new_index = self.selected_index.saturating_sub(half_page);
         if new_index != self.selected_index {
             self.selected_index = new_index;
+            self.sync_table_state();
             true
         } else {
             false
@@ -194,6 +217,7 @@ impl<T: ListItem> ListViewer<T> {
             (self.selected_index + half_page).min(self.filtered_indices.len().saturating_sub(1));
         if new_index != self.selected_index {
             self.selected_index = new_index;
+            self.sync_table_state();
             true
         } else {
             false
@@ -204,6 +228,7 @@ impl<T: ListItem> ListViewer<T> {
         if self.selected_index > 0 {
             self.selected_index = 0;
             self.scroll_offset = 0;
+            self.sync_table_state();
             true
         } else {
             false
@@ -214,6 +239,7 @@ impl<T: ListItem> ListViewer<T> {
         let last_index = self.filtered_indices.len().saturating_sub(1);
         if self.selected_index < last_index {
             self.selected_index = last_index;
+            self.sync_table_state();
             true
         } else {
             false
@@ -367,49 +393,34 @@ impl<T: ListItem> ListViewer<T> {
             .split(Rect::new(0, 0, inner_area.width, 1));
         let available_text_width = row_layout[3].width as usize;
 
-        let items: Vec<TuiListItem> = (start..end)
+        let rows: Vec<Row> = (start..end)
             .filter_map(|i| {
                 self.filtered_indices.get(i).and_then(|&item_idx| {
                     self.items.get(item_idx).map(|item| {
-                        let is_selected = i == self.selected_index;
-
-                        let style = if is_selected {
-                            Style::default()
-                                .bg(Color::DarkGray)
-                                .add_modifier(Modifier::BOLD)
-                        } else {
-                            Style::default()
-                        };
-
                         if self.truncation_enabled {
                             // Use the new column-based approach
                             let (timestamp_text, timestamp_style, role_text, role_style, content_spans) = 
                                 item.create_column_data(&self.query, true, Some(available_text_width));
                             
-                            // Create a line with proper spacing based on Layout constraints
-                            let mut spans = vec![];
-                            
-                            // Add timestamp with padding to match layout
-                            let timestamp_width = row_layout[0].width as usize;
-                            let padded_timestamp = format!("{:<width$}", timestamp_text, width = timestamp_width.saturating_sub(1));
-                            spans.push(Span::styled(padded_timestamp, timestamp_style));
-                            spans.push(Span::raw(" ")); // separator
-                            
-                            // Add role with padding to match layout
-                            let role_width = row_layout[1].width as usize;
-                            let padded_role = format!("{:<width$}", role_text, width = role_width.saturating_sub(1));
-                            spans.push(Span::styled(padded_role, role_style));
-                            spans.push(Span::raw(" ")); // separator
-                            
-                            // Add content spans
-                            spans.extend(content_spans);
-                            
-                            TuiListItem::new(Line::from(spans)).style(style)
+                            // Create cells for the table
+                            Row::new(vec![
+                                Cell::from(Span::styled(timestamp_text, timestamp_style)),
+                                Cell::from(Span::styled(role_text, role_style)),
+                                Cell::from(Line::from(content_spans)),
+                            ])
                         } else {
-                            TuiListItem::new(
-                                item.create_full_lines(available_text_width, &self.query),
-                            )
-                            .style(style)
+                            // For full text mode, we need to handle multi-line content
+                            let _lines = item.create_full_lines(available_text_width, &self.query);
+                            // For now, just show the first line in table mode
+                            // TODO: Handle multi-line content better
+                            let (timestamp_text, timestamp_style, role_text, role_style, content_spans) = 
+                                item.create_column_data(&self.query, false, None);
+                            
+                            Row::new(vec![
+                                Cell::from(Span::styled(timestamp_text, timestamp_style)),
+                                Cell::from(Span::styled(role_text, role_style)),
+                                Cell::from(Line::from(content_spans)),
+                            ])
                         }
                     })
                 })
@@ -425,10 +436,22 @@ impl<T: ListItem> ListViewer<T> {
             end
         );
 
-        let list = List::new(items)
-            .block(Block::default().title(title).borders(Borders::ALL))
-            .style(Style::default());
+        // Define column widths using the same constraints as the layout calculation
+        let widths = [
+            Constraint::Length(TIMESTAMP_COLUMN_WIDTH.saturating_sub(1)), // Account for spacing
+            Constraint::Length(ROLE_COLUMN_WIDTH.saturating_sub(1)),
+            Constraint::Min(MIN_MESSAGE_WIDTH),
+        ];
 
-        f.render_widget(list, area);
+        let table = Table::new(rows, widths)
+            .block(Block::default().title(title).borders(Borders::ALL))
+            .column_spacing(1)
+            .row_highlight_style(
+                Style::default()
+                    .bg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD)
+            );
+
+        f.render_stateful_widget(table, area, &mut self.table_state);
     }
 }
