@@ -124,7 +124,7 @@ opt-level = 3
 debug = true  # Enable debug symbols for better profiling
 
 [features]
-default = ["smol", "mimalloc"]
+default = ["smol"]
 profiling = ["pprof", "tracing-flame", "console-subscriber"]
 async = ["tokio", "futures", "bytes"]
 tokio-console = ["console-subscriber", "tokio/tracing"]
