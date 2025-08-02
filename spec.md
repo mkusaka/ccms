@@ -2,7 +2,9 @@
 
 ## Overview
 
-The interactive mode provides a terminal-based user interface for searching Claude session messages in real-time. It uses the `ratatui` crate with crossterm backend for terminal control and implements features like incremental search, result navigation, role filtering, and clipboard operations.
+The interactive mode provides a terminal-based user interface for searching Claude session messages in real-time. Interactive mode starts automatically when `ccms` is run without a query argument. It uses the `ratatui` crate with crossterm backend for terminal control and implements features like incremental search, result navigation, role filtering, and clipboard operations.
+
+**Automatic Launch**: Running `ccms` without any arguments will start interactive mode by default.
 
 ## User Interface Layout
 
@@ -10,7 +12,7 @@ The interactive mode provides a terminal-based user interface for searching Clau
 
 ```
 Interactive Claude Search
-Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Ctrl+R to reload, Esc/Ctrl+C to exit
+Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Ctrl+R to reload, Ctrl+C (2x) to exit
 
 Search: [cursor]
 ```
@@ -21,7 +23,7 @@ When a query is entered, the interface shows:
 
 ```
 Interactive Claude Search
-Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Ctrl+R to reload, Esc/Ctrl+C to exit
+Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Ctrl+R to reload, Ctrl+C (2x) to exit
 
 Search: [query]
 Found N results (limit reached if applicable)
@@ -373,7 +375,7 @@ Note: The Message Detail view always displays messages with word wrapping and is
 
 ## Exit Behavior
 
-On exit (Ctrl+C pressed twice within 1 second from Search screen, or 'q' key):
+On exit (Ctrl+C pressed twice within 1 second from Search screen):
 1. Clears search area from screen
 2. Displays "Goodbye!" message
 3. Returns control to terminal

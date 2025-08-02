@@ -237,6 +237,7 @@ impl AppState {
                     None => Some("user".to_string()),
                     Some(r) if r == "user" => Some("assistant".to_string()),
                     Some(r) if r == "assistant" => Some("system".to_string()),
+                    Some(r) if r == "system" => Some("summary".to_string()),
                     _ => None,
                 };
                 // Update navigation history to preserve filter state
@@ -307,6 +308,7 @@ impl AppState {
                     None => Some("user".to_string()),
                     Some(r) if r == "user" => Some("assistant".to_string()),
                     Some(r) if r == "assistant" => Some("system".to_string()),
+                    Some(r) if r == "system" => Some("summary".to_string()),
                     _ => None,
                 };
                 // Re-apply filter with new role
@@ -403,7 +405,7 @@ impl AppState {
                             case_sensitive: false,
                         },
                         cwd: String::new(), // Not available from session viewer
-                        raw_json: Some(raw_json),    // Store full JSON
+                        raw_json: Some(raw_json), // Store full JSON
                     };
 
                     // If this is our first navigation, save the initial state

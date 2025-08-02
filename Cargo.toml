@@ -39,7 +39,7 @@ anyhow = "1.0"
 
 # Date/time handling
 chrono = "0.4"
-parse_datetime = "0.10"
+parse_datetime = "0.11"
 
 # Query parsing
 nom = "8.0"
@@ -62,30 +62,26 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"]
 tracing-flame = { version = "0.2", optional = true }
 console-subscriber = { version = "0.4", optional = true }
 
-# Async runtime (optional)
-tokio = { version = "1.40", features = ["full"], optional = true }
-futures = { version = "0.3", optional = true }
-bytes = { version = "1.9", optional = true }
-num_cpus = { version = "1.17" }
+# Note: Tokio has been removed in favor of Smol for async operations
 
-# Smol runtime (optional)
-smol = { version = "2.0", optional = true }
-async-fs = { version = "2.1", optional = true }
-futures-lite = { version = "2.5", optional = true }
-async-executor = { version = "1.13", optional = true }
-async-io = { version = "2.4", optional = true }
-blocking = { version = "1.6", optional = true }
-async-lock = { version = "3.4", optional = true }
+# Smol runtime
+smol = "2.0"
+async-fs = "2.1"
+futures-lite = "2.5"
+async-executor = "1.13"
+async-io = "2.4"
+blocking = "1.6"
+async-lock = "3.4"
+
+# Performance optimizations
+num_cpus = "1.17"
+memchr = "2.7"
 
 # Custom allocator for performance
 mimalloc = { version = "0.1", default-features = false, optional = true }
 
-# Memory-mapped file I/O
-memmap2 = { version = "0.9", optional = true }
-memchr = "2.7"
-
 [dev-dependencies]
-codspeed-criterion-compat = "=3.0.4"
+codspeed-criterion-compat = "=3.0.5"
 tempfile = "=3.20.0"
 
 [[bench]]
@@ -123,10 +119,6 @@ opt-level = 3
 debug = true  # Enable debug symbols for better profiling
 
 [features]
-default = ["smol", "mimalloc"]
+default = ["mimalloc"]
 profiling = ["pprof", "tracing-flame", "console-subscriber"]
-async = ["tokio", "futures", "bytes"]
-tokio-console = ["console-subscriber", "tokio/tracing"]
 mimalloc = ["dep:mimalloc"]
-mmap = ["memmap2"]
-smol = ["dep:smol", "async-fs", "futures-lite", "async-executor", "async-io", "blocking", "async-lock"]

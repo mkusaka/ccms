@@ -217,7 +217,6 @@ impl SearchEngine {
 
         Ok(())
     }
-
 }
 
 // Helper function to search a single file using blocking I/O with optimized buffer
@@ -238,25 +237,44 @@ async fn search_file(
         let mut reader = BufReader::with_capacity(64 * 1024, file); // Changed to 64KB like basic Smol
         
         // Get file creation time for fallback
-        let file_ctime = metadata
-            .created()
-            .ok()
-            .and_then(|created| {
-                created
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .ok()
-                    .map(|d| {
-                        let timestamp = chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
-                            .unwrap_or_else(chrono::Utc::now);
-                        timestamp.to_rfc3339()
-                    })
+        // Use platform-specific approach like main branch
+        let file_ctime = Some(&metadata)
+            .and_then(|m| {
+                // Try to get creation time (birth time) first
+                #[cfg(target_os = "macos")]
+                {
+                    m.created().ok()
+                }
+                // Fall back to modified time on other systems
+                #[cfg(not(target_os = "macos"))]
+                {
+                    m.modified().ok()
+                }
             })
-            .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+            .map(|t| {
+                let duration = t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+                let ctime = chrono::DateTime::<chrono::Utc>::from_timestamp(duration.as_secs() as i64, 0)
+                    .unwrap_or_else(chrono::Utc::now)
+                    .to_rfc3339();
+                if options_owned.verbose {
+                    eprintln!("DEBUG: file_ctime for {:?} = {}", file_path_owned, ctime);
+                }
+                ctime
+            })
+            .unwrap_or_else(|| {
+                let now = chrono::Utc::now().to_rfc3339();
+                if options_owned.verbose {
+                    eprintln!("DEBUG: Using current time as fallback: {}", now);
+                }
+                now
+            });
         
         let mut results = Vec::with_capacity(256); // 4x larger initial capacity to reduce reallocations
         let mut latest_timestamp: Option<String> = None;
         let mut first_timestamp: Option<String> = None;
         let mut line_buffer = Vec::with_capacity(16 * 1024); // 2x larger reusable line buffer
+        let mut is_first_line = true;
+        let mut found_summary_first = false;
         
         loop {
             line_buffer.clear();
@@ -284,74 +302,88 @@ async fn search_file(
             
             match message {
                 Ok(message) => {
-                // Update timestamps
-                if let Some(ts) = message.get_timestamp() {
-                    latest_timestamp = Some(ts.to_string());
-                    // Track first non-summary message timestamp
-                    if first_timestamp.is_none() && message.get_type() != "summary" {
-                        first_timestamp = Some(ts.to_string());
+                    // Check if first message is summary
+                    if is_first_line {
+                        is_first_line = false;
+                        if message.get_type() == "summary" {
+                            found_summary_first = true;
+                            if options_owned.verbose {
+                                eprintln!("DEBUG: Found summary at first line in {:?}", file_path_owned);
+                            }
+                        }
                     }
-                }
-                
-                // Get searchable text
-                let text = message.get_searchable_text();
-                
-                // Apply query condition
-                if let Ok(matches) = query_owned.evaluate(&text) {
-                    if matches {
-                        // Apply inline filters
-                        if let Some(role) = &options_owned.role {
-                            if message.get_type() != role {
-                                continue;
+                    
+                    // Update timestamps
+                    if let Some(ts) = message.get_timestamp() {
+                        latest_timestamp = Some(ts.to_string());
+                        // Track first timestamp after summary for summary messages
+                        if first_timestamp.is_none() && found_summary_first {
+                            first_timestamp = Some(ts.to_string());
+                            if options_owned.verbose {
+                                eprintln!("DEBUG: Found first timestamp '{}' after summary in {:?}", ts, file_path_owned);
                             }
                         }
-                        
-                        if let Some(session_id) = &options_owned.session_id {
-                            if message.get_session_id() != Some(session_id) {
-                                continue;
-                            }
-                        }
-                        
-                        // Check project_path filter (matches against cwd field)
-                        if let Some(project_path) = &options_owned.project_path {
-                            if let Some(cwd) = message.get_cwd() {
-                                if !cwd.starts_with(project_path) {
+                    }
+                    
+                    // Get searchable text
+                    let text = message.get_searchable_text();
+                    
+                    // Apply query condition
+                    if let Ok(matches) = query_owned.evaluate(&text) {
+                        if matches {
+                            // Apply inline filters
+                            if let Some(role) = &options_owned.role {
+                                if message.get_type() != role {
                                     continue;
                                 }
                             }
-                        }
-                        
-                        // Determine timestamp based on message type (matching Rayon logic)
-                        let final_timestamp = message
-                            .get_timestamp()
-                            .map(|ts| ts.to_string())
-                            .or_else(|| {
-                                // For summary messages, prefer first_timestamp over latest_timestamp
-                                if message.get_type() == "summary" {
-                                    first_timestamp.clone()
-                                } else {
-                                    latest_timestamp.clone()
+                            
+                            if let Some(session_id) = &options_owned.session_id {
+                                if message.get_session_id() != Some(session_id) {
+                                    continue;
                                 }
-                            })
-                            .unwrap_or_else(|| file_ctime.clone());
-                        
-                        let result = SearchResult {
-                            file: file_path_owned.to_string_lossy().to_string(),
-                            uuid: message.get_uuid().unwrap_or("").to_string(),
-                            timestamp: final_timestamp,
-                            session_id: message.get_session_id().unwrap_or("").to_string(),
-                            role: message.get_type().to_string(),
-                            text: message.get_content_text(),
-                            has_tools: message.has_tool_use(),
-                            has_thinking: message.has_thinking(),
-                            message_type: message.get_type().to_string(),
-                            query: query_owned.clone(),
-                            cwd: message.get_cwd().unwrap_or("").to_string(),
-                            raw_json: None,
-                        };
-                        results.push(result);
+                            }
+                            
+                            // Check project_path filter (matches against cwd field)
+                            if let Some(project_path) = &options_owned.project_path {
+                                if let Some(cwd) = message.get_cwd() {
+                                    if !cwd.starts_with(project_path) {
+                                        continue;
+                                    }
+                                }
+                            }
+                            
+                            // Determine timestamp based on message type (matching main branch logic)
+                            let final_timestamp = message
+                                .get_timestamp()
+                                .map(|ts| ts.to_string())
+                                .or_else(|| {
+                                    // For summary messages, prefer first_timestamp over latest_timestamp
+                                    if message.get_type() == "summary" {
+                                        first_timestamp.clone()
+                                    } else {
+                                        latest_timestamp.clone()
+                                    }
+                                })
+                                .unwrap_or_else(|| file_ctime.clone());
+                            
+                            let result = SearchResult {
+                                file: file_path_owned.to_string_lossy().to_string(),
+                                uuid: message.get_uuid().unwrap_or("").to_string(),
+                                timestamp: final_timestamp,
+                                session_id: message.get_session_id().unwrap_or("").to_string(),
+                                role: message.get_type().to_string(),
+                                text: message.get_content_text(),
+                                has_tools: message.has_tool_use(),
+                                has_thinking: message.has_thinking(),
+                                message_type: message.get_type().to_string(),
+                                query: query_owned.clone(),
+                                cwd: message.get_cwd().unwrap_or("").to_string(),
+                                raw_json: None,
+                            };
+                            results.push(result);
+                        }
                     }
-                }
                 }
                 Err(e) => {
                     if options_owned.verbose {
@@ -363,6 +395,10 @@ async fn search_file(
                     }
                 }
             }
+        }
+        
+        if found_summary_first && first_timestamp.is_none() && options_owned.verbose {
+            eprintln!("DEBUG: No timestamp found after summary in {:?}", file_path_owned);
         }
         
         Ok(results)
@@ -760,7 +796,6 @@ mod tests {
         Ok(())
     }
 
-
     #[test]
     fn test_cwd_filter() -> Result<()> {
         let temp_dir = tempdir()?;
@@ -789,7 +824,7 @@ mod tests {
             r#"{{"type":"user","message":{{"role":"user","content":"Project 2 message"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s2","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/project2","version":"1"}}"#
         )?;
 
-        // Search with project filter
+        // Search with cwd filter
         let options = SearchOptions {
             project_path: Some("/Users/project1".to_string()),
             ..Default::default()

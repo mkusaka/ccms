@@ -97,7 +97,7 @@ impl MessageDetail {
                 Span::raw(&result.file),
             ]),
             Line::from(vec![
-                Span::styled("Project: ", Styles::label()),
+                Span::styled("CWD: ", Styles::label()),
                 Span::raw(&result.cwd),
             ]),
             Line::from(vec![
@@ -296,7 +296,7 @@ impl Component for MessageDetail {
                         )))
                     } else {
                         let formatted = format!(
-                            "File: {}\nUUID: {}\nTimestamp: {}\nSession ID: {}\nRole: {}\nText: {}\nProject: {}",
+                            "File: {}\nUUID: {}\nTimestamp: {}\nSession ID: {}\nRole: {}\nText: {}\nCWD: {}",
                             result.file,
                             result.uuid,
                             result.timestamp,

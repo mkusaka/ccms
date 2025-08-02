@@ -25,7 +25,7 @@ mod tests {
                 pattern: "test".to_string(),
                 case_sensitive: false,
             },
-            project_path: "/test".to_string(),
+            cwd: "/test".to_string(),
             raw_json: None,
         }
     }
@@ -135,6 +135,9 @@ mod tests {
 
         let _command = state.update(Message::ToggleRoleFilter);
         assert_eq!(state.search.role_filter, Some("system".to_string()));
+
+        let _command = state.update(Message::ToggleRoleFilter);
+        assert_eq!(state.search.role_filter, Some("summary".to_string()));
 
         let _command = state.update(Message::ToggleRoleFilter);
         assert_eq!(state.search.role_filter, None);

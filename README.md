@@ -95,6 +95,9 @@ After installation, restart your shell or source your configuration file to enab
 ### Basic Search
 
 ```bash
+# Launch interactive mode (no arguments needed)
+ccms
+
 # Search for "error" in all Claude sessions
 ccms "error"
 
@@ -111,10 +114,13 @@ ccms --project "$(pwd)" "TODO"
 
 ### Interactive Mode (TUI)
 
-Launch an interactive search interface similar to fzf. All filtering options work in interactive mode:
+Launch an interactive search interface similar to fzf. Interactive mode starts automatically when no query is provided:
 
 ```bash
-# Interactive search in default location
+# Interactive search (default when no query provided)
+ccms
+
+# Explicit interactive mode
 ccms -i
 
 # Interactive search in specific directory
@@ -269,6 +275,7 @@ ccms -v "query"
 
 ### Interactive Mode
 - `-i, --interactive` - Launch interactive search mode (fzf-like TUI)
+- **Note**: Interactive mode starts automatically when no query is provided
 
 ### Other Options
 - `--help-query` - Show query syntax help

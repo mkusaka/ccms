@@ -43,7 +43,7 @@ fn test_message_handling() {
             pattern: "test".to_string(),
             case_sensitive: false,
         },
-        project_path: "/test".to_string(),
+        cwd: "/test".to_string(),
         raw_json: None,
     }];
 
@@ -72,7 +72,7 @@ fn test_search_filter() {
                 pattern: "test".to_string(),
                 case_sensitive: false,
             },
-            project_path: "/test".to_string(),
+            cwd: "/test".to_string(),
             raw_json: None,
         },
         SearchResult {
@@ -89,7 +89,7 @@ fn test_search_filter() {
                 pattern: "test".to_string(),
                 case_sensitive: false,
             },
-            project_path: "/test".to_string(),
+            cwd: "/test".to_string(),
             raw_json: None,
         },
     ];
