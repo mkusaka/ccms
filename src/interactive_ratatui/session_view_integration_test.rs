@@ -150,7 +150,16 @@ mod tests {
             content.contains("assistant"),
             "Should display assistant role"
         );
-        assert!(content.contains("01/01 12:00"), "Should display timestamp");
+        // Check that timestamp is displayed (will be in local timezone)
+        // The timestamp "2024-01-01T12:00:00Z" will be converted to local time
+        use chrono::{DateTime, Local, TimeZone};
+        let utc_dt = DateTime::parse_from_rfc3339("2024-01-01T12:00:00Z").unwrap();
+        let local_dt = Local.from_utc_datetime(&utc_dt.naive_utc());
+        let expected_time = local_dt.format("%m/%d %H:%M").to_string();
+        assert!(
+            content.contains(&expected_time),
+            "Should display timestamp in local timezone"
+        );
         // Japanese characters might be displayed with space separation in terminal UI
         assert!(
             content.contains("こ")
