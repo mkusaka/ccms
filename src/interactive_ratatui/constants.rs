@@ -33,13 +33,13 @@ pub const HELP_DIALOG_MARGIN: u16 = 4;
 
 // List viewer constants
 /// Timestamp column width
-pub const TIMESTAMP_COLUMN_WIDTH: u16 = 19;
+pub const TIMESTAMP_COLUMN_WIDTH: u16 = 14;
 
 /// Role column width (with padding)
-pub const ROLE_COLUMN_WIDTH: u16 = 11;
+pub const ROLE_COLUMN_WIDTH: u16 = 9;
 
 /// Separators and spacing width
-pub const SEPARATOR_WIDTH: u16 = 5;
+pub const SEPARATOR_WIDTH: u16 = 2;
 
 /// Minimum message content width
 pub const MIN_MESSAGE_WIDTH: u16 = 20;

@@ -174,11 +174,11 @@ impl ListItem for SearchResult {
 
         let mut spans = vec![
             Span::styled(
-                format!("{timestamp:16} "),
+                format!("{timestamp:11} "),
                 Style::default().fg(Color::DarkGray),
             ),
             Span::styled(
-                format!("{:10} ", self.get_role()),
+                format!("{:8} ", self.get_role()),
                 Style::default().fg(self.get_role_color()),
             ),
         ];
@@ -211,11 +211,11 @@ impl ListItem for SearchResult {
         let first_line_content = wrapped_lines.first().cloned().unwrap_or_default();
         let mut first_line_spans = vec![
             Span::styled(
-                format!("{timestamp:16} "),
+                format!("{timestamp:11} "),
                 Style::default().fg(Color::DarkGray),
             ),
             Span::styled(
-                format!("{:10} ", self.get_role()),
+                format!("{:8} ", self.get_role()),
                 Style::default().fg(self.get_role_color()),
             ),
         ];
@@ -239,7 +239,7 @@ impl ListItem for SearchResult {
 
         // Additional lines (indented)
         for line in wrapped_lines.iter().skip(1) {
-            let indent = " ".repeat(29); // 16 + 1 + 10 + 1 + 1 spaces
+            let indent = " ".repeat(21); // 11 + 1 + 8 + 1 spaces
             let mut line_spans = vec![Span::raw(indent)];
 
             if let Some((start, len)) = self.query.find_match(line) {

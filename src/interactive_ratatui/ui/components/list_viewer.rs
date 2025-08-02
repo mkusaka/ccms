@@ -4,6 +4,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
+    text::{Line, Span},
     widgets::{Block, Borders, List, ListItem as TuiListItem, Paragraph},
 };
 
@@ -381,7 +382,29 @@ impl<T: ListItem> ListViewer<T> {
                         };
 
                         if self.truncation_enabled {
-                            TuiListItem::new(item.create_truncated_line(&self.query)).style(style)
+                            // Use the new column-based approach
+                            let (timestamp_text, timestamp_style, role_text, role_style, content_spans) = 
+                                item.create_column_data(&self.query, true, Some(available_text_width));
+                            
+                            // Create a line with proper spacing based on Layout constraints
+                            let mut spans = vec![];
+                            
+                            // Add timestamp with padding to match layout
+                            let timestamp_width = row_layout[0].width as usize;
+                            let padded_timestamp = format!("{:<width$}", timestamp_text, width = timestamp_width.saturating_sub(1));
+                            spans.push(Span::styled(padded_timestamp, timestamp_style));
+                            spans.push(Span::raw(" ")); // separator
+                            
+                            // Add role with padding to match layout
+                            let role_width = row_layout[1].width as usize;
+                            let padded_role = format!("{:<width$}", role_text, width = role_width.saturating_sub(1));
+                            spans.push(Span::styled(padded_role, role_style));
+                            spans.push(Span::raw(" ")); // separator
+                            
+                            // Add content spans
+                            spans.extend(content_spans);
+                            
+                            TuiListItem::new(Line::from(spans)).style(style)
                         } else {
                             TuiListItem::new(
                                 item.create_full_lines(available_text_width, &self.query),
