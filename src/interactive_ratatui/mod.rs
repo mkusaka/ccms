@@ -194,7 +194,7 @@ impl InteractiveSearch {
             // Reset any other Ctrl+C tracking that might be elsewhere
             return Ok(false);
         }
-        
+
         // Reset Ctrl+C tracking on any other key press
         if self.last_ctrl_c_press.is_some() {
             self.last_ctrl_c_press = None;
