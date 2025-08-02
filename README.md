@@ -108,8 +108,14 @@ ccms -p "~/.claude/projects/myproject/*.jsonl" "bug"
 ccms -r user "how to"
 ccms -r assistant "I can help"
 
-# Filter by current project directory
-ccms --project "$(pwd)" "TODO"
+# Filter by current project directory (default behavior)
+ccms "TODO"                          # Searches in current directory by default
+
+# Explicitly specify project directory
+ccms --project "/path/to/project" "TODO"
+
+# Search all projects (bypass default filter)
+ccms --project "/" "TODO"
 ```
 
 ### Interactive Mode (TUI)
@@ -222,8 +228,11 @@ ccms --since "last week" "weekly review"
 ccms --since "3 days ago" "recent work"
 ccms --since 1720000000 "since Unix timestamp"
 
-# Filter by project path
+# Filter by project path (defaults to current directory if not specified)
 ccms --project "/Users/me/project" "bug"
+
+# Search all projects (bypass default current directory filter)
+ccms --project "/" "bug"
 
 # Combine filters
 ccms -r user -n 20 --after "2024-06-01T00:00:00Z" "question"
@@ -268,7 +277,7 @@ ccms -v "query"
 ### Filtering Options
 - `-r, --role <ROLE>` - Filter by message role: `user`, `assistant`, `system`, or `summary`
 - `-s, --session-id <ID>` - Filter by session ID
-- `--project <PATH>` - Filter by project path (e.g., current directory: `$(pwd)`)
+- `--project <PATH>` - Filter by project path (default: current directory; use `/` to search all projects)
 - `--before <TIMESTAMP>` - Filter messages before this timestamp (RFC3339 format)
 - `--after <TIMESTAMP>` - Filter messages after this timestamp (RFC3339 format)
 - `--since <TIME>` - Filter messages since this time (relative time like "1 day ago" or Unix timestamp)
@@ -346,7 +355,7 @@ cargo build
 # Run tests
 cargo nextest run
 
-# Run clippy
+# Run clippy (checks code quality and style)
 cargo clippy -- -D warnings
 ```
 

@@ -157,6 +157,13 @@ fn main() -> Result<()> {
         cli.after.clone()
     };
 
+    // Set default project_path to current directory if not specified
+    let project_path = cli.project_path.clone().or_else(|| {
+        std::env::current_dir()
+            .ok()
+            .and_then(|path| path.to_str().map(|s| s.to_string()))
+    });
+
     // Get pattern
     let default_pattern = default_claude_pattern();
     let pattern = cli.pattern.as_deref().unwrap_or(&default_pattern);
@@ -170,7 +177,7 @@ fn main() -> Result<()> {
             before: cli.before,
             after: parsed_after.clone(),
             verbose: cli.verbose,
-            project_path: cli.project_path.clone(),
+            project_path: project_path.clone(),
         };
 
         let mut interactive = InteractiveSearch::new(options);
@@ -198,7 +205,7 @@ fn main() -> Result<()> {
         before: cli.before,
         after: parsed_after,
         verbose: cli.verbose,
-        project_path: cli.project_path,
+        project_path,
     };
 
     if cli.verbose {
