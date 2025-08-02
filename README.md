@@ -126,22 +126,19 @@ Launch an interactive search interface similar to fzf. Interactive mode starts a
 # Interactive search (default when no query provided)
 ccms
 
-# Explicit interactive mode
-ccms -i
-
 # Interactive search in specific directory
-ccms -i -p "~/my-project/*.jsonl"
+ccms -p "~/my-project/*.jsonl"
 
 # Interactive search with filters
-ccms -i --project $(pwd)                    # Current project only
-ccms -i --since "1 day ago"                  # Recent messages only
-ccms -i -r user                              # Pre-filter by role
-ccms -i --project $(pwd) --since "2 hours ago"  # Combine filters
+ccms --project $(pwd)                    # Current project only
+ccms --since "1 day ago"                  # Recent messages only
+ccms -r user                              # Pre-filter by role
+ccms --project $(pwd) --since "2 hours ago"  # Combine filters
 
 # All standard filters are supported
-ccms -i -s "session-id"                      # Filter by session
-ccms -i --after "2024-01-01T00:00:00Z"       # Time range filters
-ccms -i -n 100                               # Adjust result limit
+ccms -s "session-id"                      # Filter by session
+ccms --after "2024-01-01T00:00:00Z"       # Time range filters
+ccms -n 100                               # Adjust result limit
 ```
 
 **Interactive Mode Controls:**
