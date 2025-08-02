@@ -12,8 +12,8 @@ pub fn encode_project_path(path: &str) -> String {
             '<' => '-',
             '>' => '-',
             '|' => '-',
-            '.' => '-',  // Claude Code also replaces dots
-            '_' => '-',  // Claude Code also replaces underscores
+            '.' => '-', // Claude Code also replaces dots
+            '_' => '-', // Claude Code also replaces underscores
             _ => c,
         })
         .collect()
@@ -39,7 +39,7 @@ pub fn extract_project_from_file_path(file_path: &str) -> Option<String> {
 pub fn file_belongs_to_project(file_path: &str, project_path: &str) -> bool {
     if let Some(extracted_project) = extract_project_from_file_path(file_path) {
         let encoded_project = encode_project_path(project_path);
-        
+
         // Debug output
         if std::env::var("DEBUG_PATH_ENCODING").is_ok() {
             eprintln!("DEBUG PATH ENCODING:");
@@ -47,9 +47,12 @@ pub fn file_belongs_to_project(file_path: &str, project_path: &str) -> bool {
             eprintln!("  project_path: {project_path}");
             eprintln!("  extracted_project: {extracted_project}");
             eprintln!("  encoded_project: {encoded_project}");
-            eprintln!("  starts_with result: {}", extracted_project.starts_with(&encoded_project));
+            eprintln!(
+                "  starts_with result: {}",
+                extracted_project.starts_with(&encoded_project)
+            );
         }
-        
+
         // Check if the extracted project starts with the encoded project path
         extracted_project.starts_with(&encoded_project)
     } else {

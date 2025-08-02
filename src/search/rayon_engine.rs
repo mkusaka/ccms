@@ -310,7 +310,8 @@ pub(super) fn search_file(
                         // Check project_path filter (matches against file path)
                         if let Some(project_path) = &options.project_path {
                             let file_path_str = file_path.to_string_lossy();
-                            if !path_encoding::file_belongs_to_project(&file_path_str, project_path) {
+                            if !path_encoding::file_belongs_to_project(&file_path_str, project_path)
+                            {
                                 continue;
                             }
                         }
