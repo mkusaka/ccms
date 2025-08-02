@@ -193,19 +193,30 @@ fn benchmark_parallel_processing(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("rayon_parallel", |b| {
-        use rayon::prelude::*;
+    group.bench_function("smol_parallel", |b| {
         b.iter(|| {
-            let total: usize = files
-                .par_iter()
-                .map(|file| {
-                    let content = fs::read_to_string(file).unwrap();
-                    content
-                        .lines()
-                        .filter(|line| line.contains("Message"))
-                        .count()
-                })
-                .sum();
+            let total = smol::block_on(async {
+                use futures_lite::stream::{self, StreamExt};
+                
+                let stream = stream::iter(files.iter()).map(|file| {
+                    let file = file.clone();
+                    smol::spawn(async move {
+                        let content = async_fs::read_to_string(file).await.unwrap();
+                        content
+                            .lines()
+                            .filter(|line| line.contains("Message"))
+                            .count()
+                    })
+                });
+                
+                let mut total = 0;
+                let mut stream = Box::pin(stream);
+                while let Some(task) = stream.next().await {
+                    let count = task.await;
+                    total += count;
+                }
+                total
+            });
             black_box(total)
         });
     });

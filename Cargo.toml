@@ -30,7 +30,6 @@ regex = "1.10"
 lru = "0.16"
 
 # Parallel processing
-rayon = "1.10"
 crossbeam = "0.8"
 
 
@@ -83,6 +82,14 @@ mimalloc = { version = "0.1", default-features = false, optional = true }
 [dev-dependencies]
 codspeed-criterion-compat = "=3.0.5"
 tempfile = "=3.20.0"
+# Temporarily add rayon back for benchmarking comparison
+rayon = "1.10"
+
+# File discovery benchmarking
+jwalk = "0.8"
+ignore = "0.4"
+rust_search = "2.1"
+globwalk = "0.9"
 
 [[bench]]
 name = "search_benchmark"
@@ -110,6 +117,31 @@ harness = false
 
 [[bench]]
 name = "smol_benchmark"
+harness = false
+
+[[bench]]
+name = "file_discovery_benchmark"
+harness = false
+
+[[bench]]
+name = "rayon_vs_smol_benchmark"
+harness = false
+
+
+[[bench]]
+name = "parallel_comparison_benchmark"
+harness = false
+
+[[bench]]
+name = "search_engine_comparison"
+harness = false
+
+[[bench]]
+name = "io_vs_cpu_benchmark"
+harness = false
+
+[[bench]]
+name = "file_discovery_comparison"
 harness = false
 
 [profile.release]

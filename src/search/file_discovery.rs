@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use dirs::home_dir;
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -71,36 +70,53 @@ impl FileDiscovery {
             .filter_map(|e| e.ok())
             .collect();
 
-        // Process directories in parallel
-        let mut files: Vec<PathBuf> = entries
-            .par_iter()
-            .flat_map(|entry| {
-                let path = entry.path();
-                if path.is_dir() {
-                    // Look for .jsonl files directly in each project directory
-                    std::fs::read_dir(&path)
-                        .ok()
-                        .map(|dir| {
-                            dir.filter_map(|e| e.ok())
-                                .filter(|e| {
-                                    e.path()
-                                        .extension()
-                                        .and_then(|ext| ext.to_str())
-                                        .map(|ext| ext == "jsonl")
-                                        .unwrap_or(false)
-                                })
-                                .map(|e| e.path())
-                                .collect::<Vec<_>>()
-                        })
-                        .unwrap_or_default()
-                } else {
-                    vec![]
-                }
-            })
-            .collect();
+        // Process directories concurrently using Smol
+        let mut files: Vec<PathBuf> = smol::block_on(async {
+            use futures_lite::stream::{self, StreamExt};
 
-        // Sort by modification time (newest first)
-        files.par_sort_by_cached_key(|path| {
+            // Create a stream of futures
+            let stream = stream::iter(entries).map(|entry| {
+                smol::spawn(async move {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        // Use async-fs for async directory reading
+                        match async_fs::read_dir(&path).await {
+                            Ok(mut dir) => {
+                                let mut files = Vec::new();
+                                while let Some(entry) = dir.next().await {
+                                    if let Ok(entry) = entry {
+                                        let path = entry.path();
+                                        if path.extension()
+                                            .and_then(|ext| ext.to_str())
+                                            .map(|ext| ext == "jsonl")
+                                            .unwrap_or(false)
+                                        {
+                                            files.push(path);
+                                        }
+                                    }
+                                }
+                                files
+                            }
+                            Err(_) => vec![]
+                        }
+                    } else {
+                        vec![]
+                    }
+                })
+            });
+
+            // Collect all results
+            let mut all_files = Vec::new();
+            let mut stream = Box::pin(stream);
+            while let Some(task) = stream.next().await {
+                let files = task.await;
+                all_files.extend(files);
+            }
+            all_files
+        });
+
+        // Sort by modification time (newest first) - using standard sort
+        files.sort_by_cached_key(|path| {
             std::fs::metadata(path)
                 .and_then(|m| m.modified())
                 .map(std::cmp::Reverse)
