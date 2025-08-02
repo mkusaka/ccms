@@ -385,9 +385,33 @@ impl AppState {
                                 let texts: Vec<String> = arr
                                     .iter()
                                     .filter_map(|item| {
-                                        item.get("text")
-                                            .and_then(|t| t.as_str())
-                                            .map(|s| s.to_string())
+                                        if let Some(item_type) =
+                                            item.get("type").and_then(|t| t.as_str())
+                                        {
+                                            match item_type {
+                                                "text" => item
+                                                    .get("text")
+                                                    .and_then(|t| t.as_str())
+                                                    .map(|s| s.to_string()),
+                                                "thinking" => item
+                                                    .get("thinking")
+                                                    .and_then(|t| t.as_str())
+                                                    .map(|s| s.to_string()),
+                                                "tool_use" => {
+                                                    let name = item
+                                                        .get("name")
+                                                        .and_then(|n| n.as_str())
+                                                        .unwrap_or("Tool");
+                                                    Some(format!("[Tool: {name}]"))
+                                                }
+                                                _ => None,
+                                            }
+                                        } else {
+                                            // Fallback for simple text
+                                            item.get("text")
+                                                .and_then(|t| t.as_str())
+                                                .map(|s| s.to_string())
+                                        }
                                     })
                                     .collect();
                                 texts.join(" ")
