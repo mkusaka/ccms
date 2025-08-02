@@ -1,4 +1,4 @@
-use ccms::{SearchEngineTrait, SmolEngine, SearchOptions, parse_query};
+use ccms::{SearchEngineTrait, SearchOptions, SmolEngine, parse_query};
 use codspeed_criterion_compat::{Criterion, black_box, criterion_group, criterion_main};
 use std::fs::File;
 use std::io::Write;

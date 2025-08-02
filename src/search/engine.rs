@@ -1,7 +1,7 @@
-use anyhow::Result;
-use chrono::DateTime;
 use crate::interactive_ratatui::domain::models::SearchOrder;
 use crate::query::{QueryCondition, SearchResult};
+use anyhow::Result;
+use chrono::DateTime;
 
 /// Trait defining the interface for search engines
 pub trait SearchEngineTrait {

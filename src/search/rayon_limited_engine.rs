@@ -21,8 +21,11 @@ impl RayonLimitedEngine {
             .num_threads(num_threads)
             .build()
             .expect("Failed to create thread pool");
-        
-        Self { options, thread_pool }
+
+        Self {
+            options,
+            thread_pool,
+        }
     }
 }
 
@@ -81,17 +84,17 @@ impl SearchEngineTrait for RayonLimitedEngine {
 
         // Process files in parallel using limited thread pool
         let search_start = std::time::Instant::now();
-        
+
         let query = Arc::new(query);
         let options = Arc::new(self.options.clone());
-        
+
         // Process files in parallel using the limited thread pool
         self.thread_pool.scope(|s| {
             for file_path in files {
                 let sender = sender.clone();
                 let query = query.clone();
                 let options = options.clone();
-                
+
                 s.spawn(move |_| {
                     if let Ok(results) = search_file(&file_path, &query, &options) {
                         for result in results {
@@ -101,16 +104,16 @@ impl SearchEngineTrait for RayonLimitedEngine {
                 });
             }
         });
-        
+
         // Drop the original sender so the receiver knows when all tasks are done
         drop(sender);
-        
+
         // Collect all results
         let mut all_results = Vec::new();
         while let Ok(result) = receiver.recv() {
             all_results.push(result);
         }
-        
+
         let search_time = search_start.elapsed();
 
         // Apply filters

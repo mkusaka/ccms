@@ -62,8 +62,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"]
 tracing-flame = { version = "0.2", optional = true }
 console-subscriber = { version = "0.4", optional = true }
 
-# Note: Tokio has been removed in favor of Smol for async operations
-
 # Smol runtime
 smol = "2.0"
 async-fs = "2.1"
@@ -97,10 +95,6 @@ name = "large_file_benchmark"
 harness = false
 
 [[bench]]
-name = "realistic_benchmark"
-harness = false
-
-[[bench]]
 name = "interactive_ui_benchmark"
 harness = false
 
@@ -113,12 +107,17 @@ name = "smol_benchmark"
 harness = false
 
 [[bench]]
-name = "engine_comparison_benchmark"
+name = "rayon_search_benchmark"
 harness = false
 
 [[bench]]
-name = "profiled_benchmark"
+name = "smol_search_benchmark"
 harness = false
+
+[[bench]]
+name = "engine_comparison_benchmark"
+harness = false
+
 
 [profile.release]
 lto = true

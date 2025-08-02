@@ -1,4 +1,4 @@
-use ccms::{SearchEngineTrait, SmolEngine, SearchOptions, SessionMessage, parse_query};
+use ccms::{SearchEngineTrait, SearchOptions, SessionMessage, SmolEngine, parse_query};
 use codspeed_criterion_compat::{
     BenchmarkId, Criterion, black_box, criterion_group, criterion_main,
 };
@@ -197,7 +197,7 @@ fn benchmark_parallel_processing(c: &mut Criterion) {
         b.iter(|| {
             let total = smol::block_on(async {
                 use futures_lite::stream::{self, StreamExt};
-                
+
                 let stream = stream::iter(files.iter()).map(|file| {
                     let file = file.clone();
                     smol::spawn(async move {
@@ -208,7 +208,7 @@ fn benchmark_parallel_processing(c: &mut Criterion) {
                             .count()
                     })
                 });
-                
+
                 let mut total = 0;
                 let mut stream = Box::pin(stream);
                 while let Some(task) = stream.next().await {

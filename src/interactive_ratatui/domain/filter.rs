@@ -1,9 +1,9 @@
 use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
 #[cfg(test)]
 use crate::query::condition::SearchResult;
+use crate::query::fast_lowercase::FastLowercase;
 #[cfg(test)]
 use anyhow::Result;
-use crate::query::fast_lowercase::FastLowercase;
 
 #[cfg(test)]
 pub struct SearchFilter {

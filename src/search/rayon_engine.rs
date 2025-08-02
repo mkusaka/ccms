@@ -77,17 +77,17 @@ impl SearchEngineTrait for RayonEngine {
 
         // Process files in parallel using Rayon
         let search_start = std::time::Instant::now();
-        
+
         let query = Arc::new(query);
         let options = Arc::new(self.options.clone());
-        
+
         // Process files in parallel
         rayon::scope(|s| {
             for file_path in files {
                 let sender = sender.clone();
                 let query = query.clone();
                 let options = options.clone();
-                
+
                 s.spawn(move |_| {
                     if let Ok(results) = search_file(&file_path, &query, &options) {
                         for result in results {
@@ -97,16 +97,16 @@ impl SearchEngineTrait for RayonEngine {
                 });
             }
         });
-        
+
         // Drop the original sender so the receiver knows when all tasks are done
         drop(sender);
-        
+
         // Collect all results
         let mut all_results = Vec::new();
         while let Ok(result) = receiver.recv() {
             all_results.push(result);
         }
-        
+
         let search_time = search_start.elapsed();
 
         // Apply filters
@@ -189,7 +189,7 @@ pub(super) fn search_file(
     let metadata = file.metadata()?;
     // Use same buffer size as Smol for fair comparison
     let mut reader = BufReader::with_capacity(64 * 1024, file);
-    
+
     // Get file creation time for fallback
     // Use platform-specific approach like main branch
     let file_ctime = Some(&metadata)
@@ -207,41 +207,42 @@ pub(super) fn search_file(
         })
         .map(|t| {
             let duration = t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
-            let ctime = chrono::DateTime::<chrono::Utc>::from_timestamp(duration.as_secs() as i64, 0)
-                .unwrap_or_else(chrono::Utc::now)
-                .to_rfc3339();
+            let ctime =
+                chrono::DateTime::<chrono::Utc>::from_timestamp(duration.as_secs() as i64, 0)
+                    .unwrap_or_else(chrono::Utc::now)
+                    .to_rfc3339();
             if options.verbose {
-                eprintln!("DEBUG: file_ctime for {:?} = {}", file_path, ctime);
+                eprintln!("DEBUG: file_ctime for {file_path:?} = {ctime}");
             }
             ctime
         })
         .unwrap_or_else(|| {
             let now = chrono::Utc::now().to_rfc3339();
             if options.verbose {
-                eprintln!("DEBUG: Using current time as fallback: {}", now);
+                eprintln!("DEBUG: Using current time as fallback: {now}");
             }
             now
         });
-    
+
     let mut results = Vec::with_capacity(256); // Same capacity as Smol
     let mut latest_timestamp: Option<String> = None;
     let mut first_timestamp: Option<String> = None;
     let mut line_buffer = Vec::with_capacity(16 * 1024); // Same buffer size as Smol
     let mut is_first_line = true;
     let mut found_summary_first = false;
-    
+
     loop {
         line_buffer.clear();
         let bytes_read = reader.read_until(b'\n', &mut line_buffer)?;
         if bytes_read == 0 {
             break; // EOF
         }
-        
+
         // Skip empty lines
         if line_buffer.trim_ascii().is_empty() {
             continue;
         }
-        
+
         // Remove newline if present
         if line_buffer.ends_with(b"\n") {
             line_buffer.pop();
@@ -249,11 +250,11 @@ pub(super) fn search_file(
                 line_buffer.pop();
             }
         }
-        
+
         // Parse JSON - Always use sonic-rs for optimized engine
         // Use from_slice to avoid UTF-8 string conversion
         let message: Result<SessionMessage, _> = sonic_rs::from_slice(&line_buffer);
-        
+
         match message {
             Ok(message) => {
                 // Check if first message is summary
@@ -262,11 +263,11 @@ pub(super) fn search_file(
                     if message.get_type() == "summary" {
                         found_summary_first = true;
                         if options.verbose {
-                            eprintln!("DEBUG: Found summary at first line in {:?}", file_path);
+                            eprintln!("DEBUG: Found summary at first line in {file_path:?}");
                         }
                     }
                 }
-                
+
                 // Update timestamps
                 if let Some(ts) = message.get_timestamp() {
                     latest_timestamp = Some(ts.to_string());
@@ -274,14 +275,16 @@ pub(super) fn search_file(
                     if first_timestamp.is_none() && found_summary_first {
                         first_timestamp = Some(ts.to_string());
                         if options.verbose {
-                            eprintln!("DEBUG: Found first timestamp '{}' after summary in {:?}", ts, file_path);
+                            eprintln!(
+                                "DEBUG: Found first timestamp '{ts}' after summary in {file_path:?}"
+                            );
                         }
                     }
                 }
-                
+
                 // Get searchable text
                 let text = message.get_searchable_text();
-                
+
                 // Apply query condition
                 if let Ok(matches) = query.evaluate(&text) {
                     if matches {
@@ -291,13 +294,13 @@ pub(super) fn search_file(
                                 continue;
                             }
                         }
-                        
+
                         if let Some(session_id) = &options.session_id {
                             if message.get_session_id() != Some(session_id) {
                                 continue;
                             }
                         }
-                        
+
                         // Check project_path filter (matches against cwd field)
                         if let Some(project_path) = &options.project_path {
                             if let Some(cwd) = message.get_cwd() {
@@ -308,23 +311,25 @@ pub(super) fn search_file(
                                 continue;
                             }
                         }
-                        
+
                         // Create result
                         let timestamp = if message.get_type() == "summary" {
                             // Use first non-summary timestamp or file ctime
-                            first_timestamp.as_ref()
+                            first_timestamp
+                                .as_ref()
                                 .or(latest_timestamp.as_ref())
                                 .cloned()
                                 .unwrap_or_else(|| file_ctime.clone())
                         } else {
-                            message.get_timestamp()
+                            message
+                                .get_timestamp()
                                 .map(|s| s.to_string())
                                 .unwrap_or_else(|| file_ctime.clone())
                         };
-                        
+
                         let has_thinking = message.has_thinking();
                         let has_tools = message.has_tool_use();
-                        
+
                         results.push(SearchResult {
                             timestamp,
                             role: message.get_type().to_string(),
@@ -344,13 +349,13 @@ pub(super) fn search_file(
             }
             Err(e) => {
                 if options.verbose {
-                    eprintln!("Failed to parse JSON in {:?}: {}", file_path, e);
+                    eprintln!("Failed to parse JSON in {file_path:?}: {e}");
                 }
                 // Continue processing other lines
             }
         }
     }
-    
+
     Ok(results)
 }
 

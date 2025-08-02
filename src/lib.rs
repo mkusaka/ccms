@@ -9,5 +9,6 @@ pub mod search;
 pub use query::{QueryCondition, SearchOptions, SearchResult, parse_query};
 pub use schemas::{SessionMessage, ToolResult};
 pub use search::{
-    SearchEngineTrait, SmolEngine, RayonEngine, default_claude_pattern, discover_claude_files, expand_tilde, format_search_result,
+    RayonEngine, SearchEngineTrait, SmolEngine, default_claude_pattern, discover_claude_files,
+    expand_tilde, format_search_result,
 };

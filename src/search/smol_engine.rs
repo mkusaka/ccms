@@ -66,9 +66,7 @@ impl SearchEngineTrait for SmolEngine {
         order: SearchOrder,
     ) -> Result<(Vec<SearchResult>, std::time::Duration, usize)> {
         // Use smol's block_on to run the async search synchronously
-        smol::block_on(async {
-            self.search_async(pattern, query, role_filter, order).await
-        })
+        smol::block_on(async { self.search_async(pattern, query, role_filter, order).await })
     }
 }
 
@@ -110,17 +108,17 @@ impl SmolEngine {
 
         // Process files concurrently using multi-threaded executor
         let search_start = std::time::Instant::now();
-        
+
         let query = Arc::new(query);
         let options = Arc::new(self.options.clone());
-        
+
         // Spawn tasks for each file on the global executor
         let mut tasks = Vec::new();
         for file_path in files {
             let sender = sender.clone();
             let query = query.clone();
             let options = options.clone();
-            
+
             let task = smol::spawn(async move {
                 if let Ok(results) = search_file(&file_path, &query, &options).await {
                     for result in results {
@@ -130,17 +128,17 @@ impl SmolEngine {
             });
             tasks.push(task);
         }
-        
+
         // Drop the original sender so the receiver knows when all tasks are done
         drop(sender);
-        
+
         // Run all tasks concurrently
         let search_future = async {
             for task in tasks {
                 task.await;
             }
         };
-        
+
         // Collect results while processing
         let collect_future = async {
             let mut all_results = Vec::new();
@@ -149,10 +147,10 @@ impl SmolEngine {
             }
             all_results
         };
-        
+
         // Run search and collection concurrently
         let (_, mut all_results) = futures_lite::future::zip(search_future, collect_future).await;
-        
+
         let search_time = search_start.elapsed();
 
         // Apply filters
@@ -182,7 +180,6 @@ impl SmolEngine {
 
         Ok((all_results, elapsed, total_count))
     }
-
 
     fn apply_filters(
         &self,
@@ -233,14 +230,14 @@ async fn search_file(
     let file_path_owned = file_path.to_owned();
     let query_owned = query.clone();
     let options_owned = options.clone();
-    
+
     // Use smol's blocking executor with larger buffer for better throughput
     blocking::unblock(move || {
         let file = File::open(&file_path_owned)?;
         let metadata = file.metadata()?;
         // Increase buffer size for better I/O performance
         let mut reader = BufReader::with_capacity(64 * 1024, file); // Changed to 64KB like basic Smol
-        
+
         // Get file creation time for fallback
         // Use platform-specific approach like main branch
         let file_ctime = Some(&metadata)
@@ -258,41 +255,42 @@ async fn search_file(
             })
             .map(|t| {
                 let duration = t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
-                let ctime = chrono::DateTime::<chrono::Utc>::from_timestamp(duration.as_secs() as i64, 0)
-                    .unwrap_or_else(chrono::Utc::now)
-                    .to_rfc3339();
+                let ctime =
+                    chrono::DateTime::<chrono::Utc>::from_timestamp(duration.as_secs() as i64, 0)
+                        .unwrap_or_else(chrono::Utc::now)
+                        .to_rfc3339();
                 if options_owned.verbose {
-                    eprintln!("DEBUG: file_ctime for {:?} = {}", file_path_owned, ctime);
+                    eprintln!("DEBUG: file_ctime for {file_path_owned:?} = {ctime}");
                 }
                 ctime
             })
             .unwrap_or_else(|| {
                 let now = chrono::Utc::now().to_rfc3339();
                 if options_owned.verbose {
-                    eprintln!("DEBUG: Using current time as fallback: {}", now);
+                    eprintln!("DEBUG: Using current time as fallback: {now}");
                 }
                 now
             });
-        
+
         let mut results = Vec::with_capacity(256); // 4x larger initial capacity to reduce reallocations
         let mut latest_timestamp: Option<String> = None;
         let mut first_timestamp: Option<String> = None;
         let mut line_buffer = Vec::with_capacity(16 * 1024); // 2x larger reusable line buffer
         let mut is_first_line = true;
         let mut found_summary_first = false;
-        
+
         loop {
             line_buffer.clear();
             let bytes_read = reader.read_until(b'\n', &mut line_buffer)?;
             if bytes_read == 0 {
                 break; // EOF
             }
-            
+
             // Skip empty lines
             if line_buffer.trim_ascii().is_empty() {
                 continue;
             }
-            
+
             // Remove newline if present
             if line_buffer.ends_with(b"\n") {
                 line_buffer.pop();
@@ -300,11 +298,11 @@ async fn search_file(
                     line_buffer.pop();
                 }
             }
-            
+
             // Parse JSON - Always use sonic-rs for optimized engine
             // Use from_slice to avoid UTF-8 string conversion
             let message: Result<SessionMessage, _> = sonic_rs::from_slice(&line_buffer);
-            
+
             match message {
                 Ok(message) => {
                     // Check if first message is summary
@@ -313,11 +311,13 @@ async fn search_file(
                         if message.get_type() == "summary" {
                             found_summary_first = true;
                             if options_owned.verbose {
-                                eprintln!("DEBUG: Found summary at first line in {:?}", file_path_owned);
+                                eprintln!(
+                                    "DEBUG: Found summary at first line in {file_path_owned:?}"
+                                );
                             }
                         }
                     }
-                    
+
                     // Update timestamps
                     if let Some(ts) = message.get_timestamp() {
                         latest_timestamp = Some(ts.to_string());
@@ -325,14 +325,16 @@ async fn search_file(
                         if first_timestamp.is_none() && found_summary_first {
                             first_timestamp = Some(ts.to_string());
                             if options_owned.verbose {
-                                eprintln!("DEBUG: Found first timestamp '{}' after summary in {:?}", ts, file_path_owned);
+                                eprintln!(
+                                    "DEBUG: Found first timestamp '{ts}' after summary in {file_path_owned:?}"
+                                );
                             }
                         }
                     }
-                    
+
                     // Get searchable text
                     let text = message.get_searchable_text();
-                    
+
                     // Apply query condition
                     if let Ok(matches) = query_owned.evaluate(&text) {
                         if matches {
@@ -342,13 +344,13 @@ async fn search_file(
                                     continue;
                                 }
                             }
-                            
+
                             if let Some(session_id) = &options_owned.session_id {
                                 if message.get_session_id() != Some(session_id) {
                                     continue;
                                 }
                             }
-                            
+
                             // Check project_path filter (matches against cwd field)
                             if let Some(project_path) = &options_owned.project_path {
                                 if let Some(cwd) = message.get_cwd() {
@@ -357,7 +359,7 @@ async fn search_file(
                                     }
                                 }
                             }
-                            
+
                             // Determine timestamp based on message type (matching main branch logic)
                             let final_timestamp = message
                                 .get_timestamp()
@@ -371,7 +373,7 @@ async fn search_file(
                                     }
                                 })
                                 .unwrap_or_else(|| file_ctime.clone());
-                            
+
                             let result = SearchResult {
                                 file: file_path_owned.to_string_lossy().to_string(),
                                 uuid: message.get_uuid().unwrap_or("").to_string(),
@@ -392,22 +394,21 @@ async fn search_file(
                 }
                 Err(e) => {
                     if options_owned.verbose {
-                        eprintln!(
-                            "Failed to parse JSON in {:?}: {:?}",
-                            file_path_owned,
-                            e
-                        );
+                        eprintln!("Failed to parse JSON in {file_path_owned:?}: {e:?}");
                     }
                 }
             }
         }
-        
+
         if found_summary_first && first_timestamp.is_none() && options_owned.verbose {
-            eprintln!("DEBUG: No timestamp found after summary in {:?}", file_path_owned);
+            eprintln!(
+                "DEBUG: No timestamp found after summary in {file_path_owned:?}"
+            );
         }
-        
+
         Ok(results)
-    }).await
+    })
+    .await
 }
 
 #[cfg(test)]

@@ -48,7 +48,6 @@ impl FileDiscovery {
 
         Ok(files)
     }
-
 }
 
 pub fn expand_tilde(path: &str) -> PathBuf {

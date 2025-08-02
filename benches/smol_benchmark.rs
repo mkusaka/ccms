@@ -1,8 +1,10 @@
-use codspeed_criterion_compat::{Criterion, criterion_group, criterion_main, BenchmarkId, black_box};
+use ccms::{SearchEngineTrait, SearchOptions, SmolEngine, parse_query};
+use codspeed_criterion_compat::{
+    BenchmarkId, Criterion, black_box, criterion_group, criterion_main,
+};
 use std::fs::File;
 use std::io::Write;
 use tempfile::tempdir;
-use ccms::{SearchEngineTrait, SmolEngine, SearchOptions, parse_query};
 
 // Create test JSONL files for benchmarking
 fn create_test_jsonl(num_lines: usize, line_size: usize) -> (tempfile::TempDir, String) {
@@ -28,10 +30,13 @@ fn create_test_jsonl(num_lines: usize, line_size: usize) -> (tempfile::TempDir, 
 }
 
 // Create multiple files for concurrency testing
-fn create_multiple_files(num_files: usize, lines_per_file: usize) -> (Vec<tempfile::TempDir>, String) {
+fn create_multiple_files(
+    num_files: usize,
+    lines_per_file: usize,
+) -> (Vec<tempfile::TempDir>, String) {
     let mut temp_dirs = Vec::new();
     let parent_dir = tempdir().unwrap();
-    
+
     for i in 0..num_files {
         let test_file = parent_dir.path().join(format!("test{i}.jsonl"));
         let mut file = File::create(&test_file).unwrap();
@@ -48,9 +53,13 @@ fn create_multiple_files(num_files: usize, lines_per_file: usize) -> (Vec<tempfi
             .unwrap();
         }
     }
-    
+
     temp_dirs.push(parent_dir);
-    let pattern = temp_dirs[0].path().join("*.jsonl").to_string_lossy().to_string();
+    let pattern = temp_dirs[0]
+        .path()
+        .join("*.jsonl")
+        .to_string_lossy()
+        .to_string();
     (temp_dirs, pattern)
 }
 
@@ -60,19 +69,15 @@ fn benchmark_smol_single_file(c: &mut Criterion) {
     for size in [100, 1000, 10000].iter() {
         let (_temp_dir, test_file) = create_test_jsonl(*size, 100);
 
-        group.bench_with_input(
-            BenchmarkId::new("lines", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    let options = SearchOptions::default();
-                    let engine = SmolEngine::new(options);
-                    let query = parse_query("Message").unwrap();
-                    let (results, _, _) = engine.search(&test_file, query).unwrap();
-                    black_box(results);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("lines", size), size, |b, _| {
+            b.iter(|| {
+                let options = SearchOptions::default();
+                let engine = SmolEngine::new(options);
+                let query = parse_query("Message").unwrap();
+                let (results, _, _) = engine.search(&test_file, query).unwrap();
+                black_box(results);
+            });
+        });
     }
 
     group.finish();
@@ -84,19 +89,15 @@ fn benchmark_smol_multiple_files(c: &mut Criterion) {
     for num_files in [5, 10, 20].iter() {
         let (_temp_dirs, pattern) = create_multiple_files(*num_files, 100);
 
-        group.bench_with_input(
-            BenchmarkId::new("files", num_files),
-            num_files,
-            |b, _| {
-                b.iter(|| {
-                    let options = SearchOptions::default();
-                    let engine = SmolEngine::new(options);
-                    let query = parse_query("Message").unwrap();
-                    let (results, _, _) = engine.search(&pattern, query).unwrap();
-                    black_box(results);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("files", num_files), num_files, |b, _| {
+            b.iter(|| {
+                let options = SearchOptions::default();
+                let engine = SmolEngine::new(options);
+                let query = parse_query("Message").unwrap();
+                let (results, _, _) = engine.search(&pattern, query).unwrap();
+                black_box(results);
+            });
+        });
     }
 
     group.finish();
@@ -109,20 +110,29 @@ fn benchmark_smol_with_filters(c: &mut Criterion) {
     // Test different filter configurations
     let filter_configs = vec![
         ("no_filter", SearchOptions::default()),
-        ("role_filter", SearchOptions {
-            role: Some("user".to_string()),
-            ..Default::default()
-        }),
-        ("session_filter", SearchOptions {
-            session_id: Some("session1".to_string()),
-            ..Default::default()
-        }),
-        ("combined_filters", SearchOptions {
-            role: Some("user".to_string()),
-            session_id: Some("session1".to_string()),
-            max_results: Some(100),
-            ..Default::default()
-        }),
+        (
+            "role_filter",
+            SearchOptions {
+                role: Some("user".to_string()),
+                ..Default::default()
+            },
+        ),
+        (
+            "session_filter",
+            SearchOptions {
+                session_id: Some("session1".to_string()),
+                ..Default::default()
+            },
+        ),
+        (
+            "combined_filters",
+            SearchOptions {
+                role: Some("user".to_string()),
+                session_id: Some("session1".to_string()),
+                max_results: Some(100),
+                ..Default::default()
+            },
+        ),
     ];
 
     for (name, options) in filter_configs {

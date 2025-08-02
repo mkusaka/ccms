@@ -3,12 +3,12 @@
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use anyhow::Result;
-use ccms::{
-    SearchEngineTrait, SmolEngine, RayonEngine, SearchOptions, default_claude_pattern, format_search_result,
-    interactive_ratatui::InteractiveSearch, parse_query, profiling,
-};
 #[cfg(feature = "profiling")]
 use ccms::profiling_enhanced;
+use ccms::{
+    RayonEngine, SearchEngineTrait, SearchOptions, SmolEngine, default_claude_pattern,
+    format_search_result, interactive_ratatui::InteractiveSearch, parse_query, profiling,
+};
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
 use clap_complete::{Generator, Shell, generate};
@@ -233,12 +233,15 @@ fn main() -> Result<()> {
 
     // Execute search
     if cli.verbose {
-        eprintln!("Using {} engine", match cli.engine {
-            EngineType::Smol => "Smol",
-            EngineType::Rayon => "Rayon",
-        });
+        eprintln!(
+            "Using {} engine",
+            match cli.engine {
+                EngineType::Smol => "Smol",
+                EngineType::Rayon => "Rayon",
+            }
+        );
     }
-    
+
     // Create appropriate engine based on CLI flag
     let (results, duration, total_count) = match cli.engine {
         EngineType::Smol => {
@@ -322,7 +325,9 @@ fn main() -> Result<()> {
         if let Some(profile_path) = &cli.profile {
             let report = profiler.generate_comprehensive_report(profile_path)?;
             eprintln!("\n{report}");
-            eprintln!("\nDetailed profiling reports saved to {profile_path}_{{comprehensive.txt,svg}}");
+            eprintln!(
+                "\nDetailed profiling reports saved to {profile_path}_{{comprehensive.txt,svg}}"
+            );
         }
     }
 

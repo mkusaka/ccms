@@ -1,6 +1,6 @@
-use codspeed_criterion_compat::{Criterion, criterion_group, criterion_main};
-use ccms::{SearchEngineTrait, SmolEngine, SearchOptions, parse_query};
+use ccms::{SearchEngineTrait, SearchOptions, SmolEngine, parse_query};
 use codspeed_criterion_compat::{BenchmarkId, black_box};
+use codspeed_criterion_compat::{Criterion, criterion_group, criterion_main};
 use std::fs::File;
 use std::io::Write;
 use tempfile::tempdir;
@@ -37,21 +37,17 @@ fn benchmark_async_search(c: &mut Criterion) {
     for size in [100, 1000, 10000].iter() {
         let (_temp_dir, test_file) = create_test_jsonl(*size, 100);
 
-        group.bench_with_input(
-            BenchmarkId::new("file_size_lines", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    smol::block_on(ex.run(async {
-                        let options = SearchOptions::default();
-                        let engine = SmolEngine::new(options);
-                        let query = parse_query("Message AND test").unwrap();
-                        let (results, _, _) = engine.search(&test_file, query).unwrap();
-                        black_box(results);
-                    }))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("file_size_lines", size), size, |b, _| {
+            b.iter(|| {
+                smol::block_on(ex.run(async {
+                    let options = SearchOptions::default();
+                    let engine = SmolEngine::new(options);
+                    let query = parse_query("Message AND test").unwrap();
+                    let (results, _, _) = engine.search(&test_file, query).unwrap();
+                    black_box(results);
+                }))
+            });
+        });
     }
 
     group.finish();
