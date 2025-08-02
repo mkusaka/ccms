@@ -108,6 +108,14 @@ harness = false
 name = "interactive_ui_benchmark"
 harness = false
 
+[[bench]]
+name = "async_benchmark"
+harness = false
+
+[[bench]]
+name = "smol_benchmark"
+harness = false
+
 [profile.release]
 lto = true
 codegen-units = 1
