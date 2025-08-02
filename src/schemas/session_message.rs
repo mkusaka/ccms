@@ -263,9 +263,66 @@ impl SessionMessage {
                     match content {
                         Content::Text { text } => texts.push(text.clone()),
                         Content::Thinking { thinking, .. } => texts.push(thinking.clone()),
-                        Content::ToolUse { .. } => {
-                            // Skip tool use entries
-                            continue;
+                        Content::ToolUse { name, input, .. } => {
+                            let mut tool_text = name.clone();
+
+                            // Extract key information from input based on tool type
+                            if let Some(obj) = input.as_object() {
+                                match name.as_str() {
+                                    "Bash" => {
+                                        if let Some(cmd) =
+                                            obj.get("command").and_then(|v| v.as_str())
+                                        {
+                                            tool_text.push_str(": ");
+                                            tool_text.push_str(
+                                                &cmd.chars().take(50).collect::<String>(),
+                                            );
+                                            if cmd.len() > 50 {
+                                                tool_text.push_str("...");
+                                            }
+                                        }
+                                    }
+                                    "Read" | "Write" | "Edit" => {
+                                        if let Some(path) =
+                                            obj.get("file_path").and_then(|v| v.as_str())
+                                        {
+                                            tool_text.push_str(": ");
+                                            tool_text.push_str(
+                                                path.split('/').next_back().unwrap_or(path),
+                                            );
+                                        }
+                                    }
+                                    "Grep" => {
+                                        if let Some(pattern) =
+                                            obj.get("pattern").and_then(|v| v.as_str())
+                                        {
+                                            tool_text.push_str(": ");
+                                            tool_text.push_str(
+                                                &pattern.chars().take(30).collect::<String>(),
+                                            );
+                                            if pattern.len() > 30 {
+                                                tool_text.push_str("...");
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        // For other tools, try to find a descriptive field
+                                        if let Some(desc) =
+                                            obj.get("description").and_then(|v| v.as_str())
+                                        {
+                                            tool_text.push_str(": ");
+                                            tool_text.push_str(
+                                                &desc.chars().take(40).collect::<String>(),
+                                            );
+                                            if desc.len() > 40 {
+                                                tool_text.push_str("...");
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            texts.push(tool_text);
                         }
                         Content::ToolResult {
                             tool_use_id: _,

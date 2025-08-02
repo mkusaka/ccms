@@ -282,7 +282,8 @@ async fn search_file(
             // Use from_slice to avoid UTF-8 string conversion
             let message: Result<SessionMessage, _> = sonic_rs::from_slice(&line_buffer);
             
-            if let Ok(message) = message {
+            match message {
+                Ok(message) => {
                 // Update timestamps
                 if let Some(ts) = message.get_timestamp() {
                     latest_timestamp = Some(ts.to_string());
@@ -345,10 +346,20 @@ async fn search_file(
                             has_thinking: message.has_thinking(),
                             message_type: message.get_type().to_string(),
                             query: query_owned.clone(),
-                            project_path: extract_project_path(&file_path_owned),
+                            cwd: message.get_cwd().unwrap_or("").to_string(),
                             raw_json: None,
                         };
                         results.push(result);
+                    }
+                }
+                }
+                Err(e) => {
+                    if options_owned.verbose {
+                        eprintln!(
+                            "Failed to parse JSON in {:?}: {:?}",
+                            file_path_owned,
+                            e
+                        );
                     }
                 }
             }
@@ -358,14 +369,6 @@ async fn search_file(
     }).await
 }
 
-fn extract_project_path(file_path: &Path) -> String {
-    file_path
-        .parent()
-        .and_then(|p| p.file_name())
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .to_string()
-}
 
 fn format_preview(text: &str, query: &QueryCondition, context_length: usize) -> String {
     // Find the first match position
