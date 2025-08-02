@@ -1,8 +1,8 @@
 use anyhow::Result;
-use std::time::{Duration, Instant};
-use tracing::info;
 #[cfg(feature = "profiling")]
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};
+use std::time::{Duration, Instant};
+use tracing::info;
 
 /// Enhanced profiling system with multiple strategies
 pub struct EnhancedProfiler {
@@ -189,7 +189,6 @@ impl EnhancedProfiler {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct OperationProfile {
     pub name: String,
@@ -216,7 +215,6 @@ impl OperationProfile {
             .unwrap_or(Duration::ZERO)
     }
 }
-
 
 /// Helper macro to profile code blocks
 #[macro_export]
