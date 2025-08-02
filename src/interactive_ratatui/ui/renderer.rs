@@ -2,7 +2,8 @@ use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::components::{
     Component, help_dialog::HelpDialog, is_exit_prompt, message_detail::MessageDetail,
-    result_list::ResultList, search_bar::SearchBar, session_viewer::SessionViewer,
+    message_preview::MessagePreview, result_list::ResultList, search_bar::SearchBar,
+    session_viewer::SessionViewer,
 };
 use ratatui::{
     Frame,
@@ -16,6 +17,7 @@ pub struct Renderer {
     search_bar: SearchBar,
     result_list: ResultList,
     message_detail: MessageDetail,
+    message_preview: MessagePreview,
     session_viewer: SessionViewer,
     help_dialog: HelpDialog,
 }
@@ -26,6 +28,7 @@ impl Renderer {
             search_bar: SearchBar::new(),
             result_list: ResultList::new(),
             message_detail: MessageDetail::new(),
+            message_preview: MessagePreview::new(),
             session_viewer: SessionViewer::new(),
             help_dialog: HelpDialog::new(),
         }
@@ -76,16 +79,43 @@ impl Renderer {
             .set_role_filter(state.search.role_filter.clone());
         self.search_bar.set_search_order(state.search.order);
 
-        // Update result list state
-        self.result_list.set_results(state.search.results.clone());
-        self.result_list
-            .set_selected_index(state.search.selected_index);
-        self.result_list
-            .set_truncation_enabled(state.ui.truncation_enabled);
-
-        // Render components
+        // Render search bar
         self.search_bar.render(f, chunks[0]);
-        self.result_list.render(f, chunks[1]);
+
+        // Split the content area if preview is enabled
+        if state.search.preview_enabled && !state.search.results.is_empty() {
+            // Split content area into list and preview
+            let content_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(40), // Results list
+                    Constraint::Percentage(60), // Preview
+                ])
+                .split(chunks[1]);
+
+            // Update result list state
+            self.result_list.set_results(state.search.results.clone());
+            self.result_list
+                .set_selected_index(state.search.selected_index);
+            self.result_list
+                .set_truncation_enabled(state.ui.truncation_enabled);
+
+            // Update preview state
+            let selected_result = state.search.results.get(state.search.selected_index).cloned();
+            self.message_preview.set_result(selected_result);
+
+            // Render both components
+            self.result_list.render(f, content_chunks[0]);
+            self.message_preview.render(f, content_chunks[1]);
+        } else {
+            // No preview - use full width for results
+            self.result_list.set_results(state.search.results.clone());
+            self.result_list
+                .set_selected_index(state.search.selected_index);
+            self.result_list
+                .set_truncation_enabled(state.ui.truncation_enabled);
+            self.result_list.render(f, chunks[1]);
+        }
 
         // Render exit prompt at bottom if needed
         if show_exit_prompt {

@@ -27,6 +27,7 @@ pub struct SearchState {
     pub is_searching: bool,
     pub current_search_id: u64,
     pub order: SearchOrder,
+    pub preview_enabled: bool,
 }
 
 pub struct SessionState {
@@ -68,6 +69,7 @@ impl AppState {
                 is_searching: false,
                 current_search_id: 0,
                 order: SearchOrder::Descending,
+                preview_enabled: false,
             },
             session: SessionState {
                 messages: Vec::new(),
@@ -268,14 +270,14 @@ impl AppState {
                 // Re-execute the search with the new order to get different results
                 Command::ExecuteSearch
             }
-            Message::ToggleTruncation => {
-                self.ui.truncation_enabled = !self.ui.truncation_enabled;
-                let status = if self.ui.truncation_enabled {
-                    "Truncated"
+            Message::TogglePreview => {
+                self.search.preview_enabled = !self.search.preview_enabled;
+                let status = if self.search.preview_enabled {
+                    "Preview ON"
                 } else {
-                    "Full Text"
+                    "Preview OFF"
                 };
-                self.ui.message = Some(format!("Message display: {status}"));
+                self.ui.message = Some(format!("Split view: {status}"));
                 Command::None
             }
             Message::SessionQueryChanged(q) => {
@@ -578,6 +580,7 @@ impl AppState {
                 scroll_offset: self.search.scroll_offset,
                 role_filter: self.search.role_filter.clone(),
                 order: self.search.order,
+                preview_enabled: self.search.preview_enabled,
             },
             session_state: SessionStateSnapshot {
                 messages: self.session.messages.clone(),
@@ -610,6 +613,7 @@ impl AppState {
         self.search.scroll_offset = state.search_state.scroll_offset;
         self.search.role_filter = state.search_state.role_filter.clone();
         self.search.order = state.search_state.order;
+        self.search.preview_enabled = state.search_state.preview_enabled;
 
         // Restore session state
         self.session.messages = state.session_state.messages.clone();

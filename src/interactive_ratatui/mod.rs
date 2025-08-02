@@ -199,7 +199,7 @@ impl InteractiveSearch {
                 return Ok(false);
             }
             KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.handle_message(Message::ToggleTruncation);
+                self.handle_message(Message::TogglePreview);
                 return Ok(false);
             }
             // Navigation shortcuts with Alt modifier
