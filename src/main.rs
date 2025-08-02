@@ -1,10 +1,6 @@
-// #[cfg(feature = "mimalloc")]
-// #[global_allocator]
-// static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
-#[cfg(feature = "jemalloc")]
+#[cfg(feature = "mimalloc")]
 #[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use anyhow::Result;
 use ccms::{

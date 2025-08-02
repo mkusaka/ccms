@@ -79,7 +79,6 @@ async-lock = { version = "3.4", optional = true }
 
 # Custom allocator for performance
 mimalloc = { version = "0.1", default-features = false, optional = true }
-jemallocator = { version = "0.5", optional = true }
 
 # Memory-mapped file I/O
 memmap2 = { version = "0.9", optional = true }
@@ -124,11 +123,10 @@ opt-level = 3
 debug = true  # Enable debug symbols for better profiling
 
 [features]
-default = ["smol"]
+default = ["smol", "mimalloc"]
 profiling = ["pprof", "tracing-flame", "console-subscriber"]
 async = ["tokio", "futures", "bytes"]
 tokio-console = ["console-subscriber", "tokio/tracing"]
 mimalloc = ["dep:mimalloc"]
-jemalloc = ["jemallocator"]
 mmap = ["memmap2"]
 smol = ["dep:smol", "async-fs", "futures-lite", "async-executor", "async-io", "blocking", "async-lock"]
