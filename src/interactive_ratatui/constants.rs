@@ -32,18 +32,6 @@ pub const HELP_DIALOG_MAX_WIDTH: u16 = 85;
 pub const HELP_DIALOG_MARGIN: u16 = 4;
 
 // List viewer constants
-/// Timestamp column width
-pub const TIMESTAMP_COLUMN_WIDTH: u16 = 14;
-
-/// Role column width (with padding)
-pub const ROLE_COLUMN_WIDTH: u16 = 9;
-
-/// Separators and spacing width
-pub const SEPARATOR_WIDTH: u16 = 2;
-
-/// Minimum message content width
-pub const MIN_MESSAGE_WIDTH: u16 = 20;
-
 // Navigation history
 /// Maximum navigation history entries
 pub const MAX_NAVIGATION_HISTORY: usize = 50;

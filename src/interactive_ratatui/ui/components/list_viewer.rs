@@ -1,8 +1,10 @@
 use super::list_item::ListItem;
-use crate::interactive_ratatui::constants::*;
+use crate::interactive_ratatui::constants::{
+    DEFAULT_VIEWPORT_HEIGHT, FULL_TEXT_VIEWPORT_ESTIMATE, PAGE_SIZE, TRUNCATED_VIEWPORT_ESTIMATE,
+};
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
@@ -264,17 +266,10 @@ impl<T: ListItem> ListViewer<T> {
             let mut current_height = 0;
             let mut end = start;
 
-            // Use Layout API to calculate available width for text
-            let row_layout = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([
-                    Constraint::Length(TIMESTAMP_COLUMN_WIDTH),
-                    Constraint::Length(ROLE_COLUMN_WIDTH),
-                    Constraint::Length(SEPARATOR_WIDTH),
-                    Constraint::Min(MIN_MESSAGE_WIDTH),
-                ])
-                .split(Rect::new(0, 0, available_width, 1));
-            let available_text_width = row_layout[3].width as usize;
+            // Calculate available width for text
+            // Table columns: timestamp(13) + role(9) + column_spacing(1) * 2 = 24
+            let used_width = 24;
+            let available_text_width = available_width.saturating_sub(used_width) as usize;
 
             while end < self.filtered_indices.len() && current_height < available_height as usize {
                 if let Some(&item_idx) = self.filtered_indices.get(end) {
@@ -382,57 +377,24 @@ impl<T: ListItem> ListViewer<T> {
         self.adjust_scroll_offset(available_height, inner_area.width);
         let (start, end) = self.calculate_visible_range(available_height, inner_area.width);
 
-        // Use Layout API to calculate available width for text
-        let row_layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Length(TIMESTAMP_COLUMN_WIDTH),
-                Constraint::Length(ROLE_COLUMN_WIDTH),
-                Constraint::Length(SEPARATOR_WIDTH),
-                Constraint::Min(MIN_MESSAGE_WIDTH),
-            ])
-            .split(Rect::new(0, 0, inner_area.width, 1));
-        let available_text_width = row_layout[3].width as usize;
-
         let rows: Vec<Row> = (start..end)
             .filter_map(|i| {
                 self.filtered_indices.get(i).and_then(|&item_idx| {
                     self.items.get(item_idx).map(|item| {
-                        if self.truncation_enabled {
-                            // Use the new column-based approach
-                            let (
-                                timestamp_text,
-                                timestamp_style,
-                                role_text,
-                                role_style,
-                                content_spans,
-                            ) = item.create_column_data(&self.query);
+                        let (
+                            timestamp_text,
+                            timestamp_style,
+                            role_text,
+                            role_style,
+                            content_spans,
+                        ) = item.create_column_data(&self.query);
 
-                            // Create cells for the table
-                            Row::new(vec![
-                                Cell::from(Span::styled(timestamp_text, timestamp_style)),
-                                Cell::from(Span::styled(role_text, role_style)),
-                                Cell::from(Line::from(content_spans)),
-                            ])
-                        } else {
-                            // For full text mode, we need to handle multi-line content
-                            let _lines = item.create_full_lines(available_text_width, &self.query);
-                            // For now, just show the first line in table mode
-                            // TODO: Handle multi-line content better
-                            let (
-                                timestamp_text,
-                                timestamp_style,
-                                role_text,
-                                role_style,
-                                content_spans,
-                            ) = item.create_column_data(&self.query);
-
-                            Row::new(vec![
-                                Cell::from(Span::styled(timestamp_text, timestamp_style)),
-                                Cell::from(Span::styled(role_text, role_style)),
-                                Cell::from(Line::from(content_spans)),
-                            ])
-                        }
+                        // Create cells for the table
+                        Row::new(vec![
+                            Cell::from(Span::styled(timestamp_text, timestamp_style)),
+                            Cell::from(Span::styled(role_text, role_style)),
+                            Cell::from(Line::from(content_spans)),
+                        ])
                     })
                 })
             })
