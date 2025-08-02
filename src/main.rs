@@ -100,7 +100,7 @@ struct Cli {
     generator: Option<Shell>,
 
     /// Search engine to use
-    #[arg(long, value_enum, default_value = "rayon")]
+    #[arg(long, value_enum, default_value = "smol")]
     engine: EngineType,
 }
 
