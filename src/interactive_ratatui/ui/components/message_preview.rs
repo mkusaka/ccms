@@ -31,13 +31,6 @@ impl MessagePreview {
         }
     }
 
-    fn truncate_id(id: &str, max_len: usize) -> String {
-        if id.len() > max_len {
-            format!("{}...", &id[..max_len])
-        } else {
-            id.to_string()
-        }
-    }
 }
 
 impl Default for MessagePreview {
@@ -77,11 +70,11 @@ impl Component for MessagePreview {
                 ]),
                 Line::from(vec![
                     Span::styled("Message ID: ", Styles::label()),
-                    Span::raw(Self::truncate_id(&result.uuid, 20)),
+                    Span::raw(&result.uuid),
                 ]),
                 Line::from(vec![
                     Span::styled("Session ID: ", Styles::label()),
-                    Span::raw(Self::truncate_id(&result.session_id, 20)),
+                    Span::raw(&result.session_id),
                 ]),
                 Line::from("──────────────────────────────────"),
             ];

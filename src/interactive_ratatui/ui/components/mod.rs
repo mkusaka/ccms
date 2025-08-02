@@ -16,6 +16,8 @@ mod list_viewer_test;
 #[cfg(test)]
 mod message_detail_test;
 #[cfg(test)]
+mod message_preview_test;
+#[cfg(test)]
 mod result_list_test;
 #[cfg(test)]
 mod search_bar_test;
