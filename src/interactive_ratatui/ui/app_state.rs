@@ -93,12 +93,12 @@ impl AppState {
         match msg {
             Message::QueryChanged(q) => {
                 self.search.query = q;
-                self.ui.message = Some("typing...".to_string());
+                self.ui.message = Some("[typing...]".to_string());
                 Command::ScheduleSearch(300) // 300ms debounce
             }
             Message::SearchRequested => {
                 self.search.is_searching = true;
-                self.ui.message = Some("searching...".to_string());
+                self.ui.message = Some("[searching...]".to_string());
                 self.search.current_search_id += 1;
                 Command::ExecuteSearch
             }
@@ -245,6 +245,10 @@ impl AppState {
                     self.navigation_history
                         .update_current(self.create_navigation_state());
                 }
+                // Set searching state and message
+                self.search.is_searching = true;
+                self.ui.message = Some("[searching...]".to_string());
+                self.search.current_search_id += 1;
                 Command::ExecuteSearch
             }
             Message::ToggleSearchOrder => {
@@ -257,6 +261,10 @@ impl AppState {
                     self.navigation_history
                         .update_current(self.create_navigation_state());
                 }
+                // Set searching state and message
+                self.search.is_searching = true;
+                self.ui.message = Some("[searching...]".to_string());
+                self.search.current_search_id += 1;
                 // Re-execute the search with the new order to get different results
                 Command::ExecuteSearch
             }

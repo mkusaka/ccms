@@ -51,7 +51,7 @@ mod tests {
 
         assert_eq!(state.search.query, "hello world");
         assert!(matches!(command, Command::ScheduleSearch(300)));
-        assert_eq!(state.ui.message, Some("typing...".to_string()));
+        assert_eq!(state.ui.message, Some("[typing...]".to_string()));
     }
 
     #[test]
