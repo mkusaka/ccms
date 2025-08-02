@@ -1,7 +1,13 @@
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use anyhow::Result;
+#[cfg(feature = "profiling")]
+use ccms::profiling_enhanced;
 use ccms::{
-    SearchEngine, SearchOptions, default_claude_pattern, format_search_result,
-    interactive_ratatui::InteractiveSearch, parse_query, profiling,
+    RayonEngine, SearchEngineTrait, SearchOptions, SmolEngine, default_claude_pattern,
+    format_search_result, interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
@@ -92,6 +98,10 @@ struct Cli {
     /// Generate shell completion script
     #[arg(long = "completion", value_enum)]
     generator: Option<Shell>,
+
+    /// Search engine to use
+    #[arg(long, value_enum, default_value = "rayon")]
+    engine: EngineType,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -99,6 +109,12 @@ enum OutputFormat {
     Text,
     Json,
     JsonL,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum EngineType {
+    Smol,
+    Rayon,
 }
 
 fn print_completions<G: Generator>(generator: G, cmd: &mut Command) {
@@ -132,7 +148,7 @@ fn main() -> Result<()> {
     // Initialize profiler if requested
     #[cfg(feature = "profiling")]
     let mut profiler = if cli.profile.is_some() {
-        Some(profiling::Profiler::new()?)
+        Some(profiling_enhanced::EnhancedProfiler::new("main")?)
     } else {
         None
     };
@@ -206,9 +222,6 @@ fn main() -> Result<()> {
         eprintln!("Query: {query:?}");
     }
 
-    // Create search engine and search
-    let engine = SearchEngine::new(options);
-
     // Debug: only search specific file
     let debug_file = "/Users/masatomokusaka/.claude/projects/-Users-masatomokusaka-src-github-com-mkusaka-bookmark-agent/9ca2db47-82d6-4da7-998e-3d7cd28ce5b5.jsonl";
     let pattern_to_use = if std::env::var("DEBUG_SINGLE_FILE").is_ok() {
@@ -218,7 +231,28 @@ fn main() -> Result<()> {
         pattern
     };
 
-    let (results, duration, total_count) = engine.search(pattern_to_use, query)?;
+    // Execute search
+    if cli.verbose {
+        eprintln!(
+            "Using {} engine",
+            match cli.engine {
+                EngineType::Smol => "Smol",
+                EngineType::Rayon => "Rayon",
+            }
+        );
+    }
+
+    // Create appropriate engine based on CLI flag
+    let (results, duration, total_count) = match cli.engine {
+        EngineType::Smol => {
+            let engine = SmolEngine::new(options);
+            engine.search(pattern_to_use, query)?
+        }
+        EngineType::Rayon => {
+            let engine = RayonEngine::new(options);
+            engine.search(pattern_to_use, query)?
+        }
+    };
 
     // Output results
     let stdout = io::stdout();
@@ -289,8 +323,11 @@ fn main() -> Result<()> {
     #[cfg(feature = "profiling")]
     if let Some(ref mut profiler) = profiler {
         if let Some(profile_path) = &cli.profile {
-            profiler.report(profile_path)?;
-            eprintln!("Profiling report saved to {profile_path}.svg");
+            let report = profiler.generate_comprehensive_report(profile_path)?;
+            eprintln!("\n{report}");
+            eprintln!(
+                "\nDetailed profiling reports saved to {profile_path}_{{comprehensive.txt,svg}}"
+            );
         }
     }
 

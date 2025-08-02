@@ -394,7 +394,7 @@ fn benchmark_full_frame_rendering(c: &mut Criterion) {
     // Realistic long query typing simulation
     group.bench_function("render_typing_realistic", |b| {
         // Build complex query progressively as real users would type
-        let query_building = "SearchEngine AND (performance OR optimization) NOT deprecated /error.*handler/i session:12345";
+        let query_building = "SmolEngine AND (performance OR optimization) NOT deprecated /error.*handler/i session:12345";
         let queries: Vec<String> = query_building.chars()
             .scan(String::new(), |acc, ch| {
                 acc.push(ch);
@@ -556,7 +556,7 @@ fn benchmark_component_input_handling(c: &mut Criterion) {
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
         // Simulate real typing (character input, backspace, cursor movement)
-        let typing_sequence = "SearchEngine AND (performance OR optimization) NOT deprecated";
+        let typing_sequence = "SmolEngine AND (performance OR optimization) NOT deprecated";
         let mut key_events = Vec::new();
 
         // Type characters one by one

@@ -16,12 +16,13 @@ clap_complete = "4.5"
 
 # JSON parsing with SIMD acceleration
 simd-json = "0.15.1"
+sonic-rs = { version = "0.3" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # File system and path handling
 globset = "0.4"
-walkdir = "2.5"
+jwalk = "0.8"
 dirs = "6.0"
 
 # Regex and string matching
@@ -29,8 +30,8 @@ regex = "1.10"
 lru = "0.16"
 
 # Parallel processing
-rayon = "1.10"
 crossbeam = "0.8"
+rayon = "1.10"
 
 
 # Error handling
@@ -43,9 +44,6 @@ parse_datetime = "0.11"
 # Query parsing
 nom = "8.0"
 
-# Progress indication
-indicatif = "0.18"
-
 # Colored output
 colored = "3.0"
 
@@ -57,12 +55,19 @@ crossterm = "0.29"
 # Profiling and tracing
 pprof = { version = "0.15", features = ["flamegraph", "prost-codec"], optional = true }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-# Note: Tokio has been removed in favor of Smol for async operations
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 
 # Smol runtime
 smol = "2.0"
+async-fs = "2.1"
+futures-lite = "2.5"
+blocking = "1.6"
+
+# Performance optimizations
+num_cpus = "1.17"
+
+# Custom allocator for performance
+mimalloc = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
 codspeed-criterion-compat = "=3.0.5"
@@ -81,18 +86,37 @@ name = "large_file_benchmark"
 harness = false
 
 [[bench]]
-name = "realistic_benchmark"
+name = "interactive_ui_benchmark"
 harness = false
 
 [[bench]]
-name = "interactive_ui_benchmark"
+name = "async_benchmark"
 harness = false
+
+[[bench]]
+name = "smol_benchmark"
+harness = false
+
+[[bench]]
+name = "rayon_search_benchmark"
+harness = false
+
+[[bench]]
+name = "smol_search_benchmark"
+harness = false
+
+[[bench]]
+name = "engine_comparison_benchmark"
+harness = false
+
 
 [profile.release]
 lto = true
 codegen-units = 1
 opt-level = 3
+debug = true  # Enable debug symbols for better profiling
 
 [features]
-default = []
+default = ["mimalloc"]
 profiling = ["pprof"]
+mimalloc = ["dep:mimalloc"]

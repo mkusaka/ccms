@@ -1,4 +1,4 @@
-use ccms::{SearchEngine, SearchOptions, parse_query};
+use ccms::{SearchEngineTrait, SearchOptions, SmolEngine, parse_query};
 use codspeed_criterion_compat::{Criterion, black_box, criterion_group, criterion_main};
 use std::fs::File;
 use std::io::Write;
@@ -27,7 +27,7 @@ fn benchmark_simple_search(c: &mut Criterion) {
 
     c.bench_function("simple_search_1000", |b| {
         b.iter(|| {
-            let engine = SearchEngine::new(options.clone());
+            let engine = SmolEngine::new(options.clone());
             let (results, _, _) = engine.search(&test_file, black_box(query.clone())).unwrap();
             results
         });
@@ -41,7 +41,7 @@ fn benchmark_complex_search(c: &mut Criterion) {
 
     c.bench_function("complex_search_1000", |b| {
         b.iter(|| {
-            let engine = SearchEngine::new(options.clone());
+            let engine = SmolEngine::new(options.clone());
             let (results, _, _) = engine.search(&test_file, black_box(query.clone())).unwrap();
             results
         });
@@ -55,7 +55,7 @@ fn benchmark_regex_search(c: &mut Criterion) {
 
     c.bench_function("regex_search_1000", |b| {
         b.iter(|| {
-            let engine = SearchEngine::new(options.clone());
+            let engine = SmolEngine::new(options.clone());
             let (results, _, _) = engine.search(&test_file, black_box(query.clone())).unwrap();
             results
         });
@@ -69,7 +69,7 @@ fn benchmark_large_file_search(c: &mut Criterion) {
 
     c.bench_function("simple_search_10000", |b| {
         b.iter(|| {
-            let engine = SearchEngine::new(options.clone());
+            let engine = SmolEngine::new(options.clone());
             let (results, _, _) = engine.search(&test_file, black_box(query.clone())).unwrap();
             results
         });

@@ -1,17 +1,18 @@
 use crate::interactive_ratatui::domain::models::{SearchRequest, SearchResponse};
 use crate::query::condition::{QueryCondition, SearchResult};
-use crate::search::engine::SearchEngine;
+use crate::search::SmolEngine;
+use crate::search::engine::SearchEngineTrait;
 use crate::{SearchOptions, parse_query};
 use anyhow::Result;
 use std::sync::Arc;
 
 pub struct SearchService {
-    engine: Arc<SearchEngine>,
+    engine: Arc<SmolEngine>,
 }
 
 impl SearchService {
     pub fn new(options: SearchOptions) -> Self {
-        let engine = Arc::new(SearchEngine::new(options));
+        let engine = Arc::new(SmolEngine::new(options));
         Self { engine }
     }
 

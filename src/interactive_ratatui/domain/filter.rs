@@ -1,6 +1,7 @@
 use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
 #[cfg(test)]
 use crate::query::condition::SearchResult;
+use crate::query::fast_lowercase::FastLowercase;
 #[cfg(test)]
 use anyhow::Result;
 
@@ -17,7 +18,7 @@ impl SearchFilter {
 
     pub fn apply(&self, results: &mut Vec<SearchResult>) -> Result<()> {
         if let Some(role) = &self.role_filter {
-            results.retain(|result| result.role.to_lowercase() == role.to_lowercase());
+            results.retain(|result| result.role.fast_to_lowercase() == role.fast_to_lowercase());
         }
         Ok(())
     }
@@ -31,7 +32,7 @@ impl SessionFilter {
         query: &str,
         role_filter: &Option<String>,
     ) -> Vec<usize> {
-        let query_lower = query.to_lowercase();
+        let query_lower = query.fast_to_lowercase();
 
         items
             .iter()
@@ -39,7 +40,7 @@ impl SessionFilter {
             .filter(|(_, item)| {
                 // Apply role filter first
                 if let Some(role) = role_filter {
-                    if item.role.to_lowercase() != role.to_lowercase() {
+                    if item.role.fast_to_lowercase() != role.fast_to_lowercase() {
                         return false;
                     }
                 }
@@ -49,7 +50,7 @@ impl SessionFilter {
                     true
                 } else {
                     let search_text = item.to_search_text();
-                    search_text.to_lowercase().contains(&query_lower)
+                    search_text.fast_to_lowercase().contains(&query_lower)
                 }
             })
             .map(|(idx, _)| idx)
