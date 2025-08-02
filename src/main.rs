@@ -433,16 +433,29 @@ mod tests {
 
         // Empty string should be detected as empty
         assert!(empty_string.as_ref().map(|s| s.is_empty()).unwrap_or(false));
-        
+
         // Non-empty string should not be detected as empty
-        assert!(!non_empty_string.as_ref().map(|s| s.is_empty()).unwrap_or(false));
-        
+        assert!(
+            !non_empty_string
+                .as_ref()
+                .map(|s| s.is_empty())
+                .unwrap_or(false)
+        );
+
         // None should trigger the first condition (is_none())
         assert!(none_query.is_none());
-        
+
         // The combined condition used in main should be true for both None and empty string
         assert!(none_query.is_none() || none_query.as_ref().map(|s| s.is_empty()).unwrap_or(false));
-        assert!(empty_string.is_none() || empty_string.as_ref().map(|s| s.is_empty()).unwrap_or(false));
-        assert!(!(non_empty_string.is_none() || non_empty_string.as_ref().map(|s| s.is_empty()).unwrap_or(false)));
+        assert!(
+            empty_string.is_none() || empty_string.as_ref().map(|s| s.is_empty()).unwrap_or(false)
+        );
+        assert!(
+            !(non_empty_string.is_none()
+                || non_empty_string
+                    .as_ref()
+                    .map(|s| s.is_empty())
+                    .unwrap_or(false))
+        );
     }
 }
