@@ -29,10 +29,13 @@ pub trait SearchEngineTrait {
 
 /// Format a search result for display
 pub fn format_search_result(result: &SearchResult, use_color: bool, full_text: bool) -> String {
+    use chrono::{Local, TimeZone};
     use colored::Colorize;
 
     let timestamp = if let Ok(dt) = DateTime::parse_from_rfc3339(&result.timestamp) {
-        dt.format("%Y-%m-%d %H:%M:%S").to_string()
+        // Convert to local timezone
+        let local_dt = Local.from_utc_datetime(&dt.naive_utc());
+        local_dt.format("%Y-%m-%d %H:%M:%S").to_string()
     } else {
         result.timestamp.clone()
     };

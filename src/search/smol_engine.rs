@@ -15,7 +15,7 @@ use crate::schemas::SessionMessage;
 // Initialize blocking thread pool optimization
 static INIT: std::sync::Once = std::sync::Once::new();
 
-fn initialize_blocking_threads() {
+fn initialize_blocking_threads(verbose: bool) {
     INIT.call_once(|| {
         // Only set if not already set by user
         if std::env::var("BLOCKING_MAX_THREADS").is_err() {
@@ -23,7 +23,9 @@ fn initialize_blocking_threads() {
             unsafe {
                 std::env::set_var("BLOCKING_MAX_THREADS", cpu_count.to_string());
             }
-            eprintln!("Optimized BLOCKING_MAX_THREADS to {cpu_count} (CPU count)");
+            if verbose {
+                eprintln!("Optimized BLOCKING_MAX_THREADS to {cpu_count} (CPU count)");
+            }
         }
     });
 }
@@ -35,7 +37,7 @@ pub struct SmolEngine {
 impl SmolEngine {
     pub fn new(options: SearchOptions) -> Self {
         // Initialize blocking threads optimization on first use
-        initialize_blocking_threads();
+        initialize_blocking_threads(options.verbose);
         Self { options }
     }
 }
