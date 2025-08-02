@@ -2,7 +2,7 @@ use codspeed_criterion_compat::{Criterion, criterion_group, criterion_main, Benc
 use std::fs::File;
 use std::io::Write;
 use tempfile::tempdir;
-use ccms::{SearchEngine, SearchOptions, parse_query};
+use ccms::{SearchEngineTrait, SmolEngine, SearchOptions, parse_query};
 
 // Create test JSONL files for benchmarking
 fn create_test_jsonl(num_lines: usize, line_size: usize) -> (tempfile::TempDir, String) {
@@ -66,7 +66,7 @@ fn benchmark_smol_single_file(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let options = SearchOptions::default();
-                    let engine = SearchEngine::new(options);
+                    let engine = SmolEngine::new(options);
                     let query = parse_query("Message").unwrap();
                     let (results, _, _) = engine.search(&test_file, query).unwrap();
                     black_box(results);
@@ -90,7 +90,7 @@ fn benchmark_smol_multiple_files(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let options = SearchOptions::default();
-                    let engine = SearchEngine::new(options);
+                    let engine = SmolEngine::new(options);
                     let query = parse_query("Message").unwrap();
                     let (results, _, _) = engine.search(&pattern, query).unwrap();
                     black_box(results);
@@ -128,7 +128,7 @@ fn benchmark_smol_with_filters(c: &mut Criterion) {
     for (name, options) in filter_configs {
         group.bench_with_input(BenchmarkId::new("filter", name), &options, |b, opts| {
             b.iter(|| {
-                let engine = SearchEngine::new(opts.clone());
+                let engine = SmolEngine::new(opts.clone());
                 let query = parse_query("Message").unwrap();
                 let (results, _, _) = engine.search(&test_file, query).unwrap();
                 black_box(results);
@@ -162,7 +162,7 @@ fn benchmark_smol_blocking_threads(c: &mut Criterion) {
 
                 b.iter(|| {
                     let options = SearchOptions::default();
-                    let engine = SearchEngine::new(options);
+                    let engine = SmolEngine::new(options);
                     let query = parse_query("Message").unwrap();
                     let (results, _, _) = engine.search(&test_file, query).unwrap();
                     black_box(results);

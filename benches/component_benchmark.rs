@@ -1,4 +1,4 @@
-use ccms::{SearchEngine, SearchOptions, SessionMessage, parse_query};
+use ccms::{SearchEngineTrait, SmolEngine, SearchOptions, SessionMessage, parse_query};
 use codspeed_criterion_compat::{
     BenchmarkId, Criterion, black_box, criterion_group, criterion_main,
 };
@@ -249,7 +249,7 @@ fn benchmark_end_to_end(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("search", size), &pattern, |b, pattern| {
             b.iter(|| {
-                let engine = SearchEngine::new(options.clone());
+                let engine = SmolEngine::new(options.clone());
                 let (results, _, _) = engine.search(pattern, query.clone()).unwrap();
                 black_box(results.len())
             });

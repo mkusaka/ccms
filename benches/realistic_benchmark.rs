@@ -1,9 +1,11 @@
-use ccms::{SearchEngine, SearchOptions, parse_query};
-use codspeed_criterion_compat::{Criterion, black_box, criterion_group, criterion_main};
+use ccms::{SearchEngineTrait, SmolEngine, RayonEngine, SearchOptions, parse_query};
+use ccms::search::rayon_limited_engine::RayonLimitedEngine;
+use codspeed_criterion_compat::{Criterion, black_box, criterion_group, criterion_main, BenchmarkId};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use tempfile::TempDir;
+use std::process::Command;
 
 struct TestEnvironment {
     _temp_dir: TempDir,
@@ -46,6 +48,60 @@ impl TestEnvironment {
     }
 }
 
+// Benchmark cold start - simulates real CLI invocation
+fn benchmark_cold_start_cli(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cold_start_cli");
+    group.sample_size(10); // Fewer samples for process spawning
+    
+    for engine in ["smol", "rayon"] {
+        group.bench_with_input(
+            BenchmarkId::new("full_process", engine),
+            &engine,
+            |b, &engine| {
+                b.iter(|| {
+                    let output = Command::new("./target/release/ccms")
+                        .args(&["claude", "--engine", engine])
+                        .env("CCMS_NO_COLOR", "1") // Disable color for consistent output
+                        .output()
+                        .expect("Failed to execute command");
+                    black_box(output);
+                });
+            },
+        );
+    }
+    
+    group.finish();
+}
+
+// Benchmark engine startup overhead
+fn benchmark_startup_overhead(c: &mut Criterion) {
+    let mut group = c.benchmark_group("startup_overhead");
+    let options = SearchOptions::default();
+    
+    group.bench_function("smol_new", |b| {
+        b.iter(|| {
+            let engine = SmolEngine::new(options.clone());
+            black_box(engine);
+        });
+    });
+    
+    group.bench_function("rayon_new", |b| {
+        b.iter(|| {
+            let engine = RayonEngine::new(options.clone());
+            black_box(engine);
+        });
+    });
+    
+    group.bench_function("rayon_limited_new", |b| {
+        b.iter(|| {
+            let engine = RayonLimitedEngine::new(options.clone());
+            black_box(engine);
+        });
+    });
+    
+    group.finish();
+}
+
 fn benchmark_multi_file_search(c: &mut Criterion) {
     let env = TestEnvironment::new(10, 1000);
     let pattern = env._temp_dir.path().join("*.jsonl");
@@ -56,90 +112,161 @@ fn benchmark_multi_file_search(c: &mut Criterion) {
     // Simple search
     let query = parse_query("error").unwrap();
     let options = SearchOptions::default();
-    group.bench_function("simple_10x1000", |b| {
-        b.iter(|| {
-            let engine = SearchEngine::new(options.clone());
-            let (results, _, _) = engine
-                .search(&pattern_str, black_box(query.clone()))
-                .unwrap();
-            results
-        });
-    });
+    
+    group.bench_with_input(
+        BenchmarkId::new("smol", "simple_10x1000"),
+        &(&pattern_str, &query, &options),
+        |b, (pattern, query, options)| {
+            b.iter(|| {
+                let engine = SmolEngine::new((*options).clone());
+                let (results, _, _) = engine.search(pattern, (*query).clone()).unwrap();
+                black_box(results.len())
+            });
+        },
+    );
+    
+    group.bench_with_input(
+        BenchmarkId::new("rayon", "simple_10x1000"),
+        &(&pattern_str, &query, &options),
+        |b, (pattern, query, options)| {
+            b.iter(|| {
+                let engine = RayonEngine::new((*options).clone());
+                let (results, _, _) = engine.search(pattern, (*query).clone()).unwrap();
+                black_box(results.len())
+            });
+        },
+    );
 
     // Complex search
     let query = parse_query("error AND code").unwrap();
-    group.bench_function("complex_10x1000", |b| {
-        b.iter(|| {
-            let engine = SearchEngine::new(options.clone());
-            let (results, _, _) = engine
-                .search(&pattern_str, black_box(query.clone()))
-                .unwrap();
-            results
-        });
-    });
-
-    // Regex search
-    let query = parse_query("/error.*\\d+/i").unwrap();
-    group.bench_function("regex_10x1000", |b| {
-        b.iter(|| {
-            let engine = SearchEngine::new(options.clone());
-            let (results, _, _) = engine
-                .search(&pattern_str, black_box(query.clone()))
-                .unwrap();
-            results
-        });
-    });
+    
+    group.bench_with_input(
+        BenchmarkId::new("smol", "complex_10x1000"),
+        &(&pattern_str, &query, &options),
+        |b, (pattern, query, options)| {
+            b.iter(|| {
+                let engine = SmolEngine::new((*options).clone());
+                let (results, _, _) = engine.search(pattern, (*query).clone()).unwrap();
+                black_box(results.len())
+            });
+        },
+    );
+    
+    group.bench_with_input(
+        BenchmarkId::new("rayon", "complex_10x1000"),
+        &(&pattern_str, &query, &options),
+        |b, (pattern, query, options)| {
+            b.iter(|| {
+                let engine = RayonEngine::new((*options).clone());
+                let (results, _, _) = engine.search(pattern, (*query).clone()).unwrap();
+                black_box(results.len())
+            });
+        },
+    );
 
     group.finish();
 }
 
-fn benchmark_single_large_file(c: &mut Criterion) {
+// Benchmark first search (cold cache)
+fn benchmark_first_search(c: &mut Criterion) {
+    let mut group = c.benchmark_group("first_search");
+    
+    // Create a small test file
     let temp_dir = TempDir::new().unwrap();
-    let file_path = temp_dir.path().join("large.jsonl");
+    let file_path = temp_dir.path().join("test.jsonl");
     let mut file = File::create(&file_path).unwrap();
-
-    // Create 100k lines
-    for i in 0..100_000 {
-        let content = match i % 10 {
-            0 => format!("Error: Connection failed with code {i}"),
-            1 => format!("Warning: Deprecated function used in module {i}"),
-            2 => format!("Info: Processing request {i}"),
-            3 => format!("Debug: Variable value is {i}"),
-            4 => format!("Error: File not found at path {i}"),
-            5 => format!("Success: Operation completed for task {i}"),
-            6 => format!("Error: Invalid input parameter {i}"),
-            7 => format!("Info: Starting process {i}"),
-            8 => format!("Warning: Memory usage high for process {i}"),
-            _ => format!("Debug: Checkpoint reached at step {i}"),
-        };
-
+    
+    for i in 0..100 {
         writeln!(
             file,
-            r#"{{"type":"user","message":{{"role":"user","content":"{}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:{:02}Z","sessionId":"large","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#,
-            content, i, i % 60
+            r#"{{"type":"user","message":{{"role":"user","content":"Test message {}"}},"uuid":"{}","timestamp":"2024-01-01T00:00:00Z","sessionId":"test","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}}"#,
+            i, i
         ).unwrap();
     }
-
-    let file_str = file_path.to_string_lossy().to_string();
-    let mut group = c.benchmark_group("large_file");
-
-    // Search for "error" in 100k lines
-    let query = parse_query("error").unwrap();
+    
+    let pattern = file_path.to_str().unwrap();
+    let query = parse_query("test").unwrap();
     let options = SearchOptions::default();
-    group.bench_function("search_100k", |b| {
+    
+    // First search includes all initialization
+    group.bench_function("smol_cold", |b| {
         b.iter(|| {
-            let engine = SearchEngine::new(options.clone());
-            let (results, _, _) = engine.search(&file_str, black_box(query.clone())).unwrap();
-            results
+            let engine = SmolEngine::new(options.clone());
+            let (results, _, _) = engine.search(pattern, query.clone()).unwrap();
+            black_box(results.len())
         });
     });
+    
+    group.bench_function("rayon_cold", |b| {
+        b.iter(|| {
+            let engine = RayonEngine::new(options.clone());
+            let (results, _, _) = engine.search(pattern, query.clone()).unwrap();
+            black_box(results.len())
+        });
+    });
+    
+    group.finish();
+}
 
+// Benchmark with real-world query patterns
+fn benchmark_real_queries(c: &mut Criterion) {
+    let env = TestEnvironment::new(20, 500); // 20 files, 500 lines each
+    let pattern = env._temp_dir.path().join("*.jsonl");
+    let pattern_str = pattern.to_string_lossy().to_string();
+    
+    let mut group = c.benchmark_group("real_queries");
+    
+    let queries = vec![
+        ("simple", "error"),
+        ("phrase", "\"error code\""),
+        ("and", "error AND debug"),
+        ("or", "error OR warning OR info"),
+        ("not", "NOT test"),
+        ("complex", "(error OR warning) AND NOT test"),
+    ];
+    
+    let options = SearchOptions {
+        max_results: Some(50), // Real usage typically limits results
+        ..Default::default()
+    };
+    
+    for (name, query_str) in queries {
+        let query = parse_query(query_str).unwrap();
+        
+        group.bench_with_input(
+            BenchmarkId::new("smol", name),
+            &(&pattern_str, &query, &options),
+            |b, (pattern, query, options)| {
+                b.iter(|| {
+                    let engine = SmolEngine::new((*options).clone());
+                    let (results, _, _) = engine.search(pattern, (*query).clone()).unwrap();
+                    black_box(results.len())
+                });
+            },
+        );
+        
+        group.bench_with_input(
+            BenchmarkId::new("rayon", name),
+            &(&pattern_str, &query, &options),
+            |b, (pattern, query, options)| {
+                b.iter(|| {
+                    let engine = RayonEngine::new((*options).clone());
+                    let (results, _, _) = engine.search(pattern, (*query).clone()).unwrap();
+                    black_box(results.len())
+                });
+            },
+        );
+    }
+    
     group.finish();
 }
 
 criterion_group!(
     benches,
+    benchmark_startup_overhead,
+    benchmark_first_search,
     benchmark_multi_file_search,
-    benchmark_single_large_file
+    benchmark_real_queries,
+    benchmark_cold_start_cli
 );
 criterion_main!(benches);

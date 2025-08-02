@@ -31,6 +31,7 @@ lru = "0.16"
 
 # Parallel processing
 crossbeam = "0.8"
+rayon = "1.10"
 
 
 # Error handling
@@ -109,6 +110,14 @@ harness = false
 
 [[bench]]
 name = "smol_benchmark"
+harness = false
+
+[[bench]]
+name = "engine_comparison_benchmark"
+harness = false
+
+[[bench]]
+name = "profiled_benchmark"
 harness = false
 
 [profile.release]

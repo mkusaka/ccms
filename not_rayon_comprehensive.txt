@@ -1,0 +1,62 @@
+=== Enhanced Profiling Report: main ===
+Total runtime: 0.340s
+
+CPU Profiling Report (pprof)
+============================
+
+Top Functions by CPU Time:
+--------------------------
+  1.  43.45% (   617 samples, ~ 617.0ms) std::io::read_until
+  2.  37.75% (   536 samples, ~   0.0ms) rayon_registry::WorkerThread::wait_until_cold
+  3.  37.61% (   534 samples, ~ 101.0ms) <rayon_job::HeapJob<BODY> as rayon_job::Job>::execute
+  4.  36.62% (   520 samples, ~   0.0ms) std::sys::backtrace::__rust_begin_short_backtrace
+  5.  34.65% (   492 samples, ~   0.0ms) ops::function::FnOnce::call_once{{vtable.shim}}
+  6.  34.65% (   492 samples, ~   0.0ms) std::sys::pal::unix::thread::Thread::new::thread_start
+  7.  19.44% (   276 samples, ~ 259.0ms) _mi_find_page
+  8.   9.08% (   129 samples, ~  42.0ms) __mi_malloc_generic
+  9.   7.04% (   100 samples, ~ 100.0ms) _mi_page_fresh_alloc
+ 10.   6.62% (    94 samples, ~  20.0ms) <&mut sonic_rs::serde::de::Deserializer<R> as serde::de::Deserializer>::deserialize_any
+ 11.   5.77% (    82 samples, ~   0.0ms) _mi_heap_malloc_zero_aligned_at_generic
+ 12.   4.08% (    58 samples, ~   2.0ms) ccms::schemas::session_message::_::<impl serde::de::Deserialize for ccms::schemas::session_messag...
+ 13.   4.01% (    57 samples, ~   0.0ms) <rayon_job::StackJob<L,F,R> as rayon_job::Job>::execute
+ 14.   3.94% (    56 samples, ~   0.0ms) sonic_rs::serde::de::from_trait
+ 15.   3.45% (    49 samples, ~  12.0ms) ccms::query::condition::QueryCondition::evaluate
+ 16.   3.17% (    45 samples, ~  35.0ms) __mi_heap_realloc_zero
+ 17.   3.10% (    44 samples, ~   0.0ms) rayon_scope::scope::{{closure}}
+ 18.   2.68% (    38 samples, ~   1.0ms) alloc::raw_vec::finish_grow
+ 19.   2.54% (    36 samples, ~  25.0ms) sonic_rs::parser::Parser<R>::parse_string_escaped
+ 20.   2.54% (    36 samples, ~   0.0ms) <marker::PhantomData<T> as serde::de::DeserializeSeed>::deserialize
+ 21.   2.32% (    33 samples, ~  29.0ms) alloc::str::<impl str>::to_lowercase
+ 22.   2.32% (    33 samples, ~   9.0ms) ccms::main
+ 23.   2.25% (    32 samples, ~   6.0ms) <serde::__private::de::content::ContentDeserializer<E> as serde::de::Deserializer>::deserialize_any
+ 24.   2.25% (    32 samples, ~  32.0ms) _posix_spawnattr_set_qos_clamp_np
+ 25.   1.97% (    28 samples, ~   3.0ms) <serde::__private::de::content::ContentRefDeserializer<E> as serde::de::Deserializer>::deserializ...
+ 26.   1.97% (    28 samples, ~   0.0ms) rayon::iter::plumbing::bridge_unindexed_producer_consumer
+ 27.   1.97% (    28 samples, ~   0.0ms) _main
+ 28.   1.83% (    26 samples, ~   0.0ms) alloc::raw_vec::RawVecInner<A>::reserve::do_reserve_and_handle
+ 29.   1.83% (    26 samples, ~  25.0ms) slice::sort::stable::drift::sort
+ 30.   1.76% (    25 samples, ~   0.0ms) <serde::de::impls::OptionVisitor<T> as serde::de::Visitor>::visit_some
+ 31.   1.48% (    21 samples, ~   1.0ms) ccms::schemas::session_message::SessionMessage::get_searchable_text
+ 32.   1.41% (    20 samples, ~   7.0ms) alloc::str::join_generic_copy
+ 33.   1.41% (    20 samples, ~   3.0ms) <alloc::string::String as fmt::Write>::write_str.826
+ 34.   1.34% (    19 samples, ~  19.0ms) ptr::drop_in_place<ccms::query::condition::SearchResult>
+ 35.   1.27% (    18 samples, ~   1.0ms) <std::path::Display as fmt::Display>::fmt
+ 36.   1.13% (    16 samples, ~  16.0ms) _os_cpu_in_cksum_mbuf
+ 37.   0.99% (    14 samples, ~   0.0ms) <jwalk::WalkDirGeneric<C> as iter::traits::collect::IntoIterator>::into_iter::{{closure}}
+ 38.   0.99% (    14 samples, ~   0.0ms) <&rayon::iter::par_bridge::IterParallelProducer<Iter> as rayon::iter::plumbing::UnindexedProducer...
+ 39.   0.99% (    14 samples, ~   0.0ms) rayon_join::join_context::{{closure}}
+ 40.   0.92% (    13 samples, ~   0.0ms) std::sys::fs::read_dir
+ 41.   0.85% (    12 samples, ~   0.0ms) slice::sort::stable::driftsort_main
+ 42.   0.85% (    12 samples, ~   4.0ms) <serde::__private::de::content::Content as clone::Clone>::clone
+ 43.   0.85% (    12 samples, ~  12.0ms) _mi_malloc_aligned
+ 44.   0.77% (    11 samples, ~   0.0ms) alloc::raw_vec::RawVec<T,A>::grow_one
+ 45.   0.77% (    11 samples, ~   6.0ms) ccms::schemas::session_message::SessionMessage::get_content_text
+ 46.   0.70% (    10 samples, ~   8.0ms) slice::sort::stable::quicksort::quicksort
+ 47.   0.49% (     7 samples, ~   0.0ms) <serde::__private::de::content::ContentVisitor as serde::de::Visitor>::visit_seq
+ 48.   0.35% (     5 samples, ~   0.0ms) std::fs::OpenOptions::_open
+ 49.   0.28% (     4 samples, ~   4.0ms) sonic_rs::reader::Read::new
+ 50.   0.21% (     3 samples, ~   3.0ms) slice::sort::shared::pivot::median3_rec
+
+Total samples: 1420
+Sampling frequency: 1000 Hz
+Estimated CPU time: 1.420s

@@ -540,6 +540,7 @@ dependencies = [
  "parse_datetime",
  "pprof",
  "ratatui",
+ "rayon",
  "regex",
  "serde",
  "serde_json",

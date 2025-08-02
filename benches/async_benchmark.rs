@@ -1,5 +1,5 @@
 use codspeed_criterion_compat::{Criterion, criterion_group, criterion_main};
-use ccms::{SearchEngine, SearchOptions, parse_query};
+use ccms::{SearchEngineTrait, SmolEngine, SearchOptions, parse_query};
 use codspeed_criterion_compat::{BenchmarkId, black_box};
 use std::fs::File;
 use std::io::Write;
@@ -44,7 +44,7 @@ fn benchmark_async_search(c: &mut Criterion) {
                 b.iter(|| {
                     smol::block_on(ex.run(async {
                         let options = SearchOptions::default();
-                        let engine = SearchEngine::new(options);
+                        let engine = SmolEngine::new(options);
                         let query = parse_query("Message AND test").unwrap();
                         let (results, _, _) = engine.search(&test_file, query).unwrap();
                         black_box(results);
@@ -77,7 +77,7 @@ fn benchmark_query_complexity(c: &mut Criterion) {
             b.iter(|| {
                 smol::block_on(ex.run(async {
                     let options = SearchOptions::default();
-                    let engine = SearchEngine::new(options);
+                    let engine = SmolEngine::new(options);
                     let query = parse_query(q).unwrap();
                     let (results, _, _) = engine.search(&test_file, query).unwrap();
                     black_box(results);
@@ -102,7 +102,7 @@ fn benchmark_concurrent_search(c: &mut Criterion) {
                     let test_file = test_file.clone();
                     let task = ex.spawn(async move {
                         let options = SearchOptions::default();
-                        let engine = SearchEngine::new(options);
+                        let engine = SmolEngine::new(options);
                         let query = parse_query("Message").unwrap();
                         let (results, _, _) = engine.search(&test_file, query).unwrap();
                         black_box(results);
