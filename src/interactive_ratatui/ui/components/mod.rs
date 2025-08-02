@@ -2,6 +2,7 @@ pub mod help_dialog;
 pub mod list_item;
 pub mod list_viewer;
 pub mod message_detail;
+pub mod message_preview;
 pub mod result_list;
 pub mod search_bar;
 pub mod session_viewer;

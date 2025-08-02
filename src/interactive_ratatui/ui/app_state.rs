@@ -27,6 +27,7 @@ pub struct SearchState {
     pub is_searching: bool,
     pub current_search_id: u64,
     pub order: SearchOrder,
+    pub preview_enabled: bool,
 }
 
 pub struct SessionState {
@@ -68,6 +69,7 @@ impl AppState {
                 is_searching: false,
                 current_search_id: 0,
                 order: SearchOrder::Descending,
+                preview_enabled: true,
             },
             session: SessionState {
                 messages: Vec::new(),

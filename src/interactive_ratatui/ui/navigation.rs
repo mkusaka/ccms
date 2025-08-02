@@ -19,6 +19,7 @@ pub struct SearchStateSnapshot {
     pub scroll_offset: usize,
     pub role_filter: Option<String>,
     pub order: SearchOrder,
+    pub preview_enabled: bool,
 }
 
 /// Snapshot of session state
