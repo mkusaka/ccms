@@ -35,7 +35,7 @@ mod tests {
             let mut line = String::new();
             for x in 0..buffer.area.width {
                 let cell = buffer.cell((x, y)).unwrap();
-                line.push_str(&cell.symbol());
+                line.push_str(cell.symbol());
             }
             lines.push(line.trim_end().to_string());
         }
@@ -196,6 +196,6 @@ mod tests {
         // Check that unicode text is preserved
         // Note: TestBackend may render unicode characters with spaces between them
         assert!(content.contains("Unicode test"), 
-            "Expected to find unicode content, but got:\n{}", content);
+            "Expected to find unicode content, but got:\n{content}");
     }
 }
