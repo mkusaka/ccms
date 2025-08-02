@@ -23,7 +23,7 @@ use std::io::{self, Write};
     long_about = None
 )]
 struct Cli {
-    /// Search query (supports literal, regex, AND/OR/NOT operators)
+    /// Search query (supports literal, regex, AND/OR/NOT operators). If not provided, enters interactive mode.
     query: Option<String>,
 
     /// File pattern to search (default: ~/.claude/projects/**/*.jsonl)
@@ -77,10 +77,6 @@ struct Cli {
     /// Show raw JSON of matched messages
     #[arg(long)]
     raw: bool,
-
-    /// Interactive search mode (fzf-like)
-    #[arg(short = 'i', long)]
-    interactive: bool,
 
     /// Filter by working directory (cwd) path
     #[arg(long = "project")]
@@ -184,8 +180,8 @@ fn main() -> Result<()> {
     let default_pattern = default_claude_pattern();
     let pattern = cli.pattern.as_deref().unwrap_or(&default_pattern);
 
-    // Interactive mode or no query provided
-    if cli.interactive || cli.query.is_none() {
+    // Interactive mode when no query provided
+    if cli.query.is_none() {
         let options = SearchOptions {
             max_results: Some(cli.max_results), // Use the CLI value directly
             role: cli.role,
