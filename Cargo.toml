@@ -97,10 +97,6 @@ name = "component_benchmark"
 harness = false
 
 [[bench]]
-name = "async_benchmark"
-harness = false
-
-[[bench]]
 name = "large_file_benchmark"
 harness = false
 
@@ -110,10 +106,6 @@ harness = false
 
 [[bench]]
 name = "interactive_ui_benchmark"
-harness = false
-
-[[bench]]
-name = "rayon_vs_tokio_benchmark"
 harness = false
 
 [profile.release]

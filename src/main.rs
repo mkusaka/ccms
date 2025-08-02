@@ -301,8 +301,8 @@ fn main() -> Result<()> {
     if let Some(ref mut profiler) = profiler {
         if let Some(profile_path) = &cli.profile {
             let report = profiler.generate_comprehensive_report(profile_path)?;
-            eprintln!("\n{}", report);
-            eprintln!("\nDetailed profiling reports saved to {}_{{comprehensive.txt,svg}}", profile_path);
+            eprintln!("\n{report}");
+            eprintln!("\nDetailed profiling reports saved to {profile_path}_{{comprehensive.txt,svg}}");
         }
     }
 

@@ -384,6 +384,15 @@ impl SessionMessage {
 
         parts.join(" ")
     }
+
+    pub fn get_cwd(&self) -> Option<&str> {
+        match self {
+            SessionMessage::Summary { .. } => None,
+            SessionMessage::System { base, .. } => Some(&base.cwd),
+            SessionMessage::User { base, .. } => Some(&base.cwd),
+            SessionMessage::Assistant { base, .. } => Some(&base.cwd),
+        }
+    }
 }
 
 #[cfg(test)]

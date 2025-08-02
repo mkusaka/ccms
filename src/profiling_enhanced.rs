@@ -64,7 +64,7 @@ impl EnhancedProfiler {
             let pprof_report = guard.report().build()?;
             
             // Save flamegraph
-            let svg_file = std::fs::File::create(format!("{}.svg", output_path))?;
+            let svg_file = std::fs::File::create(format!("{output_path}.svg"))?;
             pprof_report.flamegraph(svg_file)?;
             
             // Generate text report
@@ -77,7 +77,7 @@ impl EnhancedProfiler {
         }
         
         // Save the comprehensive report
-        std::fs::write(format!("{}_comprehensive.txt", output_path), &report)?;
+        std::fs::write(format!("{output_path}_comprehensive.txt"), &report)?;
         
         Ok(report)
     }
@@ -98,7 +98,7 @@ impl EnhancedProfiler {
         for (frames, count) in report.data.iter() {
             // Look at all frames in the stack, not just the leaf
             for (depth, frame_id) in frames.frames.iter().enumerate() {
-                if let Some(frame) = frame_id.get(0) {
+                if let Some(frame) = frame_id.first() {
                     let function_name = frame.name();
                     
                     // Filter out system functions and focus on app code
@@ -132,7 +132,7 @@ impl EnhancedProfiler {
             }
             
             // Clean up function names for readability
-            let clean_name = self.clean_function_name(&function_name);
+            let clean_name = self.clean_function_name(function_name);
             
             output.push_str(&format!(
                 "{:3}. {:6.2}% ({:6} samples, ~{:>6.1}ms) {}\n",
@@ -144,8 +144,8 @@ impl EnhancedProfiler {
             ));
         }
         
-        output.push_str(&format!("\nTotal samples: {}\n", total_samples));
-        output.push_str(&format!("Sampling frequency: 1000 Hz\n"));
+        output.push_str(&format!("\nTotal samples: {total_samples}\n"));
+        output.push_str("Sampling frequency: 1000 Hz\n");
         output.push_str(&format!("Estimated CPU time: {:.3}s\n", 
             (total_samples as f64 * sample_period.as_secs_f64())));
         

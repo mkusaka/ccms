@@ -311,6 +311,15 @@ async fn search_file(
                             }
                         }
                         
+                        // Check project_path filter (matches against cwd field)
+                        if let Some(project_path) = &options_owned.project_path {
+                            if let Some(cwd) = message.get_cwd() {
+                                if !cwd.starts_with(project_path) {
+                                    continue;
+                                }
+                            }
+                        }
+                        
                         // Determine timestamp based on message type (matching Rayon logic)
                         let final_timestamp = message
                             .get_timestamp()
@@ -748,22 +757,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_project_path_extraction() -> Result<()> {
-        let project_path = SearchEngine::extract_project_path(Path::new(
-            "/home/user/.claude/projects/-Users-project-name/session.jsonl",
-        ));
-        assert_eq!(project_path, "/Users/project/name");
-
-        let project_path =
-            SearchEngine::extract_project_path(Path::new("/invalid/path/file.jsonl"));
-        assert_eq!(project_path, "path");
-
-        Ok(())
-    }
 
     #[test]
-    fn test_project_path_filter() -> Result<()> {
+    fn test_cwd_filter() -> Result<()> {
         let temp_dir = tempdir()?;
         let projects_dir = temp_dir.path().join(".claude").join("projects");
         std::fs::create_dir_all(&projects_dir)?;
@@ -781,13 +777,13 @@ mod tests {
         let mut f1 = File::create(&file1)?;
         writeln!(
             f1,
-            r#"{{"type":"user","message":{{"role":"user","content":"Project 1 message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+            r#"{{"type":"user","message":{{"role":"user","content":"Project 1 message"}},"uuid":"1","timestamp":"2024-01-01T00:00:00Z","sessionId":"s1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/project1","version":"1"}}"#
         )?;
 
         let mut f2 = File::create(&file2)?;
         writeln!(
             f2,
-            r#"{{"type":"user","message":{{"role":"user","content":"Project 2 message"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s2","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/","version":"1"}}"#
+            r#"{{"type":"user","message":{{"role":"user","content":"Project 2 message"}},"uuid":"2","timestamp":"2024-01-01T00:00:00Z","sessionId":"s2","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/project2","version":"1"}}"#
         )?;
 
         // Search with project filter

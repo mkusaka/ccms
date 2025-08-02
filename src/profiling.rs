@@ -56,7 +56,7 @@ impl Profiler {
         for (frames, count) in report.data.iter() {
             if let Some(frame) = frames.frames.last() {
                 let function_name = frame
-                    .get(0)
+                    .first()
                     .map(|s| s.name())
                     .unwrap_or("<unknown>".to_string());
                 *function_counts.entry(function_name).or_insert(0) += count;
