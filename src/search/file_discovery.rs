@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use dirs::home_dir;
 use globset::{Glob, GlobSet, GlobSetBuilder};
+use jwalk::WalkDir;
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
 
 pub struct FileDiscovery {
     glob_set: GlobSet,
@@ -28,28 +28,15 @@ impl FileDiscovery {
     }
 
     pub fn discover_files(&self, base_path: &Path) -> Result<Vec<PathBuf>> {
-        // For Claude projects pattern, use optimized discovery
-        if base_path.ends_with(".claude/projects") {
-            return self.discover_claude_project_files(base_path);
-        }
-
-        let mut files = Vec::new();
-
-        // Walk directory tree
-        for entry in WalkDir::new(base_path)
+        // Use jwalk for high-performance parallel file discovery
+        let mut files: Vec<PathBuf> = WalkDir::new(base_path)
+            .parallelism(jwalk::Parallelism::RayonNewPool(0)) // Use all CPUs
             .follow_links(true)
             .into_iter()
             .filter_map(|e| e.ok())
-        {
-            if entry.file_type().is_file() {
-                let path = entry.path();
-
-                // Check if path matches any glob pattern
-                if self.glob_set.is_match(path) {
-                    files.push(path.to_path_buf());
-                }
-            }
-        }
+            .filter(|e| e.file_type().is_file() && self.glob_set.is_match(e.path()))
+            .map(|e| e.path())
+            .collect();
 
         // Sort by modification time (newest first)
         files.sort_by_cached_key(|path| {
@@ -62,69 +49,6 @@ impl FileDiscovery {
         Ok(files)
     }
 
-    /// Optimized discovery for Claude project files
-    fn discover_claude_project_files(&self, base_path: &Path) -> Result<Vec<PathBuf>> {
-        // Read project directories directly
-        let entries: Vec<_> = std::fs::read_dir(base_path)
-            .context("Failed to read projects directory")?
-            .filter_map(|e| e.ok())
-            .collect();
-
-        // Process directories concurrently using Smol
-        let mut files: Vec<PathBuf> = smol::block_on(async {
-            use futures_lite::stream::{self, StreamExt};
-
-            // Create a stream of futures
-            let stream = stream::iter(entries).map(|entry| {
-                smol::spawn(async move {
-                    let path = entry.path();
-                    if path.is_dir() {
-                        // Use async-fs for async directory reading
-                        match async_fs::read_dir(&path).await {
-                            Ok(mut dir) => {
-                                let mut files = Vec::new();
-                                while let Some(entry) = dir.next().await {
-                                    if let Ok(entry) = entry {
-                                        let path = entry.path();
-                                        if path.extension()
-                                            .and_then(|ext| ext.to_str())
-                                            .map(|ext| ext == "jsonl")
-                                            .unwrap_or(false)
-                                        {
-                                            files.push(path);
-                                        }
-                                    }
-                                }
-                                files
-                            }
-                            Err(_) => vec![]
-                        }
-                    } else {
-                        vec![]
-                    }
-                })
-            });
-
-            // Collect all results
-            let mut all_files = Vec::new();
-            let mut stream = Box::pin(stream);
-            while let Some(task) = stream.next().await {
-                let files = task.await;
-                all_files.extend(files);
-            }
-            all_files
-        });
-
-        // Sort by modification time (newest first) - using standard sort
-        files.sort_by_cached_key(|path| {
-            std::fs::metadata(path)
-                .and_then(|m| m.modified())
-                .map(std::cmp::Reverse)
-                .ok()
-        });
-
-        Ok(files)
-    }
 }
 
 pub fn expand_tilde(path: &str) -> PathBuf {
