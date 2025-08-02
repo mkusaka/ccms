@@ -207,19 +207,15 @@ mod tests {
         // Toggle to preview on
         let command = state.update(Message::TogglePreview);
         assert!(state.search.preview_enabled);
-        assert_eq!(
-            state.ui.message,
-            Some("Split view: Preview ON".to_string())
-        );
+        // No status message should be set
+        assert_eq!(state.ui.message, None);
         assert!(matches!(command, Command::None));
 
         // Toggle back to preview off
         let command = state.update(Message::TogglePreview);
         assert!(!state.search.preview_enabled);
-        assert_eq!(
-            state.ui.message,
-            Some("Split view: Preview OFF".to_string())
-        );
+        // Still no status message
+        assert_eq!(state.ui.message, None);
         assert!(matches!(command, Command::None));
     }
 

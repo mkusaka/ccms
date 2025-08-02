@@ -264,12 +264,6 @@ impl AppState {
             }
             Message::TogglePreview => {
                 self.search.preview_enabled = !self.search.preview_enabled;
-                let status = if self.search.preview_enabled {
-                    "Preview ON"
-                } else {
-                    "Preview OFF"
-                };
-                self.ui.message = Some(format!("Split view: {status}"));
                 Command::None
             }
             Message::SessionQueryChanged(q) => {
