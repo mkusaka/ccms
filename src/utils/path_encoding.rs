@@ -43,10 +43,10 @@ pub fn file_belongs_to_project(file_path: &str, project_path: &str) -> bool {
         // Debug output
         if std::env::var("DEBUG_PATH_ENCODING").is_ok() {
             eprintln!("DEBUG PATH ENCODING:");
-            eprintln!("  file_path: {}", file_path);
-            eprintln!("  project_path: {}", project_path);
-            eprintln!("  extracted_project: {}", extracted_project);
-            eprintln!("  encoded_project: {}", encoded_project);
+            eprintln!("  file_path: {file_path}");
+            eprintln!("  project_path: {project_path}");
+            eprintln!("  extracted_project: {extracted_project}");
+            eprintln!("  encoded_project: {encoded_project}");
             eprintln!("  starts_with result: {}", extracted_project.starts_with(&encoded_project));
         }
         
