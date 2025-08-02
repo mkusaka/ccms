@@ -22,7 +22,7 @@ fn initialize_blocking_threads() {
             unsafe {
                 std::env::set_var("BLOCKING_MAX_THREADS", cpu_count.to_string());
             }
-            eprintln!("Optimized BLOCKING_MAX_THREADS to {} (CPU count)", cpu_count);
+            eprintln!("Optimized BLOCKING_MAX_THREADS to {cpu_count} (CPU count)");
         }
     });
 }
@@ -271,9 +271,9 @@ async fn search_file(
             }
             
             // Remove newline if present
-            if line_buffer.ends_with(&[b'\n']) {
+            if line_buffer.ends_with(b"\n") {
                 line_buffer.pop();
-                if line_buffer.ends_with(&[b'\r']) {
+                if line_buffer.ends_with(b"\r") {
                     line_buffer.pop();
                 }
             }

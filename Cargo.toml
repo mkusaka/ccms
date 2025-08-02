@@ -9,14 +9,6 @@ description = "High-performance CLI for searching Claude session JSONL files"
 name = "ccms"
 path = "src/main.rs"
 
-[[bin]]
-name = "perf_test"
-path = "src/bin/perf_test.rs"
-
-[[bin]]
-name = "perf_compare"
-path = "src/bin/perf_compare.rs"
-
 [dependencies]
 # CLI and argument parsing
 clap = { version = "4.5", features = ["derive", "env"] }
