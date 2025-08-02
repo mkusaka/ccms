@@ -5,6 +5,7 @@ pub mod profiling_enhanced;
 pub mod query;
 pub mod schemas;
 pub mod search;
+pub mod utils;
 
 pub use query::{QueryCondition, SearchOptions, SearchResult, parse_query};
 pub use schemas::{SessionMessage, ToolResult};
