@@ -1,13 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use super::super::message_preview::MessagePreview;
     use super::super::Component;
+    use super::super::message_preview::MessagePreview;
     use crate::query::condition::{QueryCondition, SearchResult};
     use crossterm::event::{KeyCode, KeyEvent};
-    use ratatui::{
-        backend::TestBackend,
-        Terminal,
-    };
+    use ratatui::{Terminal, backend::TestBackend};
 
     fn create_test_result() -> SearchResult {
         SearchResult {
@@ -167,11 +164,17 @@ mod tests {
 
         // Check that the text is wrapped (appears on multiple lines)
         let lines: Vec<&str> = content.lines().collect();
-        let message_lines: Vec<&str> = lines.iter()
-            .filter(|line| line.contains("wrapped") || line.contains("multiple") || line.contains("preview"))
+        let message_lines: Vec<&str> = lines
+            .iter()
+            .filter(|line| {
+                line.contains("wrapped") || line.contains("multiple") || line.contains("preview")
+            })
             .copied()
             .collect();
-        assert!(message_lines.len() > 1, "Long text should be wrapped to multiple lines");
+        assert!(
+            message_lines.len() > 1,
+            "Long text should be wrapped to multiple lines"
+        );
     }
 
     #[test]
@@ -195,7 +198,9 @@ mod tests {
 
         // Check that unicode text is preserved
         // Note: TestBackend may render unicode characters with spaces between them
-        assert!(content.contains("Unicode test"), 
-            "Expected to find unicode content, but got:\n{content}");
+        assert!(
+            content.contains("Unicode test"),
+            "Expected to find unicode content, but got:\n{content}"
+        );
     }
 }

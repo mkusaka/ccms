@@ -102,7 +102,11 @@ impl Renderer {
             self.result_list.set_preview_enabled(true);
 
             // Update preview state
-            let selected_result = state.search.results.get(state.search.selected_index).cloned();
+            let selected_result = state
+                .search
+                .results
+                .get(state.search.selected_index)
+                .cloned();
             self.message_preview.set_result(selected_result);
 
             // Render both components

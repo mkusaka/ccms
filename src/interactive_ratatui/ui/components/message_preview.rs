@@ -30,7 +30,6 @@ impl MessagePreview {
             timestamp.to_string()
         }
     }
-
 }
 
 impl Default for MessagePreview {
@@ -41,10 +40,8 @@ impl Default for MessagePreview {
 
 impl Component for MessagePreview {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .title("Preview");
-        
+        let block = Block::default().borders(Borders::ALL).title("Preview");
+
         let inner = block.inner(area);
         f.render_widget(block, area);
 
@@ -89,7 +86,7 @@ impl Component for MessagePreview {
             // Process message text with word wrapping
             let mut display_lines = Vec::new();
             let mut total_lines = 0;
-            
+
             for line in result.text.lines() {
                 if total_lines >= content_height.saturating_sub(1) {
                     // Leave room for "..." indicator
@@ -104,12 +101,12 @@ impl Component for MessagePreview {
                     let mut remaining = line;
                     while !remaining.is_empty() && total_lines < content_height.saturating_sub(1) {
                         let mut end_idx = remaining.len().min(content_width);
-                        
+
                         // Find safe break point at character boundary
                         while end_idx > 0 && !remaining.is_char_boundary(end_idx) {
                             end_idx -= 1;
                         }
-                        
+
                         // Try to break at word boundary
                         if end_idx < remaining.len() && end_idx > 0 {
                             if let Some(space_pos) = remaining[..end_idx].rfind(' ') {
@@ -118,7 +115,7 @@ impl Component for MessagePreview {
                                 }
                             }
                         }
-                        
+
                         display_lines.push(Line::from(&remaining[..end_idx]));
                         remaining = &remaining[end_idx..];
                         total_lines += 1;
@@ -127,16 +124,19 @@ impl Component for MessagePreview {
             }
 
             // Add truncation indicator if content was cut off
-            if total_lines >= content_height.saturating_sub(1) || 
-               result.text.lines().count() > display_lines.len() {
+            if total_lines >= content_height.saturating_sub(1)
+                || result.text.lines().count() > display_lines.len()
+            {
                 display_lines.push(Line::from(vec![
                     Span::styled("... ", Styles::dimmed()),
-                    Span::styled("(Enter for full view)", Styles::dimmed().add_modifier(ratatui::style::Modifier::ITALIC)),
+                    Span::styled(
+                        "(Enter for full view)",
+                        Styles::dimmed().add_modifier(ratatui::style::Modifier::ITALIC),
+                    ),
                 ]));
             }
 
-            let content = Paragraph::new(display_lines)
-                .wrap(Wrap { trim: true });
+            let content = Paragraph::new(display_lines).wrap(Wrap { trim: true });
             f.render_widget(content, chunks[1]);
         } else {
             // No result selected

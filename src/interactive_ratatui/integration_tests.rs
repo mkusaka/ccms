@@ -114,12 +114,12 @@ mod tests {
         // Count occurrences of key status bar elements
         let navigate_count = content.matches("Navigate").count();
         let filter_count = content.matches("Tab: Filter").count();
-        
+
         // With the new split layout, status bar may be truncated in narrow columns
         // So we check for presence of these key elements
         assert_eq!(navigate_count, 1, "Navigate should appear exactly once");
         assert_eq!(filter_count, 1, "Tab: Filter should appear exactly once");
-        
+
         // Note: "?: Help" might be truncated in the 40% width ResultList column
         // This is expected behavior with the new split-view layout
     }
@@ -1083,44 +1083,51 @@ mod tests {
     #[test]
     fn test_esc_closes_preview() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
-        
+
         // Add some search results
-        app.state.search.results = vec![
-            SearchResult {
-                file: "test.jsonl".to_string(),
-                uuid: "test-uuid".to_string(),
-                timestamp: "2024-01-01T12:00:00Z".to_string(),
-                session_id: "test-session".to_string(),
-                role: "user".to_string(),
-                text: "Test message".to_string(),
-                has_tools: false,
-                has_thinking: false,
-                message_type: "message".to_string(),
-                query: QueryCondition::Literal {
-                    pattern: "test".to_string(),
-                    case_sensitive: false,
-                },
-                cwd: "/test".to_string(),
-                raw_json: None,
-            }
-        ];
-        
+        app.state.search.results = vec![SearchResult {
+            file: "test.jsonl".to_string(),
+            uuid: "test-uuid".to_string(),
+            timestamp: "2024-01-01T12:00:00Z".to_string(),
+            session_id: "test-session".to_string(),
+            role: "user".to_string(),
+            text: "Test message".to_string(),
+            has_tools: false,
+            has_thinking: false,
+            message_type: "message".to_string(),
+            query: QueryCondition::Literal {
+                pattern: "test".to_string(),
+                case_sensitive: false,
+            },
+            cwd: "/test".to_string(),
+            raw_json: None,
+        }];
+
         // Initially preview should be disabled
         assert!(!app.state.search.preview_enabled);
-        
+
         // Toggle preview with Ctrl+T
-        app.handle_input(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL)).unwrap();
-        assert!(app.state.search.preview_enabled, "Preview should be enabled after Ctrl+T");
-        
+        app.handle_input(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL))
+            .unwrap();
+        assert!(
+            app.state.search.preview_enabled,
+            "Preview should be enabled after Ctrl+T"
+        );
+
         // Render to update the renderer state
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| {
-            app.renderer.render(f, &app.state);
-        }).unwrap();
-        
+        terminal
+            .draw(|f| {
+                app.renderer.render(f, &app.state);
+            })
+            .unwrap();
+
         // Press Esc to close preview
         app.handle_input(KeyEvent::from(KeyCode::Esc)).unwrap();
-        assert!(!app.state.search.preview_enabled, "Preview should be disabled after Esc");
+        assert!(
+            !app.state.search.preview_enabled,
+            "Preview should be disabled after Esc"
+        );
     }
 }
