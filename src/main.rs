@@ -33,7 +33,7 @@ struct Cli {
     session_id: Option<String>,
 
     /// Maximum number of results to return
-    #[arg(short = 'n', long, default_value = "50")]
+    #[arg(short = 'n', long, default_value = "200")]
     max_results: usize,
 
     /// Filter messages before this timestamp (RFC3339 format)

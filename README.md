@@ -156,7 +156,7 @@ ccms -i -n 100                               # Adjust result limit
 - All command-line filters (`--project`, `--since`, `--after`, `--before`, `-s`, etc.) are applied as base filters
 - The `-r` flag sets the initial role filter, but you can still cycle through roles with Tab
 - Filters persist throughout the interactive session
-- Results are limited by the `-n` flag (default: 50, but 20x more are loaded for scrolling)
+- Results are limited by the `-n` flag (default: 200, but 20x more are loaded for scrolling)
 
 **Result Actions:**
 - `Enter` - View message details
@@ -258,7 +258,7 @@ ccms -v "query"
 
 ### General Options
 - `-p, --pattern <PATTERN>` - File pattern to search (default: `~/.claude/projects/**/*.jsonl`)
-- `-n, --max-results <N>` - Maximum number of results to return (default: 50)
+- `-n, --max-results <N>` - Maximum number of results to return (default: 200)
 - `-f, --format <FORMAT>` - Output format: `text`, `json`, or `jsonl` (default: text)
 - `-v, --verbose` - Enable verbose output
 - `--no-color` - Disable colored output

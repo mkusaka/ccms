@@ -313,7 +313,7 @@ Applied before other filters in the search pipeline.
 
 ### Result Display
 
-- Default max_results: 50 (configurable via CLI)
+- Default max_results: 200 (configurable via CLI)
 - Maximum visible results in list view: dynamically calculated based on terminal height
 - Results list supports scrolling with:
   - ↑/↓: Move selection one item
