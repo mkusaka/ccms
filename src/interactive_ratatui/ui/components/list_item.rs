@@ -44,38 +44,26 @@ pub trait ListItem: Clone {
     fn create_full_lines(&self, max_width: usize, query: &str) -> Vec<Line<'static>>;
 
     /// Creates column data (text and style) for proper layout
-    fn create_column_data(&self, query: &str, truncate: bool, max_content_width: Option<usize>) -> (String, Style, String, Style, Vec<Span<'static>>) {
+    fn create_column_data(
+        &self,
+        query: &str,
+    ) -> (String, Style, String, Style, Vec<Span<'static>>) {
         let timestamp_text = self.format_timestamp();
         let timestamp_style = Style::default().fg(Color::DarkGray);
-        
+
         let role_text = self.get_role().to_string();
         let role_style = Style::default().fg(self.get_role_color());
-        
+
         let content = self.get_content().replace('\n', " ");
-        let content_spans = if truncate {
-            if let Some(max_width) = max_content_width {
-                let truncated = truncate_message(&content, max_width);
-                highlight_text(&truncated, query)
-            } else {
-                highlight_text(&content, query)
-            }
-        } else {
-            highlight_text(&content, query)
-        };
-        
-        (timestamp_text, timestamp_style, role_text, role_style, content_spans)
-    }
-}
+        let content_spans = highlight_text(&content, query);
 
-pub fn truncate_message(text: &str, max_width: usize) -> String {
-    let text = text.replace('\n', " ");
-    let chars: Vec<char> = text.chars().collect();
-
-    if chars.len() <= max_width {
-        text
-    } else {
-        let truncated: String = chars.into_iter().take(max_width - 3).collect();
-        format!("{truncated}...")
+        (
+            timestamp_text,
+            timestamp_style,
+            role_text,
+            role_style,
+            content_spans,
+        )
     }
 }
 

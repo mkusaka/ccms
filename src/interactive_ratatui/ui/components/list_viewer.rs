@@ -71,11 +71,12 @@ impl<T: ListItem> ListViewer<T> {
 
     /// Sync table_state with selected_index
     fn sync_table_state(&mut self) {
-        self.table_state.select(if self.filtered_indices.is_empty() {
-            None
-        } else {
-            Some(self.selected_index)
-        });
+        self.table_state
+            .select(if self.filtered_indices.is_empty() {
+                None
+            } else {
+                Some(self.selected_index)
+            });
     }
 
     pub fn set_items(&mut self, items: Vec<T>) {
@@ -399,9 +400,14 @@ impl<T: ListItem> ListViewer<T> {
                     self.items.get(item_idx).map(|item| {
                         if self.truncation_enabled {
                             // Use the new column-based approach
-                            let (timestamp_text, timestamp_style, role_text, role_style, content_spans) = 
-                                item.create_column_data(&self.query, true, Some(available_text_width));
-                            
+                            let (
+                                timestamp_text,
+                                timestamp_style,
+                                role_text,
+                                role_style,
+                                content_spans,
+                            ) = item.create_column_data(&self.query);
+
                             // Create cells for the table
                             Row::new(vec![
                                 Cell::from(Span::styled(timestamp_text, timestamp_style)),
@@ -413,9 +419,14 @@ impl<T: ListItem> ListViewer<T> {
                             let _lines = item.create_full_lines(available_text_width, &self.query);
                             // For now, just show the first line in table mode
                             // TODO: Handle multi-line content better
-                            let (timestamp_text, timestamp_style, role_text, role_style, content_spans) = 
-                                item.create_column_data(&self.query, false, None);
-                            
+                            let (
+                                timestamp_text,
+                                timestamp_style,
+                                role_text,
+                                role_style,
+                                content_spans,
+                            ) = item.create_column_data(&self.query);
+
                             Row::new(vec![
                                 Cell::from(Span::styled(timestamp_text, timestamp_style)),
                                 Cell::from(Span::styled(role_text, role_style)),
@@ -436,11 +447,11 @@ impl<T: ListItem> ListViewer<T> {
             end
         );
 
-        // Define column widths using the same constraints as the layout calculation
+        // Define column widths
         let widths = [
-            Constraint::Length(TIMESTAMP_COLUMN_WIDTH.saturating_sub(1)), // Account for spacing
-            Constraint::Length(ROLE_COLUMN_WIDTH.saturating_sub(1)),
-            Constraint::Min(MIN_MESSAGE_WIDTH),
+            Constraint::Length(13), // timestamp (14-1 for spacing)
+            Constraint::Length(9),  // role (10-1 for spacing)
+            Constraint::Min(20),    // content
         ];
 
         let table = Table::new(rows, widths)
@@ -449,7 +460,7 @@ impl<T: ListItem> ListViewer<T> {
             .row_highlight_style(
                 Style::default()
                     .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::BOLD),
             );
 
         f.render_stateful_widget(table, area, &mut self.table_state);
