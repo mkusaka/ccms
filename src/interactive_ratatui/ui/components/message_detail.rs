@@ -77,7 +77,10 @@ impl MessageDetail {
 
         // Format timestamp
         let timestamp = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&result.timestamp) {
-            dt.format("%Y-%m-%d %H:%M:%S %Z").to_string()
+            // Convert to local timezone
+            use chrono::{Local, TimeZone};
+            let local_dt = Local.from_utc_datetime(&dt.naive_utc());
+            local_dt.format("%Y-%m-%d %H:%M:%S %Z").to_string()
         } else {
             result.timestamp.clone()
         };

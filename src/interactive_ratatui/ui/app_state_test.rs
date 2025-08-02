@@ -51,7 +51,7 @@ mod tests {
 
         assert_eq!(state.search.query, "hello world");
         assert!(matches!(command, Command::ScheduleSearch(300)));
-        assert_eq!(state.ui.message, Some("typing...".to_string()));
+        assert_eq!(state.ui.message, Some("[typing...]".to_string()));
     }
 
     #[test]
@@ -198,28 +198,24 @@ mod tests {
     }
 
     #[test]
-    fn test_toggle_truncation() {
+    fn test_toggle_preview() {
         let mut state = create_test_state();
 
-        // Initial state should be truncated
-        assert!(state.ui.truncation_enabled);
+        // Initial state should have preview disabled
+        assert!(!state.search.preview_enabled);
 
-        // Toggle to full text
-        let command = state.update(Message::ToggleTruncation);
-        assert!(!state.ui.truncation_enabled);
-        assert_eq!(
-            state.ui.message,
-            Some("Message display: Full Text".to_string())
-        );
+        // Toggle to preview on
+        let command = state.update(Message::TogglePreview);
+        assert!(state.search.preview_enabled);
+        // No status message should be set
+        assert_eq!(state.ui.message, None);
         assert!(matches!(command, Command::None));
 
-        // Toggle back to truncated
-        let command = state.update(Message::ToggleTruncation);
-        assert!(state.ui.truncation_enabled);
-        assert_eq!(
-            state.ui.message,
-            Some("Message display: Truncated".to_string())
-        );
+        // Toggle back to preview off
+        let command = state.update(Message::TogglePreview);
+        assert!(!state.search.preview_enabled);
+        // Still no status message
+        assert_eq!(state.ui.message, None);
         assert!(matches!(command, Command::None));
     }
 

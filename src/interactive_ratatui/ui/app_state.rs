@@ -27,6 +27,7 @@ pub struct SearchState {
     pub is_searching: bool,
     pub current_search_id: u64,
     pub order: SearchOrder,
+    pub preview_enabled: bool,
 }
 
 pub struct SessionState {
@@ -68,6 +69,7 @@ impl AppState {
                 is_searching: false,
                 current_search_id: 0,
                 order: SearchOrder::Descending,
+                preview_enabled: false,
             },
             session: SessionState {
                 messages: Vec::new(),
@@ -93,12 +95,12 @@ impl AppState {
         match msg {
             Message::QueryChanged(q) => {
                 self.search.query = q;
-                self.ui.message = Some("typing...".to_string());
+                self.ui.message = Some("[typing...]".to_string());
                 Command::ScheduleSearch(300) // 300ms debounce
             }
             Message::SearchRequested => {
                 self.search.is_searching = true;
-                self.ui.message = Some("searching...".to_string());
+                self.ui.message = Some("[searching...]".to_string());
                 self.search.current_search_id += 1;
                 Command::ExecuteSearch
             }
@@ -245,6 +247,10 @@ impl AppState {
                     self.navigation_history
                         .update_current(self.create_navigation_state());
                 }
+                // Set searching state and message
+                self.search.is_searching = true;
+                self.ui.message = Some("[searching...]".to_string());
+                self.search.current_search_id += 1;
                 Command::ExecuteSearch
             }
             Message::ToggleSearchOrder => {
@@ -257,17 +263,15 @@ impl AppState {
                     self.navigation_history
                         .update_current(self.create_navigation_state());
                 }
+                // Set searching state and message
+                self.search.is_searching = true;
+                self.ui.message = Some("[searching...]".to_string());
+                self.search.current_search_id += 1;
                 // Re-execute the search with the new order to get different results
                 Command::ExecuteSearch
             }
-            Message::ToggleTruncation => {
-                self.ui.truncation_enabled = !self.ui.truncation_enabled;
-                let status = if self.ui.truncation_enabled {
-                    "Truncated"
-                } else {
-                    "Full Text"
-                };
-                self.ui.message = Some(format!("Message display: {status}"));
+            Message::TogglePreview => {
+                self.search.preview_enabled = !self.search.preview_enabled;
                 Command::None
             }
             Message::SessionQueryChanged(q) => {
@@ -377,9 +381,33 @@ impl AppState {
                                 let texts: Vec<String> = arr
                                     .iter()
                                     .filter_map(|item| {
-                                        item.get("text")
-                                            .and_then(|t| t.as_str())
-                                            .map(|s| s.to_string())
+                                        if let Some(item_type) =
+                                            item.get("type").and_then(|t| t.as_str())
+                                        {
+                                            match item_type {
+                                                "text" => item
+                                                    .get("text")
+                                                    .and_then(|t| t.as_str())
+                                                    .map(|s| s.to_string()),
+                                                "thinking" => item
+                                                    .get("thinking")
+                                                    .and_then(|t| t.as_str())
+                                                    .map(|s| s.to_string()),
+                                                "tool_use" => {
+                                                    let name = item
+                                                        .get("name")
+                                                        .and_then(|n| n.as_str())
+                                                        .unwrap_or("Tool");
+                                                    Some(format!("[Tool: {name}]"))
+                                                }
+                                                _ => None,
+                                            }
+                                        } else {
+                                            // Fallback for simple text
+                                            item.get("text")
+                                                .and_then(|t| t.as_str())
+                                                .map(|s| s.to_string())
+                                        }
                                     })
                                     .collect();
                                 texts.join(" ")
@@ -546,6 +574,7 @@ impl AppState {
                 scroll_offset: self.search.scroll_offset,
                 role_filter: self.search.role_filter.clone(),
                 order: self.search.order,
+                preview_enabled: self.search.preview_enabled,
             },
             session_state: SessionStateSnapshot {
                 messages: self.session.messages.clone(),
@@ -578,6 +607,7 @@ impl AppState {
         self.search.scroll_offset = state.search_state.scroll_offset;
         self.search.role_filter = state.search_state.role_filter.clone();
         self.search.order = state.search_state.order;
+        self.search.preview_enabled = state.search_state.preview_enabled;
 
         // Restore session state
         self.session.messages = state.session_state.messages.clone();

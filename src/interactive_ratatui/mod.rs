@@ -199,7 +199,7 @@ impl InteractiveSearch {
                 return Ok(false);
             }
             KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.handle_message(Message::ToggleTruncation);
+                self.handle_message(Message::TogglePreview);
                 return Ok(false);
             }
             // Navigation shortcuts with Alt modifier
@@ -259,6 +259,13 @@ impl InteractiveSearch {
             // Handle Ctrl+u/d for half-page scrolling
             KeyCode::Char('u') | KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
                 self.renderer.get_result_list_mut().handle_key(key)
+            }
+            KeyCode::Esc => {
+                // Try result list first (for closing preview), then fall back to search bar
+                self.renderer
+                    .get_result_list_mut()
+                    .handle_key(key)
+                    .or_else(|| self.renderer.get_search_bar_mut().handle_key(key))
             }
             _ => self.renderer.get_search_bar_mut().handle_key(key),
         }
