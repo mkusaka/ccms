@@ -426,7 +426,7 @@ mod tests {
                 scroll_offset: 0,
                 role_filter: None,
                 order: SearchOrder::Descending,
-                preview_enabled: true,
+                preview_enabled: false,
             },
             session_state: SessionStateSnapshot {
                 messages: Vec::new(),
@@ -463,7 +463,7 @@ mod tests {
                 scroll_offset: 0,
                 role_filter: None,
                 order: SearchOrder::Descending,
-                preview_enabled: true,
+                preview_enabled: false,
             },
             session_state: SessionStateSnapshot {
                 messages: Vec::new(),

@@ -201,24 +201,24 @@ mod tests {
     fn test_toggle_preview() {
         let mut state = create_test_state();
 
-        // Initial state should have preview enabled
-        assert!(state.search.preview_enabled);
-
-        // Toggle to preview off
-        let command = state.update(Message::TogglePreview);
+        // Initial state should have preview disabled
         assert!(!state.search.preview_enabled);
-        assert_eq!(
-            state.ui.message,
-            Some("Split view: Preview OFF".to_string())
-        );
-        assert!(matches!(command, Command::None));
 
-        // Toggle back to preview on
+        // Toggle to preview on
         let command = state.update(Message::TogglePreview);
         assert!(state.search.preview_enabled);
         assert_eq!(
             state.ui.message,
             Some("Split view: Preview ON".to_string())
+        );
+        assert!(matches!(command, Command::None));
+
+        // Toggle back to preview off
+        let command = state.update(Message::TogglePreview);
+        assert!(!state.search.preview_enabled);
+        assert_eq!(
+            state.ui.message,
+            Some("Split view: Preview OFF".to_string())
         );
         assert!(matches!(command, Command::None));
     }

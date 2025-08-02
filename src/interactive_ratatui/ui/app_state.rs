@@ -69,7 +69,7 @@ impl AppState {
                 is_searching: false,
                 current_search_id: 0,
                 order: SearchOrder::Descending,
-                preview_enabled: true,
+                preview_enabled: false,
             },
             session: SessionState {
                 messages: Vec::new(),
