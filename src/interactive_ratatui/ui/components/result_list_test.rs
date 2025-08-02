@@ -343,4 +343,22 @@ mod tests {
         assert!(content.contains("↑/↓ or Ctrl+P/N: Navigate"));
         assert!(content.contains("Ctrl+S: View full session"));
     }
+
+    #[test]
+    fn test_esc_key_preview() {
+        let mut list = ResultList::new();
+        list.set_results(vec![create_test_result("user", "Test message")]);
+
+        // Test Esc when preview is disabled - should bubble up
+        list.set_preview_enabled(false);
+        let key = KeyEvent::from(KeyCode::Esc);
+        let message = list.handle_key(key);
+        assert!(message.is_none());
+
+        // Test Esc when preview is enabled - should toggle preview
+        list.set_preview_enabled(true);
+        let key = KeyEvent::from(KeyCode::Esc);
+        let message = list.handle_key(key);
+        assert!(matches!(message, Some(Message::TogglePreview)));
+    }
 }

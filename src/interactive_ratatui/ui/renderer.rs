@@ -99,6 +99,7 @@ impl Renderer {
                 .set_selected_index(state.search.selected_index);
             self.result_list
                 .set_truncation_enabled(state.ui.truncation_enabled);
+            self.result_list.set_preview_enabled(true);
 
             // Update preview state
             let selected_result = state.search.results.get(state.search.selected_index).cloned();
@@ -114,6 +115,7 @@ impl Renderer {
                 .set_selected_index(state.search.selected_index);
             self.result_list
                 .set_truncation_enabled(state.ui.truncation_enabled);
+            self.result_list.set_preview_enabled(false);
             self.result_list.render(f, chunks[1]);
         }
 

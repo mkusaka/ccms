@@ -15,17 +15,23 @@ use ratatui::{
 #[derive(Default)]
 pub struct ResultList {
     list_viewer: ListViewer<SearchResult>,
+    preview_enabled: bool,
 }
 
 impl ResultList {
     pub fn new() -> Self {
         Self {
             list_viewer: ListViewer::new("Results".to_string(), "No results found".to_string()),
+            preview_enabled: false,
         }
     }
 
     pub fn set_results(&mut self, results: Vec<SearchResult>) {
         self.list_viewer.set_items(results);
+    }
+
+    pub fn set_preview_enabled(&mut self, enabled: bool) {
+        self.preview_enabled = enabled;
     }
 
     pub fn set_selected_index(&mut self, index: usize) {
@@ -170,6 +176,14 @@ impl Component for ResultList {
             }
             KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
                 Some(Message::TogglePreview) // Ctrl+T
+            }
+            KeyCode::Esc => {
+                // If preview is enabled, close it. Otherwise, let the event bubble up
+                if self.preview_enabled {
+                    Some(Message::TogglePreview)
+                } else {
+                    None
+                }
             }
             _ => None,
         }
