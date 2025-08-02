@@ -15,7 +15,7 @@ This document describes the performance optimizations implemented in CCMS.
 - **Impact**: Faster file access for large JSONL files
 
 ### 3. SIMD-Accelerated JSON Parsing
-- **Implementation**: Using `simd-json` for JSON parsing
+- **Implementation**: Using `sonic-rs` for JSON parsing
 - **Impact**: Hardware-accelerated JSON deserialization
 
 ### 4. Parallel File Processing

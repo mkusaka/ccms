@@ -114,7 +114,7 @@ The codebase is organized into five main modules:
 ### Key Design Patterns
 
 **Performance Optimizations**:
-- SIMD-accelerated JSON parsing with `simd-json`
+- SIMD-accelerated JSON parsing with `sonic-rs`
 - Parallel file processing using `rayon`
 - Memory-mapped file I/O for large files
 - Early filtering to minimize allocations
