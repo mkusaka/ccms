@@ -540,10 +540,6 @@ impl AppState {
             }
             Message::ToggleSessionPreview => {
                 self.session.preview_enabled = !self.session.preview_enabled;
-                let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-                    "ToggleSessionPreview: preview_enabled = {}",
-                    self.session.preview_enabled
-                ));
                 Command::None
             }
             Message::SetStatus(msg) => {
@@ -555,15 +551,8 @@ impl AppState {
                 Command::None
             }
             Message::EnterMessageDetailFromSession(raw_json, file_path, session_id) => {
-                let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-                    "EnterMessageDetailFromSession: raw_json length = {}",
-                    raw_json.len()
-                ));
                 // Parse the raw JSON to create a SearchResult
                 if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&raw_json) {
-                    let _ = crate::interactive_ratatui::debug::write_debug_log(
-                        "EnterMessageDetailFromSession: Successfully parsed JSON",
-                    );
                     let role = json_value
                         .get("type")
                         .and_then(|v| v.as_str())
@@ -678,27 +667,12 @@ impl AppState {
 
                     self.ui.selected_result = Some(result);
                     self.ui.detail_scroll_offset = 0;
-                    let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-                        "EnterMessageDetailFromSession: Setting mode to MessageDetail (was {:?})",
-                        self.mode
-                    ));
                     self.mode = Mode::MessageDetail;
-                    let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-                        "EnterMessageDetailFromSession: Mode is now {:?}",
-                        self.mode
-                    ));
 
                     // Save the new state after transitioning
                     let new_state = self.create_navigation_state();
                     self.navigation_history.push(new_state);
-                } else {
-                    let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-                        "EnterMessageDetailFromSession: Failed to parse JSON: {raw_json}"
-                    ));
                 }
-                let _ = crate::interactive_ratatui::debug::write_debug_log(
-                    "EnterMessageDetailFromSession: Returning Command::None",
-                );
                 Command::None
             }
             Message::NavigateBack => {
