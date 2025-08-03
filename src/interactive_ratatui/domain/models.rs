@@ -10,6 +10,13 @@ pub enum Mode {
     Help,
 }
 
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub enum SearchTab {
+    #[default]
+    Search,
+    SessionList,
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum SessionOrder {
     Ascending,

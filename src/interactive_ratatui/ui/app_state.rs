@@ -1,5 +1,5 @@
 use crate::interactive_ratatui::constants::*;
-use crate::interactive_ratatui::domain::models::{SearchOrder, SessionOrder};
+use crate::interactive_ratatui::domain::models::{SearchOrder, SearchTab, SessionOrder};
 use crate::interactive_ratatui::ui::commands::Command;
 use crate::interactive_ratatui::ui::events::Message;
 use crate::interactive_ratatui::ui::navigation::{
@@ -15,7 +15,27 @@ pub struct AppState {
     pub navigation_history: NavigationHistory,
     pub search: SearchState,
     pub session: SessionState,
+    pub session_list: SessionListState,
     pub ui: UiState,
+}
+
+pub struct SessionListState {
+    pub sessions: Vec<SessionInfo>,
+    pub selected_index: usize,
+    pub scroll_offset: usize,
+    pub is_loading: bool,
+    pub preview_enabled: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct SessionInfo {
+    pub file_path: String,
+    pub session_id: String,
+    pub timestamp: String,
+    pub message_count: usize,
+    pub first_message: String,
+    pub preview_messages: Vec<(String, String)>, // (role, content) pairs
+    pub summary: Option<String>,
 }
 
 pub struct SearchState {
@@ -28,6 +48,7 @@ pub struct SearchState {
     pub current_search_id: u64,
     pub order: SearchOrder,
     pub preview_enabled: bool,
+    pub current_tab: SearchTab,
 }
 
 pub struct SessionState {
@@ -72,6 +93,7 @@ impl AppState {
                 current_search_id: 0,
                 order: SearchOrder::Descending,
                 preview_enabled: false,
+                current_tab: SearchTab::Search,
             },
             session: SessionState {
                 messages: Vec::new(),
@@ -85,6 +107,13 @@ impl AppState {
                 session_id: None,
                 role_filter: None,
                 preview_enabled: false,
+            },
+            session_list: SessionListState {
+                sessions: Vec::new(),
+                selected_index: 0,
+                scroll_offset: 0,
+                is_loading: false,
+                preview_enabled: true, // Default to true for better UX
             },
             ui: UiState {
                 message: None,
@@ -278,6 +307,148 @@ impl AppState {
                 self.search.preview_enabled = !self.search.preview_enabled;
                 Command::None
             }
+            Message::SwitchToSearchTab => {
+                if self.mode == Mode::Search {
+                    self.search.current_tab = SearchTab::Search;
+                }
+                Command::None
+            }
+            Message::SwitchToSessionListTab => {
+                if self.mode == Mode::Search {
+                    self.search.current_tab = SearchTab::SessionList;
+                    // Load session list if not loaded yet
+                    if self.session_list.sessions.is_empty() && !self.session_list.is_loading {
+                        self.session_list.is_loading = true;
+                        Command::LoadSessionList
+                    } else {
+                        Command::None
+                    }
+                } else {
+                    Command::None
+                }
+            }
+            Message::LoadSessionList => {
+                self.session_list.is_loading = true;
+                Command::LoadSessionList
+            }
+            Message::SessionListLoaded(sessions) => {
+                self.session_list.sessions = sessions
+                    .into_iter()
+                    .map(
+                        |(
+                            file_path,
+                            session_id,
+                            timestamp,
+                            message_count,
+                            first_message,
+                            preview_messages,
+                            summary,
+                        )| {
+                            SessionInfo {
+                                file_path,
+                                session_id,
+                                timestamp,
+                                message_count,
+                                first_message,
+                                preview_messages,
+                                summary,
+                            }
+                        },
+                    )
+                    .collect();
+                self.session_list.is_loading = false;
+                self.session_list.selected_index = 0;
+                self.session_list.scroll_offset = 0;
+                Command::None
+            }
+            Message::SelectSessionFromList(index) => {
+                if index < self.session_list.sessions.len() {
+                    self.session_list.selected_index = index;
+                }
+                Command::None
+            }
+            Message::SessionListScrollUp => {
+                if self.session_list.selected_index > 0 {
+                    self.session_list.selected_index -= 1;
+                }
+                Command::None
+            }
+            Message::SessionListScrollDown => {
+                if self.session_list.selected_index + 1 < self.session_list.sessions.len() {
+                    self.session_list.selected_index += 1;
+                }
+                Command::None
+            }
+            Message::SessionListPageUp => {
+                // Move up by full page (default 30 lines)
+                let page_size = 30;
+                self.session_list.selected_index =
+                    self.session_list.selected_index.saturating_sub(page_size);
+                Command::None
+            }
+            Message::SessionListPageDown => {
+                // Move down by full page (default 30 lines)
+                let page_size = 30;
+                let max_index = self.session_list.sessions.len().saturating_sub(1);
+                self.session_list.selected_index =
+                    (self.session_list.selected_index + page_size).min(max_index);
+                Command::None
+            }
+            Message::SessionListHalfPageUp => {
+                // Move up by half page (default 15 lines)
+                let half_page = 15;
+                self.session_list.selected_index =
+                    self.session_list.selected_index.saturating_sub(half_page);
+                Command::None
+            }
+            Message::SessionListHalfPageDown => {
+                // Move down by half page (default 15 lines)
+                let half_page = 15;
+                let max_index = self.session_list.sessions.len().saturating_sub(1);
+                self.session_list.selected_index =
+                    (self.session_list.selected_index + half_page).min(max_index);
+                Command::None
+            }
+            Message::ToggleSessionListPreview => {
+                self.session_list.preview_enabled = !self.session_list.preview_enabled;
+                Command::None
+            }
+            Message::EnterSessionViewerFromList(file_path) => {
+                // Find the session info to get the session_id
+                if let Some(session_info) = self
+                    .session_list
+                    .sessions
+                    .iter()
+                    .find(|s| s.file_path == file_path)
+                {
+                    // If this is our first navigation, save the initial state
+                    if self.navigation_history.is_empty() {
+                        let initial_state = self.create_navigation_state();
+                        self.navigation_history.push(initial_state);
+                    } else {
+                        // Update the current state before transitioning
+                        if let Some(_current_pos) = self.navigation_history.current_position() {
+                            self.navigation_history
+                                .update_current(self.create_navigation_state());
+                        }
+                    }
+
+                    self.mode = Mode::SessionViewer;
+                    self.session.file_path = Some(file_path.clone());
+                    self.session.session_id = Some(session_info.session_id.clone());
+                    self.session.query.clear();
+                    self.session.selected_index = 0;
+                    self.session.scroll_offset = 0;
+
+                    // Save the new state after transitioning
+                    let new_state = self.create_navigation_state();
+                    self.navigation_history.push(new_state);
+
+                    Command::LoadSession(file_path)
+                } else {
+                    Command::None
+                }
+            }
             Message::SessionQueryChanged(q) => {
                 self.session.query = q;
                 // Trigger a new search with session_id filter
@@ -454,8 +625,6 @@ impl AppState {
                         session_id: session_id.unwrap_or_default(),
                         role,
                         text: content, // Store extracted content
-                        has_tools: json_value.get("toolResults").is_some(),
-                        has_thinking: false, // Not available from session viewer
                         message_type: "message".to_string(),
                         query: QueryCondition::Literal {
                             pattern: String::new(),
@@ -567,6 +736,7 @@ impl AppState {
                 role_filter: self.search.role_filter.clone(),
                 order: self.search.order,
                 preview_enabled: self.search.preview_enabled,
+                current_tab: self.search.current_tab,
             },
             session_state: SessionStateSnapshot {
                 messages: self.session.messages.clone(),
@@ -601,6 +771,7 @@ impl AppState {
         self.search.role_filter = state.search_state.role_filter.clone();
         self.search.order = state.search_state.order;
         self.search.preview_enabled = state.search_state.preview_enabled;
+        self.search.current_tab = state.search_state.current_tab;
 
         // Restore session state
         self.session.messages = state.session_state.messages.clone();

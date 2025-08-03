@@ -39,5 +39,5 @@ cobertura.xml
 .env
 .env.local
 
-# Debug logs
+# Debug log file
 debug.log

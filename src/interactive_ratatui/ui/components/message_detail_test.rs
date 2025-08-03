@@ -16,8 +16,6 @@ mod tests {
             timestamp: "2024-01-01T00:00:00Z".to_string(),
             role: "user".to_string(),
             text: "This is a test message".to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: "user".to_string(),
             query: QueryCondition::Literal {
                 pattern: String::new(),

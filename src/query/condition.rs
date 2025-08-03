@@ -1,7 +1,7 @@
 use super::fast_lowercase::FastLowercase;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum QueryCondition {
     Literal {
@@ -134,7 +134,7 @@ impl Default for SearchOptions {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SearchResult {
     pub file: String,
     pub uuid: String,
@@ -142,8 +142,6 @@ pub struct SearchResult {
     pub session_id: String,
     pub role: String,
     pub text: String,
-    pub has_tools: bool,
-    pub has_thinking: bool,
     pub message_type: String,
     pub query: QueryCondition,
     pub cwd: String,

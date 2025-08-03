@@ -260,8 +260,9 @@ impl Component for SessionViewer {
             // Calculate the actual number of lines with proper text wrapping
             let lines_needed = paragraph.line_count(area.width) as u16;
 
-            // Ensure minimum of 3 lines, max of 8 lines
-            lines_needed.clamp(3, 8)
+            // Ensure minimum of 1 line, max of 5 lines
+            // SessionViewer has longer status text than other components
+            lines_needed.clamp(1, 5)
         };
 
         // Check if message is exit prompt

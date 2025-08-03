@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use crate::interactive_ratatui::domain::models::{Mode, SearchOrder, SessionOrder};
+    use crate::interactive_ratatui::domain::models::{Mode, SearchOrder, SearchTab, SessionOrder};
     use crate::interactive_ratatui::ui::events::{CopyContent, Message};
     use crate::interactive_ratatui::ui::navigation::{
         NavigationHistory, NavigationState, SearchStateSnapshot, SessionStateSnapshot,
@@ -137,8 +137,6 @@ mod tests {
             session_id: "87654321-4321-8765-4321-876543218765".to_string(),
             role: "user".to_string(),
             text: "test".to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: "user".to_string(),
             query: QueryCondition::Literal {
                 pattern: "test".to_string(),
@@ -237,8 +235,6 @@ mod tests {
             session_id: "87654321-4321-8765-4321-876543218765".to_string(),
             role: role.to_string(),
             text: text.to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: role.to_string(),
             query: QueryCondition::Literal {
                 pattern: "test".to_string(),
@@ -427,6 +423,7 @@ mod tests {
                 role_filter: None,
                 order: SearchOrder::Descending,
                 preview_enabled: false,
+                current_tab: SearchTab::Search,
             },
             session_state: SessionStateSnapshot {
                 messages: Vec::new(),
@@ -465,6 +462,7 @@ mod tests {
                 role_filter: None,
                 order: SearchOrder::Descending,
                 preview_enabled: false,
+                current_tab: SearchTab::Search,
             },
             session_state: SessionStateSnapshot {
                 messages: Vec::new(),
@@ -1125,8 +1123,6 @@ mod tests {
             session_id: "test-session".to_string(),
             role: "user".to_string(),
             text: "Test message".to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: "message".to_string(),
             query: QueryCondition::Literal {
                 pattern: "test".to_string(),
@@ -1161,6 +1157,175 @@ mod tests {
         assert!(
             !app.state.search.preview_enabled,
             "Preview should be disabled after Esc"
+        );
+    }
+
+    #[test]
+    fn test_session_list_preview_toggle() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Properly switch to SessionList tab using the message system
+        app.handle_message(Message::SwitchToSessionListTab);
+
+        // Add some test sessions by updating the state
+        app.state.session_list.sessions = vec![
+            crate::interactive_ratatui::ui::app_state::SessionInfo {
+                file_path: "/path/to/session1.jsonl".to_string(),
+                session_id: "session-1".to_string(),
+                timestamp: "2024-01-01T12:00:00Z".to_string(),
+                message_count: 10,
+                first_message: "Hello from session 1".to_string(),
+                preview_messages: vec![],
+                summary: None,
+            },
+            crate::interactive_ratatui::ui::app_state::SessionInfo {
+                file_path: "/path/to/session2.jsonl".to_string(),
+                session_id: "session-2".to_string(),
+                timestamp: "2024-01-01T13:00:00Z".to_string(),
+                message_count: 20,
+                first_message: "Hello from session 2".to_string(),
+                preview_messages: vec![],
+                summary: None,
+            },
+        ];
+
+        // Mark loading as complete since we manually set the sessions
+        app.state.session_list.is_loading = false;
+
+        // Force a render to sync the renderer with the state
+        let backend = TestBackend::new(120, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
+
+        // Initially preview should be enabled by default
+        assert!(
+            app.state.session_list.preview_enabled,
+            "Preview should be enabled initially"
+        );
+
+        // Toggle preview with Ctrl+T
+        let result = app.handle_input(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL));
+        assert!(result.is_ok(), "handle_input should succeed");
+
+        // Sync renderer again after input
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
+
+        assert!(
+            !app.state.session_list.preview_enabled,
+            "Preview should be disabled after Ctrl+T"
+        );
+
+        // Toggle preview again to enable
+        app.handle_input(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL))
+            .unwrap();
+        assert!(
+            app.state.session_list.preview_enabled,
+            "Preview should be enabled after second Ctrl+T"
+        );
+    }
+
+    #[test]
+    fn test_session_list_navigation() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Switch to SessionList tab
+        app.state.search.current_tab =
+            crate::interactive_ratatui::domain::models::SearchTab::SessionList;
+
+        // Add multiple sessions
+        let mut sessions = Vec::new();
+        for i in 0..10 {
+            sessions.push(crate::interactive_ratatui::ui::app_state::SessionInfo {
+                file_path: format!("/path/to/session{i}.jsonl"),
+                session_id: format!("session-{i}"),
+                timestamp: format!("2024-01-01T{i:02}:00:00Z"),
+                message_count: i * 10,
+                first_message: format!("Hello from session {i}"),
+                preview_messages: vec![],
+                summary: None,
+            });
+        }
+        app.state.session_list.sessions = sessions;
+
+        // Initial position
+        assert_eq!(app.state.session_list.selected_index, 0);
+
+        // Navigate down
+        app.handle_input(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()))
+            .unwrap();
+        assert_eq!(app.state.session_list.selected_index, 1);
+
+        // Navigate up
+        app.handle_input(KeyEvent::new(KeyCode::Up, KeyModifiers::empty()))
+            .unwrap();
+        assert_eq!(app.state.session_list.selected_index, 0);
+
+        // Half-page down (Ctrl+D)
+        app.handle_input(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL))
+            .unwrap();
+        assert!(app.state.session_list.selected_index > 0);
+
+        // Half-page up (Ctrl+U)
+        app.handle_input(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL))
+            .unwrap();
+    }
+
+    #[test]
+    fn test_session_list_preview_rendering() {
+        let mut app = InteractiveSearch::new(SearchOptions::default());
+
+        // Switch to SessionList tab
+        app.state.search.current_tab =
+            crate::interactive_ratatui::domain::models::SearchTab::SessionList;
+
+        // Add test sessions
+        app.state.session_list.sessions =
+            vec![crate::interactive_ratatui::ui::app_state::SessionInfo {
+                file_path: "/path/to/session1.jsonl".to_string(),
+                session_id: "session-1".to_string(),
+                timestamp: "2024-01-01T12:00:00Z".to_string(),
+                message_count: 10,
+                first_message: "Hello from session 1".to_string(),
+                preview_messages: vec![
+                    ("user".to_string(), "Hello from session 1".to_string()),
+                    ("assistant".to_string(), "Hi! How can I help?".to_string()),
+                ],
+                summary: Some("Test session with summary".to_string()),
+            }];
+
+        // Enable preview
+        app.state.session_list.preview_enabled = true;
+
+        // Render and check that preview is displayed
+        let backend = TestBackend::new(120, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                app.renderer.render(f, &app.state);
+            })
+            .unwrap();
+
+        // Check that the preview contains session info
+        let buffer = terminal.backend().buffer();
+        let content = buffer
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+
+        assert!(
+            content.contains("Session Preview"),
+            "Should show Session Preview title"
+        );
+        assert!(content.contains("session-1"), "Should show session ID");
+        assert!(
+            content.contains("Hello from session 1"),
+            "Should show first message"
         );
     }
 }

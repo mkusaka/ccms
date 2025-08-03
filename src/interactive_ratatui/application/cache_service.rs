@@ -41,9 +41,7 @@ impl CacheService {
 
                 raw_lines.push(line.clone());
 
-                let mut json_bytes = line.as_bytes().to_vec();
-                if let Ok(message) = simd_json::serde::from_slice::<SessionMessage>(&mut json_bytes)
-                {
+                if let Ok(message) = sonic_rs::from_slice::<SessionMessage>(line.as_bytes()) {
                     messages.push(message);
                 }
             }

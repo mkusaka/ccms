@@ -429,7 +429,7 @@ ccms/
 
 This tool is optimized for maximum performance:
 
-- **SIMD JSON Parsing**: Uses simd-json for hardware-accelerated parsing
+- **SIMD JSON Parsing**: Uses sonic-rs for hardware-accelerated parsing
 - **Parallel Processing**: Leverages all CPU cores with Rayon
 - **Zero-Copy Design**: Minimizes allocations and string copies
 - **Smart Filtering**: Early termination and efficient predicate evaluation
@@ -496,6 +496,6 @@ MIT License - see [LICENSE](LICENSE) file for details
 ## Acknowledgments
 
 - Built with [nom](https://github.com/rust-bakery/nom) for parsing
-- Uses [simd-json](https://github.com/simd-lite/simd-json) for fast JSON parsing
+- Uses [sonic-rs](https://github.com/cloudwego/sonic-rs) for fast JSON parsing
 - Parallel processing powered by [rayon](https://github.com/rayon-rs/rayon)
 - Interactive UI built with [ratatui](https://github.com/ratatui-org/ratatui) and [crossterm](https://github.com/crossterm-rs/crossterm)

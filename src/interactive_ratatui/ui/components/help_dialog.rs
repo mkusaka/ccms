@@ -74,6 +74,8 @@ impl HelpDialog {
             Line::from("  Ctrl+S      - Jump directly to session viewer"),
             Line::from("  Tab         - Toggle role filter (user/assistant/system/summary)"),
             Line::from("  Ctrl+O      - Toggle sort order (newest/oldest first)"),
+            Line::from("  Shift+Tab   - Switch between Search/Session List tabs"),
+            Line::from("  Ctrl+←/→    - Navigate between tabs"),
             Line::from("  Esc         - Quit"),
             Line::from(""),
             Line::from(vec![Span::styled(

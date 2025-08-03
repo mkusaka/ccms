@@ -1,10 +1,15 @@
 use anyhow::{Context, Result};
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEvent, poll},
+    event::{self, KeyCode, KeyEvent, poll},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
+use signal_hook::{
+    consts::signal::{SIGCONT, SIGTSTP},
+    iterator::Signals,
+    low_level::raise,
+};
 use smol::channel::{Receiver, Sender};
 use std::io::{self, Stdout};
 use std::sync::Arc;
@@ -37,6 +42,12 @@ use self::ui::{
     renderer::Renderer,
 };
 
+// Event type that can handle both key events and signals
+enum Event {
+    Key(KeyEvent),
+    Signal(i32),
+}
+
 pub struct InteractiveSearch {
     state: AppState,
     renderer: Renderer,
@@ -44,6 +55,8 @@ pub struct InteractiveSearch {
     search_sender: Option<Sender<SearchRequest>>,
     search_receiver: Option<Receiver<SearchResponse>>,
     search_task: Option<smol::Task<()>>,
+    event_receiver: Option<Receiver<Event>>,
+    event_tasks: Vec<smol::Task<()>>,
     current_search_id: u64,
     last_search_timer: Option<std::time::Instant>,
     scheduled_search_delay: Option<u64>,
@@ -64,6 +77,8 @@ impl InteractiveSearch {
             search_sender: None,
             search_receiver: None,
             search_task: None,
+            event_receiver: None,
+            event_tasks: Vec::new(),
             current_search_id: 0,
             last_search_timer: None,
             scheduled_search_delay: None,
@@ -87,6 +102,11 @@ impl InteractiveSearch {
         self.pattern = pattern.to_string();
         let mut terminal = self.setup_terminal()?;
 
+        // Start event workers
+        let (event_rx, event_tasks) = self.start_event_workers();
+        self.event_receiver = Some(event_rx);
+        self.event_tasks = event_tasks;
+
         // Start search worker task
         let (tx, rx, task) = self.start_search_worker();
         self.search_sender = Some(tx);
@@ -99,8 +119,11 @@ impl InteractiveSearch {
 
         let result = self.run_app(&mut terminal, pattern).await;
 
-        // Clean up search task
+        // Clean up tasks
         if let Some(task) = self.search_task.take() {
+            task.cancel().await;
+        }
+        for task in self.event_tasks.drain(..) {
             task.cancel().await;
         }
 
@@ -163,20 +186,53 @@ impl InteractiveSearch {
                 }
             }
 
-            if poll(Duration::from_millis(EVENT_POLL_INTERVAL_MS))? {
-                if let Event::Key(key) = event::read()? {
-                    let should_quit = self.handle_input(key)?;
-                    if should_quit {
-                        break;
+            // Check for events (key presses or signals)
+            if let Some(event_receiver) = &self.event_receiver {
+                // Use try_recv to avoid blocking
+                match event_receiver.try_recv() {
+                    Ok(Event::Key(key)) => {
+                        let should_quit = self.handle_input(key)?;
+                        if should_quit {
+                            break;
+                        }
+                    }
+                    Ok(Event::Signal(SIGCONT)) => {
+                        // Terminal was resumed from background, reinitialize
+                        enable_raw_mode()?;
+                        execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+                        terminal.clear()?;
+                    }
+                    Ok(Event::Signal(_)) => {
+                        // Handle other signals if needed
+                    }
+                    Err(_) => {
+                        // No event available, continue
                     }
                 }
             }
+
+            // Small delay to prevent busy waiting
+            smol::Timer::after(Duration::from_millis(10)).await;
         }
         Ok(())
     }
 
     fn handle_input(&mut self, key: KeyEvent) -> Result<bool> {
         use crossterm::event::KeyModifiers;
+
+        // Handle Ctrl+Z for background suspend
+        if key.code == KeyCode::Char('z') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            // Cleanup terminal before suspending
+            disable_raw_mode()?;
+            execute!(io::stdout(), LeaveAlternateScreen)?;
+
+            // Raise SIGTSTP to actually suspend the process
+            raise(SIGTSTP)?;
+
+            // Process will be suspended here and resumed on SIGCONT
+            // The SIGCONT handler in run_app will re-initialize the terminal
+            return Ok(false);
+        }
 
         // Global Ctrl+C handling for exit
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
@@ -210,7 +266,14 @@ impl InteractiveSearch {
             KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 // Send appropriate preview message based on current mode
                 let message = match self.state.mode {
-                    Mode::Search => Message::TogglePreview,
+                    Mode::Search => {
+                        // Only handle global preview toggle when not in SessionList tab
+                        if self.state.search.current_tab != domain::models::SearchTab::SessionList {
+                            Message::TogglePreview
+                        } else {
+                            return Ok(false); // Let SessionList handle its own Ctrl+T
+                        }
+                    }
                     Mode::SessionViewer => Message::ToggleSessionPreview,
                     _ => return Ok(false), // No preview for other modes
                 };
@@ -249,11 +312,49 @@ impl InteractiveSearch {
     }
 
     fn handle_search_mode_input(&mut self, key: KeyEvent) -> Option<Message> {
+        use self::domain::models::SearchTab;
         use crossterm::event::KeyModifiers;
+
+        // Handle tab bar navigation first
+        if self.state.search.current_tab == SearchTab::Search {
+            // Check if tab bar can handle the key
+            if let Some(msg) = self.renderer.get_tab_bar_mut().handle_key(key) {
+                return Some(msg);
+            }
+        } else if self.state.search.current_tab == SearchTab::SessionList {
+            // In session list tab, handle specific keys
+            match key.code {
+                KeyCode::Tab => return Some(Message::SwitchToSearchTab),
+                KeyCode::Up
+                | KeyCode::Down
+                | KeyCode::Enter
+                | KeyCode::PageUp
+                | KeyCode::PageDown => {
+                    return self.renderer.get_session_list_mut().handle_key(key);
+                }
+                KeyCode::Char('s')
+                | KeyCode::Char('t')
+                | KeyCode::Char('u')
+                | KeyCode::Char('d')
+                    if key.modifiers.contains(KeyModifiers::CONTROL) =>
+                {
+                    return self.renderer.get_session_list_mut().handle_key(key);
+                }
+                _ => {}
+            }
+
+            // Let tab bar handle other keys
+            if let Some(msg) = self.renderer.get_tab_bar_mut().handle_key(key) {
+                return Some(msg);
+            }
+        }
 
         match key.code {
             // Skip Tab key processing if Ctrl is pressed (to allow Ctrl+I navigation)
-            KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+            KeyCode::Tab
+                if !key.modifiers.contains(KeyModifiers::CONTROL)
+                    && self.state.search.current_tab == SearchTab::Search =>
+            {
                 Some(Message::ToggleRoleFilter)
             }
             // Handle Ctrl+S specifically for session viewer
@@ -310,6 +411,9 @@ impl InteractiveSearch {
             }
             Command::LoadSession(file_path) => {
                 self.load_session_messages(&file_path);
+            }
+            Command::LoadSessionList => {
+                self.load_session_list().await;
             }
             Command::CopyToClipboard(content) => {
                 let (text, copy_message) = match content {
@@ -445,6 +549,60 @@ impl InteractiveSearch {
                 }
             }
         }
+    }
+
+    async fn load_session_list(&mut self) {
+        // Get list of all session files
+        let search_service = self.search_service.clone();
+
+        let sessions = blocking::unblock(move || search_service.get_all_sessions()).await;
+
+        match sessions {
+            Ok(session_list) => {
+                let msg = Message::SessionListLoaded(session_list);
+                self.handle_message(msg);
+            }
+            Err(e) => {
+                self.state.ui.message = Some(format!("Failed to load session list: {e}"));
+                self.state.session_list.is_loading = false;
+            }
+        }
+    }
+
+    fn start_event_workers(&self) -> (Receiver<Event>, Vec<smol::Task<()>>) {
+        let (tx, rx) = smol::channel::unbounded::<Event>();
+        let mut tasks = Vec::new();
+
+        // Spawn key event task
+        let key_tx = tx.clone();
+        let key_task = smol::spawn(async move {
+            loop {
+                // Check for key events every 50ms
+                if poll(Duration::from_millis(EVENT_POLL_INTERVAL_MS)).unwrap_or(false) {
+                    if let Ok(crossterm::event::Event::Key(key)) = event::read() {
+                        let _ = key_tx.send(Event::Key(key)).await;
+                    }
+                }
+                smol::Timer::after(Duration::from_millis(10)).await;
+            }
+        });
+        tasks.push(key_task);
+
+        // Spawn signal handler task using blocking thread
+        let signal_tx = tx;
+        let signal_task = smol::spawn(async move {
+            blocking::unblock(move || {
+                if let Ok(mut signals) = Signals::new([SIGCONT]) {
+                    for sig in signals.forever() {
+                        smol::block_on(signal_tx.send(Event::Signal(sig))).ok();
+                    }
+                }
+            })
+            .await
+        });
+        tasks.push(signal_task);
+
+        (rx, tasks)
     }
 
     fn start_search_worker(

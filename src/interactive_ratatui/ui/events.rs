@@ -1,3 +1,4 @@
+use crate::interactive_ratatui::application::search_service::SessionData;
 use crate::query::condition::SearchResult;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -10,7 +11,7 @@ pub enum CopyContent {
     FullMessageDetails(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Message {
     // Search events
     QueryChanged(String),
@@ -50,6 +51,23 @@ pub enum Message {
 
     // Display options
     TogglePreview,
+
+    // Tab navigation
+    SwitchToSearchTab,
+    SwitchToSessionListTab,
+
+    // Session list events
+    LoadSessionList,
+    SessionListLoaded(Vec<SessionData>), // (file_path, session_id, timestamp, message_count, first_message, preview_messages, summary)
+    SelectSessionFromList(usize),
+    SessionListScrollUp,
+    SessionListScrollDown,
+    SessionListPageUp,
+    SessionListPageDown,
+    SessionListHalfPageUp,
+    SessionListHalfPageDown,
+    ToggleSessionListPreview,
+    EnterSessionViewerFromList(String), // file_path
 
     // Clipboard
     CopyToClipboard(CopyContent),

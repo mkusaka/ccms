@@ -36,8 +36,6 @@ fn test_message_handling() {
         session_id: "test-session".to_string(),
         role: "user".to_string(),
         text: "test text".to_string(),
-        has_tools: false,
-        has_thinking: false,
         message_type: "user".to_string(),
         query: crate::query::condition::QueryCondition::Literal {
             pattern: "test".to_string(),
@@ -65,8 +63,6 @@ fn test_search_filter() {
             session_id: "session1".to_string(),
             role: "user".to_string(),
             text: "user message".to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: "user".to_string(),
             query: crate::query::condition::QueryCondition::Literal {
                 pattern: "test".to_string(),
@@ -82,8 +78,6 @@ fn test_search_filter() {
             session_id: "session1".to_string(),
             role: "assistant".to_string(),
             text: "assistant message".to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: "assistant".to_string(),
             query: crate::query::condition::QueryCondition::Literal {
                 pattern: "test".to_string(),
