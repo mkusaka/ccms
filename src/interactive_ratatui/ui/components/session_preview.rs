@@ -108,7 +108,7 @@ impl Component for SessionPreview {
                     
                     lines.push(Line::from(vec![
                         Span::styled(
-                            format!("{}: ", role),
+                            format!("{role}: "),
                             Style::default()
                                 .fg(role_color)
                                 .add_modifier(Modifier::BOLD),

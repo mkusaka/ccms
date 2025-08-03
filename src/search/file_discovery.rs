@@ -62,14 +62,12 @@ pub fn expand_tilde(path: &str) -> PathBuf {
 /// Normalize a project path to Claude's directory naming convention
 /// Claude replaces '/', '_', and '.' with '-' in project directory names
 pub fn normalize_claude_project_path(path: &str) -> String {
-    if path.starts_with('/') {
-        format!("-{}", &path[1..])
+    if let Some(stripped) = path.strip_prefix('/') {
+        format!("-{stripped}")
     } else {
         path.to_string()
     }
-    .replace('/', "-")
-    .replace('_', "-")
-    .replace('.', "-")
+    .replace(['/', '_', '.'], "-")
 }
 
 pub fn default_claude_pattern() -> String {
