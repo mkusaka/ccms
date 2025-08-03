@@ -458,7 +458,7 @@ impl InteractiveSearch {
         let signal_tx = tx;
         let signal_task = smol::spawn(async move {
             blocking::unblock(move || {
-                if let Ok(mut signals) = Signals::new(&[SIGCONT]) {
+                if let Ok(mut signals) = Signals::new([SIGCONT]) {
                     for sig in signals.forever() {
                         smol::block_on(signal_tx.send(Event::Signal(sig))).ok();
                     }
