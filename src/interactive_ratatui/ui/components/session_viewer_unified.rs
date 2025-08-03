@@ -137,7 +137,7 @@ impl SessionViewerUnified {
 
     fn render_content(&mut self, f: &mut Frame, area: Rect) {
         let _ = crate::interactive_ratatui::debug::write_debug_log(
-            &format!("SessionViewerUnified::render_content: area = {:?}", area)
+            &format!("SessionViewerUnified::render_content: area = {area:?}")
         );
         
         let chunks = Layout::default()
@@ -181,16 +181,11 @@ impl SessionViewerUnified {
 
             let info_text = if total_count == 0 {
                 format!(
-                    "No messages{}{} | Press '/' to search",
-                    order_part,
-                    role_part
+                    "No messages{order_part}{role_part} | Press '/' to search"
                 )
             } else {
                 format!(
-                    "Total: {} messages{}{} | Press '/' to search",
-                    total_count,
-                    order_part,
-                    role_part
+                    "Total: {total_count} messages{order_part}{role_part} | Press '/' to search"
                 )
             };
             let info_bar = Paragraph::new(info_text).block(Block::default().borders(Borders::ALL));
@@ -250,15 +245,7 @@ impl Component for SessionViewerUnified {
         let non_exit_message = if is_exit { None } else { self.message.clone() };
 
         // Layout with message area but WITHOUT status bar (ViewLayout will handle it)
-        let chunks = if is_exit {
-            Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Min(0),    // Main content
-                    Constraint::Length(1), // Exit prompt at bottom
-                ])
-                .split(area)
-        } else if non_exit_message.is_some() {
+        let chunks = if is_exit || non_exit_message.is_some() {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
@@ -332,7 +319,7 @@ impl Component for SessionViewerUnified {
                     
                     if let Some(result) = self.result_list.selected_result() {
                         let _ = crate::interactive_ratatui::debug::write_debug_log(
-                            &format!("SessionViewerUnified: Found selected result, sending EnterMessageDetailFromSession")
+                            "SessionViewerUnified: Found selected result, sending EnterMessageDetailFromSession"
                         );
                         Some(Message::EnterMessageDetailFromSession(
                             result.raw_json.clone().unwrap_or_default(),

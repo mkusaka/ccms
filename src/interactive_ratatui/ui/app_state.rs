@@ -491,7 +491,7 @@ impl AppState {
                     self.navigation_history.push(new_state);
                 } else {
                     let _ = crate::interactive_ratatui::debug::write_debug_log(
-                        &format!("EnterMessageDetailFromSession: Failed to parse JSON: {}", raw_json)
+                        &format!("EnterMessageDetailFromSession: Failed to parse JSON: {raw_json}")
                     );
                 }
                 let _ = crate::interactive_ratatui::debug::write_debug_log(
