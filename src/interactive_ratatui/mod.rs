@@ -269,20 +269,24 @@ impl InteractiveSearch {
                     Mode::Search => {
                         // Only handle global preview toggle when not in SessionList tab
                         if self.state.search.current_tab != domain::models::SearchTab::SessionList {
-                            Message::TogglePreview
+                            Some(Message::TogglePreview)
                         } else {
-                            return Ok(false); // Let SessionList handle its own Ctrl+T
+                            None // Let SessionList handle its own Ctrl+T
                         }
                     }
-                    Mode::SessionViewer => Message::ToggleSessionPreview,
-                    _ => return Ok(false), // No preview for other modes
+                    Mode::SessionViewer => Some(Message::ToggleSessionPreview),
+                    _ => None, // No preview for other modes
                 };
-                let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-                    "Ctrl+T pressed in mode {:?}, sending {:?}",
-                    self.state.mode, message
-                ));
-                self.handle_message(message);
-                return Ok(false);
+                
+                if let Some(msg) = message {
+                    let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+                        "Ctrl+T pressed in mode {:?}, sending {:?}",
+                        self.state.mode, msg
+                    ));
+                    self.handle_message(msg);
+                    return Ok(false);
+                }
+                // If no message, let it flow through to component handlers
             }
             // Navigation shortcuts with Alt modifier
             KeyCode::Left if key.modifiers.contains(KeyModifiers::ALT) => {
