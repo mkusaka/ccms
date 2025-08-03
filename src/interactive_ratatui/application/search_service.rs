@@ -64,6 +64,8 @@ impl SearchService {
         let mut options = self.base_options.clone();
         if let Some(sid) = session_id {
             options.session_id = Some(sid);
+            // For session viewer, show all messages without limit
+            options.max_results = None;
         }
 
         // Create a new engine with the updated options
