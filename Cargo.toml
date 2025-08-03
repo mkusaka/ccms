@@ -28,11 +28,6 @@ dirs = "6.0"
 regex = "1.10"
 lru = "0.16"
 
-# Parallel processing
-crossbeam = "0.8"
-rayon = "1.10"
-
-
 # Error handling
 anyhow = "1.0"
 
