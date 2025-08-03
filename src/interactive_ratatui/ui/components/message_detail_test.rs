@@ -322,7 +322,7 @@ mod tests {
         assert!(content.contains("File:"));
         assert!(content.contains("CWD:"));
         assert!(content.contains("Session:"));
-        assert!(content.contains("UUID:"));
+        assert!(content.contains("Message ID:"));
 
         // With narrow width, long values might be truncated or on next lines
         // Just check that some parts of the values are present
@@ -526,7 +526,7 @@ mod tests {
         assert!(content.contains("Time:"));
         assert!(content.contains("File: /path/to/test.jsonl"));
         assert!(content.contains("CWD: /path/to/project"));
-        assert!(content.contains("UUID: 12345678-1234-5678-1234-567812345678"));
+        assert!(content.contains("Message ID: 12345678-1234-5678-1234-567812345678"));
         assert!(content.contains("Session: session-123"));
 
         // Shortcuts should be visible in the status bar
