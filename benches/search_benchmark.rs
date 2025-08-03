@@ -81,8 +81,7 @@ fn benchmark_json_parsing(c: &mut Criterion) {
 
     c.bench_function("json_parse_single", |b| {
         b.iter(|| {
-            let mut bytes = json_line.as_bytes().to_vec();
-            let _: ccms::SessionMessage = simd_json::serde::from_slice(&mut bytes).unwrap();
+            let _: ccms::SessionMessage = sonic_rs::from_slice(json_line.as_bytes()).unwrap();
         });
     });
 }

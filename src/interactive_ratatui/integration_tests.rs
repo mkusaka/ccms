@@ -137,8 +137,6 @@ mod tests {
             session_id: "87654321-4321-8765-4321-876543218765".to_string(),
             role: "user".to_string(),
             text: "test".to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: "user".to_string(),
             query: QueryCondition::Literal {
                 pattern: "test".to_string(),
@@ -237,8 +235,6 @@ mod tests {
             session_id: "87654321-4321-8765-4321-876543218765".to_string(),
             role: role.to_string(),
             text: text.to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: role.to_string(),
             query: QueryCondition::Literal {
                 pattern: "test".to_string(),
@@ -1094,8 +1090,6 @@ mod tests {
             session_id: "test-session".to_string(),
             role: "user".to_string(),
             text: "Test message".to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: "message".to_string(),
             query: QueryCondition::Literal {
                 pattern: "test".to_string(),

@@ -23,7 +23,7 @@ use std::io::{self, Write};
     long_about = None
 )]
 struct Cli {
-    /// Search query (supports literal, regex, AND/OR/NOT operators)
+    /// Search query (supports literal, regex, AND/OR/NOT operators). If not provided, enters interactive mode.
     query: Option<String>,
 
     /// File pattern to search (default: ~/.claude/projects/**/*.jsonl)
@@ -78,10 +78,6 @@ struct Cli {
     #[arg(long)]
     raw: bool,
 
-    /// Interactive search mode (fzf-like)
-    #[arg(short = 'i', long)]
-    interactive: bool,
-
     /// Filter by working directory (cwd) path
     #[arg(long = "project")]
     project_path: Option<String>,
@@ -100,7 +96,7 @@ struct Cli {
     generator: Option<Shell>,
 
     /// Search engine to use
-    #[arg(long, value_enum, default_value = "rayon")]
+    #[arg(long, value_enum, default_value = "smol")]
     engine: EngineType,
 }
 
@@ -184,8 +180,8 @@ fn main() -> Result<()> {
     let default_pattern = default_claude_pattern();
     let pattern = cli.pattern.as_deref().unwrap_or(&default_pattern);
 
-    // Interactive mode or no query provided
-    if cli.interactive || cli.query.is_none() {
+    // Interactive mode when no query provided or query is empty
+    if cli.query.is_none() || cli.query.as_ref().map(|s| s.is_empty()).unwrap_or(false) {
         let options = SearchOptions {
             max_results: Some(cli.max_results), // Use the CLI value directly
             role: cli.role,
@@ -427,5 +423,40 @@ mod tests {
         // Test invalid input
         let result = parse_since_time("invalid time");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_query_detection() {
+        // Test that empty string queries are detected correctly
+        let empty_string = Some(String::from(""));
+        let non_empty_string = Some(String::from("test"));
+        let none_query: Option<String> = None;
+
+        // Empty string should be detected as empty
+        assert!(empty_string.as_ref().map(|s| s.is_empty()).unwrap_or(false));
+
+        // Non-empty string should not be detected as empty
+        assert!(
+            !non_empty_string
+                .as_ref()
+                .map(|s| s.is_empty())
+                .unwrap_or(false)
+        );
+
+        // None should trigger the first condition (is_none())
+        assert!(none_query.is_none());
+
+        // The combined condition used in main should be true for both None and empty string
+        assert!(none_query.is_none() || none_query.as_ref().map(|s| s.is_empty()).unwrap_or(false));
+        assert!(
+            empty_string.is_none() || empty_string.as_ref().map(|s| s.is_empty()).unwrap_or(false)
+        );
+        assert!(
+            !(non_empty_string.is_none()
+                || non_empty_string
+                    .as_ref()
+                    .map(|s| s.is_empty())
+                    .unwrap_or(false))
+        );
     }
 }

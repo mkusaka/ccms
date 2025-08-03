@@ -59,18 +59,16 @@ fn benchmark_json_parsing(c: &mut Criterion) {
 
     let complex_json = r#"{"type":"assistant","message":{"id":"msg1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello world"},{"type":"tool_use","id":"tool1","name":"Bash","input":{"command":"ls -la"}}],"stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":100,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":50}},"uuid":"456","timestamp":"2024-01-01T00:00:01Z","sessionId":"s1","parentUuid":"123","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0","requestId":"req1"}"#;
 
-    group.bench_function("simd_json_simple", |b| {
+    group.bench_function("sonic_rs_simple", |b| {
         b.iter(|| {
-            let mut bytes = simple_json.as_bytes().to_vec();
-            let msg: SessionMessage = simd_json::serde::from_slice(&mut bytes).unwrap();
+            let msg: SessionMessage = sonic_rs::from_slice(simple_json.as_bytes()).unwrap();
             black_box(msg)
         });
     });
 
-    group.bench_function("simd_json_complex", |b| {
+    group.bench_function("sonic_rs_complex", |b| {
         b.iter(|| {
-            let mut bytes = complex_json.as_bytes().to_vec();
-            let msg: SessionMessage = simd_json::serde::from_slice(&mut bytes).unwrap();
+            let msg: SessionMessage = sonic_rs::from_slice(complex_json.as_bytes()).unwrap();
             black_box(msg)
         });
     });

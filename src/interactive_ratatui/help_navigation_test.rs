@@ -168,8 +168,6 @@ mod tests {
             session_id: "test-session".to_string(),
             role: "user".to_string(),
             text: "Test content".to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: "user".to_string(),
             query: QueryCondition::Literal {
                 pattern: "test".to_string(),

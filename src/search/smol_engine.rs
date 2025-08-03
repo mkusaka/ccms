@@ -11,6 +11,7 @@ use super::file_discovery::{discover_claude_files, expand_tilde};
 use crate::interactive_ratatui::domain::models::SearchOrder;
 use crate::query::{QueryCondition, SearchOptions, SearchResult};
 use crate::schemas::SessionMessage;
+use crate::utils::path_encoding;
 
 // Initialize blocking thread pool optimization
 static INIT: std::sync::Once = std::sync::Once::new();
@@ -346,7 +347,12 @@ async fn search_file(
                         if matches {
                             // Apply inline filters
                             if let Some(role) = &options_owned.role {
-                                if message.get_type() != role {
+                                // For summary messages, only match if explicitly filtering for "summary"
+                                if message.get_type() == "summary" {
+                                    if role != "summary" {
+                                        continue;
+                                    }
+                                } else if message.get_type() != role {
                                     continue;
                                 }
                             }
@@ -357,12 +363,11 @@ async fn search_file(
                                 }
                             }
 
-                            // Check project_path filter (matches against cwd field)
+                            // Check project_path filter (matches against file path)
                             if let Some(project_path) = &options_owned.project_path {
-                                if let Some(cwd) = message.get_cwd() {
-                                    if !cwd.starts_with(project_path) {
-                                        continue;
-                                    }
+                                let file_path_str = file_path_owned.to_string_lossy();
+                                if !path_encoding::file_belongs_to_project(&file_path_str, project_path) {
+                                    continue;
                                 }
                             }
 
@@ -387,8 +392,6 @@ async fn search_file(
                                 session_id: message.get_session_id().unwrap_or("").to_string(),
                                 role: message.get_type().to_string(),
                                 text: message.get_content_text(),
-                                has_tools: message.has_tool_use(),
-                                has_thinking: message.has_thinking(),
                                 message_type: message.get_type().to_string(),
                                 query: query_owned.clone(),
                                 cwd: message.get_cwd().unwrap_or("").to_string(),
@@ -1066,7 +1069,6 @@ mod tests {
         // The actual number of results depends on whether thinking content is searched
         assert!(!results.is_empty());
         // At least one message should have thinking or tools
-        assert!(results.iter().any(|r| r.has_thinking || r.has_tools));
 
         Ok(())
     }

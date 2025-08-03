@@ -11,6 +11,7 @@ use super::file_discovery::{discover_claude_files, expand_tilde};
 use crate::interactive_ratatui::domain::models::SearchOrder;
 use crate::query::{QueryCondition, SearchOptions, SearchResult};
 use crate::schemas::SessionMessage;
+use crate::utils::path_encoding;
 
 pub struct RayonEngine {
     options: SearchOptions,
@@ -290,7 +291,12 @@ pub(super) fn search_file(
                     if matches {
                         // Apply inline filters
                         if let Some(role) = &options.role {
-                            if message.get_type() != role {
+                            // For summary messages, only match if explicitly filtering for "summary"
+                            if message.get_type() == "summary" {
+                                if role != "summary" {
+                                    continue;
+                                }
+                            } else if message.get_type() != role {
                                 continue;
                             }
                         }
@@ -301,13 +307,11 @@ pub(super) fn search_file(
                             }
                         }
 
-                        // Check project_path filter (matches against cwd field)
+                        // Check project_path filter (matches against file path)
                         if let Some(project_path) = &options.project_path {
-                            if let Some(cwd) = message.get_cwd() {
-                                if !cwd.contains(project_path) {
-                                    continue;
-                                }
-                            } else {
+                            let file_path_str = file_path.to_string_lossy();
+                            if !path_encoding::file_belongs_to_project(&file_path_str, project_path)
+                            {
                                 continue;
                             }
                         }
@@ -327,9 +331,6 @@ pub(super) fn search_file(
                                 .unwrap_or_else(|| file_ctime.clone())
                         };
 
-                        let has_thinking = message.has_thinking();
-                        let has_tools = message.has_tool_use();
-
                         results.push(SearchResult {
                             timestamp,
                             role: message.get_type().to_string(),
@@ -339,8 +340,6 @@ pub(super) fn search_file(
                             session_id: message.get_session_id().unwrap_or("").to_string(),
                             query: query.clone(),
                             cwd: message.get_cwd().unwrap_or("").to_string(),
-                            has_thinking,
-                            has_tools,
                             message_type: message.get_type().to_string(),
                             raw_json: None,
                         });
