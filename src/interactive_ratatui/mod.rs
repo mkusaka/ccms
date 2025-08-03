@@ -327,27 +327,16 @@ impl InteractiveSearch {
             // In session list tab, handle specific keys
             match key.code {
                 KeyCode::Tab => return Some(Message::SwitchToSearchTab),
-                KeyCode::Up
-                | KeyCode::Down
-                | KeyCode::Enter
-                | KeyCode::PageUp
-                | KeyCode::PageDown => {
+                KeyCode::Esc => {
+                    // Let tab bar handle Esc to close the tab
+                    if let Some(msg) = self.renderer.get_tab_bar_mut().handle_key(key) {
+                        return Some(msg);
+                    }
+                }
+                // Let session list handle all other keys for search functionality
+                _ => {
                     return self.renderer.get_session_list_mut().handle_key(key);
                 }
-                KeyCode::Char('s')
-                | KeyCode::Char('t')
-                | KeyCode::Char('u')
-                | KeyCode::Char('d')
-                    if key.modifiers.contains(KeyModifiers::CONTROL) =>
-                {
-                    return self.renderer.get_session_list_mut().handle_key(key);
-                }
-                _ => {}
-            }
-
-            // Let tab bar handle other keys
-            if let Some(msg) = self.renderer.get_tab_bar_mut().handle_key(key) {
-                return Some(msg);
             }
         }
 

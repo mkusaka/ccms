@@ -329,6 +329,13 @@ impl AppState {
                         self.session_list.is_loading = true;
                         Command::LoadSessionList
                     } else {
+                        // Sessions are already loaded, ensure filtered_sessions is initialized
+                        if self.session_list.filtered_sessions.is_empty()
+                            && !self.session_list.sessions.is_empty()
+                        {
+                            self.session_list.filtered_sessions =
+                                self.session_list.sessions.clone();
+                        }
                         Command::None
                     }
                 } else {
@@ -367,27 +374,12 @@ impl AppState {
                 self.session_list.is_loading = false;
                 self.session_list.selected_index = 0;
                 self.session_list.scroll_offset = 0;
-                // Copy all sessions to filtered_sessions initially
+                // Initialize filtered_sessions with all sessions
                 self.session_list.filtered_sessions = self.session_list.sessions.clone();
-                Command::None
-            }
-            Message::SessionListQueryChanged(q) => {
-                self.session_list.query = q;
-                self.ui.message = Some("[typing...]".to_string());
-                Command::ScheduleSessionListSearch(300) // 300ms debounce
-            }
-            Message::SessionListSearchRequested => {
-                self.session_list.is_searching = true;
-                self.ui.message = Some("[searching...]".to_string());
-                self.session_list.current_search_id += 1;
-                Command::ExecuteSessionListSearch
-            }
-            Message::SessionListSearchCompleted(filtered_sessions) => {
-                self.session_list.filtered_sessions = filtered_sessions;
-                self.session_list.is_searching = false;
-                self.session_list.selected_index = 0;
-                self.session_list.scroll_offset = 0;
-                self.ui.message = None;
+                // Apply current query filter if any
+                if !self.session_list.query.is_empty() {
+                    self.filter_session_list();
+                }
                 Command::None
             }
             Message::SelectSessionFromList(index) => {
@@ -466,7 +458,8 @@ impl AppState {
                     self.mode = Mode::SessionViewer;
                     self.session.file_path = Some(file_path.clone());
                     self.session.session_id = Some(session_info.session_id.clone());
-                    self.session.query.clear();
+                    // Inherit query from SessionList
+                    self.session.query = self.session_list.query.clone();
                     self.session.selected_index = 0;
                     self.session.scroll_offset = 0;
 
@@ -487,6 +480,13 @@ impl AppState {
                 } else {
                     Command::None
                 }
+            }
+            Message::SessionListQueryChanged(q) => {
+                self.session_list.query = q;
+                self.session_list.is_searching = true;
+                self.filter_session_list();
+                self.session_list.is_searching = false;
+                Command::None
             }
             Message::SessionScrollUp => {
                 // Deprecated: Navigation is now handled internally by SessionViewer
@@ -838,5 +838,55 @@ impl AppState {
     fn set_mode(&mut self, mode: Mode) -> Command {
         self.mode = mode;
         self.initialize_mode()
+    }
+
+    // Filter session list based on query
+    pub fn filter_session_list(&mut self) {
+        if self.session_list.query.is_empty() {
+            // No filter, show all sessions
+            self.session_list.filtered_sessions = self.session_list.sessions.clone();
+        } else {
+            let query_lower = self.session_list.query.to_lowercase();
+
+            self.session_list.filtered_sessions = self
+                .session_list
+                .sessions
+                .iter()
+                .filter(|session| {
+                    // Check session ID
+                    if session.session_id.to_lowercase().contains(&query_lower) {
+                        return true;
+                    }
+
+                    // Check first message
+                    if session.first_message.to_lowercase().contains(&query_lower) {
+                        return true;
+                    }
+
+                    // Check summary
+                    if let Some(summary) = &session.summary {
+                        if summary.to_lowercase().contains(&query_lower) {
+                            return true;
+                        }
+                    }
+
+                    // Check preview messages
+                    for (_, content) in &session.preview_messages {
+                        if content.to_lowercase().contains(&query_lower) {
+                            return true;
+                        }
+                    }
+
+                    false
+                })
+                .cloned()
+                .collect();
+        }
+
+        // Reset selection if needed
+        if self.session_list.selected_index >= self.session_list.filtered_sessions.len() {
+            self.session_list.selected_index = 0;
+            self.session_list.scroll_offset = 0;
+        }
     }
 }

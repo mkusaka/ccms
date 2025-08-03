@@ -3,7 +3,6 @@ use crate::query::condition::{QueryCondition, SearchResult};
 use crate::search::SmolEngine;
 use crate::search::engine::SearchEngineTrait;
 use crate::search::file_discovery::discover_claude_files;
-use crate::utils::path_encoding::encode_project_path;
 use crate::{SearchOptions, parse_query};
 use anyhow::Result;
 
@@ -107,17 +106,20 @@ impl SearchService {
         let mut sessions: Vec<SessionData> = Vec::new();
 
         // Use discover_claude_files to find all session files
+        let all_files = discover_claude_files(None)?;
+        
         let files = if let Some(ref project_path) = self.base_options.project_path {
-            // When project_path is specified, look for Claude sessions for that project
-            // Convert the project path to Claude's project directory format
-            let encoded_path = encode_project_path(project_path);
-
-            let claude_project_dir = format!("~/.claude/projects/{encoded_path}/**/*.jsonl");
-
-            discover_claude_files(Some(&claude_project_dir))?
+            // Filter files that belong to the specified project
+            use crate::utils::path_encoding::file_belongs_to_project;
+            all_files
+                .into_iter()
+                .filter(|path| {
+                    file_belongs_to_project(&path.to_string_lossy(), project_path)
+                })
+                .collect()
         } else {
-            // Use default pattern to find all sessions
-            discover_claude_files(None)?
+            // No filter, use all files
+            all_files
         };
 
         // Find all session files
