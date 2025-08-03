@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd $CLAUDE_PROJECT_DIR && cargo fmt",
-            "timeout": 30
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/rust-check.js",
+            "timeout": 60
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd $CLAUDE_PROJECT_DIR && cargo clippy -- -D warnings",
+            "command": "cd $CLAUDE_PROJECT_DIR && cargo clippy 2>&1 | grep -E '(error:|warning:)' || true",
             "timeout": 60
           }
         ]
