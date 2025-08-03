@@ -325,8 +325,7 @@ impl Component for SessionViewerUnified {
                     Some(Message::SessionQueryChanged(String::new()))
                 }
                 KeyCode::Enter => {
-                    self.is_searching = false;
-                    // Navigate to result detail for selected message
+                    // Navigate to result detail for selected message (keep search mode active)
                     if let Some(result) = self.result_list.selected_result() {
                         Some(Message::EnterMessageDetailFromSession(
                             result.raw_json.clone().unwrap_or_default(),
