@@ -142,8 +142,6 @@ pub struct SearchResult {
     pub session_id: String,
     pub role: String,
     pub text: String,
-    pub has_tools: bool,
-    pub has_thinking: bool,
     pub message_type: String,
     pub query: QueryCondition,
     pub cwd: String,
