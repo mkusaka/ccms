@@ -107,15 +107,13 @@ impl SearchService {
 
         // Use discover_claude_files to find all session files
         let all_files = discover_claude_files(None)?;
-        
+
         let files = if let Some(ref project_path) = self.base_options.project_path {
             // Filter files that belong to the specified project
             use crate::utils::path_encoding::file_belongs_to_project;
             all_files
                 .into_iter()
-                .filter(|path| {
-                    file_belongs_to_project(&path.to_string_lossy(), project_path)
-                })
+                .filter(|path| file_belongs_to_project(&path.to_string_lossy(), project_path))
                 .collect()
         } else {
             // No filter, use all files

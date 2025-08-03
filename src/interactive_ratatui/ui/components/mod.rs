@@ -27,6 +27,8 @@ mod result_list_test;
 mod search_bar_test;
 #[cfg(test)]
 mod session_list_test;
+#[cfg(test)]
+mod session_preview_test;
 // #[cfg(test)]
 // mod session_viewer_test; // Replaced by session_viewer_unified
 #[cfg(test)]

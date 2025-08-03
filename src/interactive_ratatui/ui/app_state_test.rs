@@ -3,7 +3,9 @@ mod tests {
     use super::super::app_state::*;
     use super::super::commands::Command;
     use super::super::events::{CopyContent, Message};
+    use crate::interactive_ratatui::domain::models::SearchTab;
     use crate::interactive_ratatui::domain::models::{Mode, SearchOrder, SessionOrder};
+    use crate::interactive_ratatui::ui::app_state::SessionInfo;
     use crate::query::condition::{QueryCondition, SearchResult};
 
     fn create_test_state() -> AppState {
@@ -385,5 +387,310 @@ mod tests {
         state.update(Message::ExitToSearch);
         assert_eq!(state.search.role_filter, Some("user".to_string()));
         assert_eq!(state.search.order, SearchOrder::Ascending);
+    }
+
+    fn create_test_session_info(id: &str, message: &str) -> SessionInfo {
+        SessionInfo {
+            file_path: format!("/test/{}.jsonl", id),
+            session_id: id.to_string(),
+            timestamp: "2024-01-01T00:00:00Z".to_string(),
+            message_count: 5,
+            first_message: message.to_string(),
+            preview_messages: vec![
+                ("user".to_string(), message.to_string()),
+                ("assistant".to_string(), format!("Response to {}", message)),
+            ],
+            summary: Some(format!("Summary about {}", message)),
+        }
+    }
+
+    #[test]
+    fn test_session_list_filtering() {
+        let mut state = create_test_state();
+
+        // Load test sessions
+        let sessions = vec![
+            create_test_session_info("session1", "Hello world"),
+            create_test_session_info("session2", "Goodbye world"),
+            create_test_session_info("session3", "Testing search"),
+        ];
+
+        state.update(Message::SessionListLoaded(
+            sessions
+                .into_iter()
+                .map(|s| {
+                    (
+                        s.file_path.clone(),
+                        s.session_id.clone(),
+                        s.timestamp.clone(),
+                        s.message_count,
+                        s.first_message.clone(),
+                        s.preview_messages.clone(),
+                        s.summary.clone(),
+                    )
+                })
+                .collect(),
+        ));
+
+        // Initially all sessions should be visible
+        assert_eq!(state.session_list.sessions.len(), 3);
+        assert_eq!(state.session_list.filtered_sessions.len(), 3);
+
+        // Filter by "world"
+        state.update(Message::SessionListQueryChanged("world".to_string()));
+        assert_eq!(state.session_list.query, "world");
+        assert_eq!(state.session_list.filtered_sessions.len(), 2);
+
+        // Verify correct sessions are filtered
+        assert!(
+            state
+                .session_list
+                .filtered_sessions
+                .iter()
+                .any(|s| s.session_id == "session1")
+        );
+        assert!(
+            state
+                .session_list
+                .filtered_sessions
+                .iter()
+                .any(|s| s.session_id == "session2")
+        );
+        assert!(
+            !state
+                .session_list
+                .filtered_sessions
+                .iter()
+                .any(|s| s.session_id == "session3")
+        );
+
+        // Filter by "Hello"
+        state.update(Message::SessionListQueryChanged("Hello".to_string()));
+        assert_eq!(state.session_list.filtered_sessions.len(), 1);
+        assert_eq!(
+            state.session_list.filtered_sessions[0].session_id,
+            "session1"
+        );
+
+        // Clear filter
+        state.update(Message::SessionListQueryChanged("".to_string()));
+        assert_eq!(state.session_list.filtered_sessions.len(), 3);
+    }
+
+    #[test]
+    fn test_session_list_query_inheritance() {
+        let mut state = create_test_state();
+
+        // Switch to SessionList tab
+        state.update(Message::SwitchToSessionListTab);
+        assert_eq!(state.search.current_tab, SearchTab::SessionList);
+
+        // Load test sessions
+        let sessions = vec![create_test_session_info("session1", "Test message")];
+
+        state.update(Message::SessionListLoaded(
+            sessions
+                .into_iter()
+                .map(|s| {
+                    (
+                        s.file_path.clone(),
+                        s.session_id.clone(),
+                        s.timestamp.clone(),
+                        s.message_count,
+                        s.first_message.clone(),
+                        s.preview_messages.clone(),
+                        s.summary.clone(),
+                    )
+                })
+                .collect(),
+        ));
+
+        // Set a search query that will match the session
+        state.update(Message::SessionListQueryChanged("test".to_string()));
+        assert_eq!(state.session_list.query, "test");
+
+        // Enter session viewer
+        let command = state.update(Message::EnterSessionViewerFromList(
+            "/test/session1.jsonl".to_string(),
+        ));
+        assert_eq!(state.mode, Mode::SessionViewer);
+
+        // Query should be inherited
+        assert_eq!(state.session.query, "test");
+        assert!(matches!(command, Command::LoadSession(_)));
+    }
+
+    #[test]
+    fn test_session_list_navigation() {
+        let mut state = create_test_state();
+
+        // Load test sessions
+        let sessions = vec![
+            create_test_session_info("session1", "First"),
+            create_test_session_info("session2", "Second"),
+            create_test_session_info("session3", "Third"),
+        ];
+
+        state.update(Message::SessionListLoaded(
+            sessions
+                .into_iter()
+                .map(|s| {
+                    (
+                        s.file_path.clone(),
+                        s.session_id.clone(),
+                        s.timestamp.clone(),
+                        s.message_count,
+                        s.first_message.clone(),
+                        s.preview_messages.clone(),
+                        s.summary.clone(),
+                    )
+                })
+                .collect(),
+        ));
+
+        assert_eq!(state.session_list.selected_index, 0);
+
+        // Navigate down
+        state.update(Message::SessionListScrollDown);
+        assert_eq!(state.session_list.selected_index, 1);
+
+        state.update(Message::SessionListScrollDown);
+        assert_eq!(state.session_list.selected_index, 2);
+
+        // Should not go beyond last item
+        state.update(Message::SessionListScrollDown);
+        assert_eq!(state.session_list.selected_index, 2);
+
+        // Navigate up
+        state.update(Message::SessionListScrollUp);
+        assert_eq!(state.session_list.selected_index, 1);
+
+        // Page navigation
+        state.update(Message::SessionListPageDown);
+        assert_eq!(state.session_list.selected_index, 2); // At the end
+
+        state.update(Message::SessionListPageUp);
+        assert_eq!(state.session_list.selected_index, 0); // Back to start
+    }
+
+    #[test]
+    fn test_session_list_filter_resets_selection() {
+        let mut state = create_test_state();
+
+        // Load test sessions
+        let sessions = vec![
+            create_test_session_info("session1", "First"),
+            create_test_session_info("session2", "Second"),
+            create_test_session_info("session3", "Third"),
+        ];
+
+        state.update(Message::SessionListLoaded(
+            sessions
+                .into_iter()
+                .map(|s| {
+                    (
+                        s.file_path.clone(),
+                        s.session_id.clone(),
+                        s.timestamp.clone(),
+                        s.message_count,
+                        s.first_message.clone(),
+                        s.preview_messages.clone(),
+                        s.summary.clone(),
+                    )
+                })
+                .collect(),
+        ));
+
+        // Select the third item
+        state.update(Message::SessionListScrollDown);
+        state.update(Message::SessionListScrollDown);
+        assert_eq!(state.session_list.selected_index, 2);
+
+        // Filter to show only first item
+        state.update(Message::SessionListQueryChanged("First".to_string()));
+
+        // Selection should reset to 0
+        assert_eq!(state.session_list.selected_index, 0);
+        assert_eq!(state.session_list.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_session_list_case_insensitive_search() {
+        let mut state = create_test_state();
+
+        // Load test sessions
+        let sessions = vec![
+            create_test_session_info("session1", "HELLO WORLD"),
+            create_test_session_info("session2", "hello world"),
+            create_test_session_info("session3", "HeLLo WoRLD"),
+        ];
+
+        state.update(Message::SessionListLoaded(
+            sessions
+                .into_iter()
+                .map(|s| {
+                    (
+                        s.file_path.clone(),
+                        s.session_id.clone(),
+                        s.timestamp.clone(),
+                        s.message_count,
+                        s.first_message.clone(),
+                        s.preview_messages.clone(),
+                        s.summary.clone(),
+                    )
+                })
+                .collect(),
+        ));
+
+        // Search with lowercase
+        state.update(Message::SessionListQueryChanged("hello".to_string()));
+        assert_eq!(state.session_list.filtered_sessions.len(), 3);
+
+        // Search with uppercase
+        state.update(Message::SessionListQueryChanged("WORLD".to_string()));
+        assert_eq!(state.session_list.filtered_sessions.len(), 3);
+    }
+
+    #[test]
+    fn test_session_list_search_in_summary() {
+        let mut state = create_test_state();
+
+        // Create session with unique text in summary
+        let mut session = create_test_session_info("session1", "Regular message");
+        session.summary = Some("Unique summary content".to_string());
+
+        state.update(Message::SessionListLoaded(vec![(
+            session.file_path.clone(),
+            session.session_id.clone(),
+            session.timestamp.clone(),
+            session.message_count,
+            session.first_message.clone(),
+            session.preview_messages.clone(),
+            session.summary.clone(),
+        )]));
+
+        // Search for text in summary
+        state.update(Message::SessionListQueryChanged("unique".to_string()));
+        assert_eq!(state.session_list.filtered_sessions.len(), 1);
+
+        // Search for text not in summary
+        state.update(Message::SessionListQueryChanged("notfound".to_string()));
+        assert_eq!(state.session_list.filtered_sessions.len(), 0);
+    }
+
+    #[test]
+    fn test_session_list_preview_toggle() {
+        let mut state = create_test_state();
+
+        // Preview should be enabled by default
+        assert!(state.session_list.preview_enabled);
+
+        // Toggle preview
+        state.update(Message::ToggleSessionListPreview);
+        assert!(!state.session_list.preview_enabled);
+
+        // Toggle back
+        state.update(Message::ToggleSessionListPreview);
+        assert!(state.session_list.preview_enabled);
     }
 }
