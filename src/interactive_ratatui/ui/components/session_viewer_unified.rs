@@ -365,11 +365,66 @@ impl Component for SessionViewerUnified {
                         self.result_list.get_scroll_offset(),
                     ))
                 }
+                KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.result_list.handle_key(key);
+                    Some(Message::SessionNavigated(
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
+                    ))
+                }
+                KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.result_list.handle_key(key);
+                    Some(Message::SessionNavigated(
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
+                    ))
+                }
+                KeyCode::PageUp | KeyCode::PageDown | KeyCode::Home | KeyCode::End => {
+                    self.result_list.handle_key(key);
+                    Some(Message::SessionNavigated(
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
+                    ))
+                }
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(Message::ToggleSessionRoleFilter)
                 }
                 KeyCode::Char('o') if key.modifiers == KeyModifiers::CONTROL => {
                     Some(Message::ToggleSessionOrder)
+                }
+                KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
+                    let _ = crate::interactive_ratatui::debug::write_debug_log(
+                        "SessionViewerUnified (searching): Ctrl+T pressed, sending ToggleSessionPreview"
+                    );
+                    Some(Message::ToggleSessionPreview)
+                }
+                // Copy shortcuts during search
+                KeyCode::Char('c') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.result_list.selected_result().map(|result| {
+                        Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))
+                    })
+                }
+                KeyCode::Char('C') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.result_list.selected_result().map(|result| {
+                        Message::CopyToClipboard(CopyContent::JsonData(
+                            result.raw_json.clone().unwrap_or_default()
+                        ))
+                    })
+                }
+                KeyCode::Char('i') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.session_id
+                        .clone()
+                        .map(|id| Message::CopyToClipboard(CopyContent::SessionId(id)))
+                }
+                KeyCode::Char('p') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.cwd
+                        .clone()
+                        .map(|path| Message::CopyToClipboard(CopyContent::ProjectPath(path)))
+                }
+                KeyCode::Char('f') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.file_path
+                        .clone()
+                        .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path)))
                 }
                 _ => {
                     let changed = self.text_input.handle_key(key);
