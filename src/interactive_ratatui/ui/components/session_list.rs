@@ -133,6 +133,8 @@ impl Component for SessionList {
                             format!("[{}]", session.session_id),
                             Style::default().fg(Color::Cyan),
                         ),
+                        Span::raw(" "),
+                        Span::styled(&session.file_path, Style::default().fg(Color::Green)),
                         Span::raw(format!(" {} messages - ", session.message_count)),
                         Span::styled(&session.first_message, Style::default().fg(Color::DarkGray)),
                     ]);
