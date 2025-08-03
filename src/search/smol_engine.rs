@@ -196,6 +196,11 @@ impl SmolEngine {
         results: &mut Vec<SearchResult>,
         role_filter: Option<String>,
     ) -> Result<()> {
+        // Apply message ID filter (highest priority)
+        if let Some(ref message_id) = self.options.message_id {
+            results.retain(|r| &r.uuid == message_id);
+        }
+
         // Apply role filter
         if let Some(role) = role_filter {
             results.retain(|r| r.role == role);
@@ -388,8 +393,8 @@ async fn search_file(
                                 })
                                 .unwrap_or_else(|| file_ctime.clone());
 
-                            // For SessionViewer, we need raw_json
-                            let raw_json = if options_owned.session_id.is_some() {
+                            // For SessionViewer and message details, we need raw_json
+                            let raw_json = if options_owned.session_id.is_some() || options_owned.message_id.is_some() {
                                 // Convert line_buffer to String for raw_json
                                 Some(String::from_utf8_lossy(&line_buffer).to_string())
                             } else {

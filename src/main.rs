@@ -6,8 +6,9 @@ use anyhow::Result;
 #[cfg(feature = "profiling")]
 use ccms::profiling_enhanced;
 use ccms::{
-    RayonEngine, SearchEngineTrait, SearchOptions, SmolEngine, default_claude_pattern,
-    format_search_result, interactive_ratatui::InteractiveSearch, parse_query, profiling,
+    RayonEngine, SearchEngineTrait, SearchOptions, SearchResult, SmolEngine,
+    default_claude_pattern, format_search_result, interactive_ratatui::InteractiveSearch,
+    parse_query, profiling,
 };
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
@@ -37,6 +38,10 @@ struct Cli {
     /// Filter by session ID
     #[arg(short, long)]
     session_id: Option<String>,
+
+    /// Search for a specific message by UUID
+    #[arg(long)]
+    message_id: Option<String>,
 
     /// Maximum number of results to return
     #[arg(short = 'n', long, default_value = "200")]
@@ -180,12 +185,54 @@ fn main() -> Result<()> {
     let default_pattern = default_claude_pattern();
     let pattern = cli.pattern.as_deref().unwrap_or(&default_pattern);
 
+    // Handle --message-id search
+    if let Some(message_id) = &cli.message_id {
+        // Create a special query to search for the UUID
+        let query = parse_query(message_id)?;
+
+        // Create search options
+        let options = SearchOptions {
+            max_results: Some(1), // We only need one result
+            role: None,
+            session_id: None,
+            message_id: Some(message_id.clone()),
+            before: None,
+            after: None,
+            verbose: cli.verbose,
+            project_path: None,
+        };
+
+        if cli.verbose {
+            eprintln!("Searching for message ID: {message_id}");
+        }
+
+        // Execute search
+        let engine = SmolEngine::new(options);
+        let (results, duration, _) = engine.search(pattern, query)?;
+
+        if results.is_empty() {
+            eprintln!("Message with ID '{message_id}' not found.");
+            std::process::exit(1);
+        }
+
+        // Pretty print the message
+        let result = &results[0];
+        print_message_details(result, !cli.no_color);
+
+        if cli.verbose {
+            eprintln!("\n⏱️  Search completed in {}ms", duration.as_millis());
+        }
+
+        return Ok(());
+    }
+
     // Interactive mode when no query provided or query is empty
     if cli.query.is_none() || cli.query.as_ref().map(|s| s.is_empty()).unwrap_or(false) {
         let options = SearchOptions {
             max_results: Some(cli.max_results), // Use the CLI value directly
             role: cli.role,
             session_id: cli.session_id,
+            message_id: None,
             before: cli.before,
             after: parsed_after.clone(),
             verbose: cli.verbose,
@@ -214,6 +261,7 @@ fn main() -> Result<()> {
         max_results: Some(cli.max_results),
         role: cli.role,
         session_id: cli.session_id,
+        message_id: None,
         before: cli.before,
         after: parsed_after,
         verbose: cli.verbose,
@@ -355,6 +403,97 @@ fn parse_since_time(input: &str) -> Result<String> {
             input,
             e
         )),
+    }
+}
+
+fn print_message_details(result: &SearchResult, use_color: bool) {
+    use chrono::{DateTime, Local, TimeZone};
+    use colored::Colorize;
+
+    // Parse timestamp to local time
+    let timestamp = if let Ok(dt) = DateTime::parse_from_rfc3339(&result.timestamp) {
+        let local_dt = Local.from_utc_datetime(&dt.naive_utc());
+        local_dt.format("%Y-%m-%d %H:%M:%S").to_string()
+    } else {
+        result.timestamp.clone()
+    };
+
+    // Pretty print the message details
+    if use_color {
+        println!("{}", "Message Details".bright_blue().bold());
+        println!("{}", "═".repeat(80).bright_blue());
+        println!("{}: {}", "Message ID".bright_yellow(), result.uuid);
+        println!("{}: {}", "Type".bright_yellow(), result.message_type);
+        println!("{}: {}", "Role".bright_yellow(), result.role.bright_green());
+        println!(
+            "{}: {}",
+            "Timestamp".bright_yellow(),
+            timestamp.bright_cyan()
+        );
+        println!(
+            "{}: {}",
+            "Session ID".bright_yellow(),
+            result.session_id.dimmed()
+        );
+        println!(
+            "{}: {}",
+            "File".bright_yellow(),
+            result.file.bright_magenta()
+        );
+        println!("{}: {}", "Working Dir".bright_yellow(), result.cwd.dimmed());
+        println!("\n{}", "Content".bright_yellow().bold());
+        println!("{}", "─".repeat(80).bright_blue());
+
+        // Print the full content with nice formatting
+        let content_lines: Vec<&str> = result.text.lines().collect();
+        for line in content_lines {
+            println!("{line}");
+        }
+
+        if let Some(raw_json) = &result.raw_json {
+            println!("\n{}", "Raw JSON".bright_yellow().bold());
+            println!("{}", "─".repeat(80).bright_blue());
+            // Pretty print JSON if possible
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(raw_json) {
+                if let Ok(pretty) = serde_json::to_string_pretty(&parsed) {
+                    println!("{}", pretty.dimmed());
+                } else {
+                    println!("{}", raw_json.dimmed());
+                }
+            } else {
+                println!("{}", raw_json.dimmed());
+            }
+        }
+    } else {
+        println!("Message Details");
+        println!("{}", "=".repeat(80));
+        println!("Message ID: {}", result.uuid);
+        println!("Type: {}", result.message_type);
+        println!("Role: {}", result.role);
+        println!("Timestamp: {timestamp}");
+        println!("Session ID: {}", result.session_id);
+        println!("File: {}", result.file);
+        println!("Working Dir: {}", result.cwd);
+        println!("\nContent");
+        println!("{}", "-".repeat(80));
+
+        // Print the full content
+        println!("{}", result.text);
+
+        if let Some(raw_json) = &result.raw_json {
+            println!("\nRaw JSON");
+            println!("{}", "-".repeat(80));
+            // Pretty print JSON if possible
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(raw_json) {
+                if let Ok(pretty) = serde_json::to_string_pretty(&parsed) {
+                    println!("{pretty}");
+                } else {
+                    println!("{raw_json}");
+                }
+            } else {
+                println!("{raw_json}");
+            }
+        }
     }
 }
 
