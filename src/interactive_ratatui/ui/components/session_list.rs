@@ -86,7 +86,9 @@ impl Component for SessionList {
             .split(area);
 
         // Render search bar
-        let search_block = Block::default().borders(Borders::ALL).title("Search Sessions");
+        let search_block = Block::default()
+            .borders(Borders::ALL)
+            .title("Search Sessions");
         let search_text = if self.is_searching {
             format!("{}  [searching...]", self.query)
         } else {
@@ -103,7 +105,8 @@ impl Component for SessionList {
             let loading = List::new(vec![ListItem::new("Loading...")]).block(block);
             f.render_widget(loading, chunks[1]);
         } else if self.filtered_sessions.is_empty() && !self.query.is_empty() {
-            let empty = List::new(vec![ListItem::new("No sessions match your search")]).block(block);
+            let empty =
+                List::new(vec![ListItem::new("No sessions match your search")]).block(block);
             f.render_widget(empty, chunks[1]);
         } else if self.filtered_sessions.is_empty() {
             let empty = List::new(vec![ListItem::new("No sessions found")]).block(block);
@@ -186,7 +189,9 @@ impl Component for SessionList {
 
         match key.code {
             // Character input for search
-            KeyCode::Char(c) if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT => {
+            KeyCode::Char(c)
+                if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT =>
+            {
                 self.query.push(c);
                 Some(Message::SessionListQueryChanged(self.query.clone()))
             }
@@ -215,18 +220,22 @@ impl Component for SessionList {
             }
             KeyCode::Enter => {
                 if !self.filtered_sessions.is_empty() {
-                    self.filtered_sessions.get(self.selected_index).map(|session| {
-                        Message::EnterSessionViewerFromList(session.file_path.clone())
-                    })
+                    self.filtered_sessions
+                        .get(self.selected_index)
+                        .map(|session| {
+                            Message::EnterSessionViewerFromList(session.file_path.clone())
+                        })
                 } else {
                     None
                 }
             }
             KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
                 if !self.filtered_sessions.is_empty() {
-                    self.filtered_sessions.get(self.selected_index).map(|session| {
-                        Message::EnterSessionViewerFromList(session.file_path.clone())
-                    })
+                    self.filtered_sessions
+                        .get(self.selected_index)
+                        .map(|session| {
+                            Message::EnterSessionViewerFromList(session.file_path.clone())
+                        })
                 } else {
                     None
                 }

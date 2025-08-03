@@ -170,7 +170,9 @@ impl Renderer {
                     height: chunks[1].height + chunks[2].height,
                 };
 
-                if state.session_list.preview_enabled && !state.session_list.filtered_sessions.is_empty() {
+                if state.session_list.preview_enabled
+                    && !state.session_list.filtered_sessions.is_empty()
+                {
                     // Split the combined area into list and preview
                     let preview_chunks = Layout::default()
                         .direction(Direction::Horizontal)

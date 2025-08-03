@@ -403,7 +403,8 @@ impl AppState {
                 Command::None
             }
             Message::SessionListScrollDown => {
-                if self.session_list.selected_index + 1 < self.session_list.filtered_sessions.len() {
+                if self.session_list.selected_index + 1 < self.session_list.filtered_sessions.len()
+                {
                     self.session_list.selected_index += 1;
                 }
                 Command::None
