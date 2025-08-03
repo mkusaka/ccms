@@ -53,6 +53,11 @@ impl MessageDetail {
         let is_exit = is_exit_prompt(&self.message);
         let non_exit_message = if is_exit { None } else { self.message.clone() };
 
+        // Calculate the actual height needed for the shortcuts bar
+        let shortcuts_text = "↑/↓: Scroll | Ctrl+S: View full session | c: Copy message text | C: Copy as JSON | i: Copy session ID | f: Copy file path | p: Copy project path | Alt+←/→: Navigate history | Esc: Back";
+        let shortcuts_paragraph = Paragraph::new(shortcuts_text).wrap(Wrap { trim: true });
+        let shortcuts_height = (shortcuts_paragraph.line_count(area.width) as u16).clamp(1, 3);
+
         // Split the main area into header, message, shortcuts, and optionally status/exit prompt
         let chunks = if is_exit || non_exit_message.is_some() {
             Layout::default()
@@ -60,7 +65,7 @@ impl MessageDetail {
                 .constraints([
                     Constraint::Length(MESSAGE_DETAIL_HEADER_HEIGHT), // Header (fixed)
                     Constraint::Min(5), // Message content (scrollable)
-                    Constraint::Length(MESSAGE_DETAIL_SHORTCUTS_HEIGHT), // Shortcuts (fixed)
+                    Constraint::Length(shortcuts_height), // Shortcuts (dynamic height)
                     Constraint::Length(MESSAGE_DETAIL_STATUS_HEIGHT), // Status/Exit prompt at bottom
                 ])
                 .split(area)
@@ -70,7 +75,7 @@ impl MessageDetail {
                 .constraints([
                     Constraint::Length(MESSAGE_DETAIL_HEADER_HEIGHT), // Header (fixed)
                     Constraint::Min(5), // Message content (scrollable)
-                    Constraint::Length(MESSAGE_DETAIL_SHORTCUTS_HEIGHT), // Shortcuts (fixed)
+                    Constraint::Length(shortcuts_height), // Shortcuts (dynamic height)
                 ])
                 .split(area)
         };

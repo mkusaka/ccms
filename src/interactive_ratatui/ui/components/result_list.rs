@@ -68,13 +68,18 @@ impl ResultList {
 
 impl Component for ResultList {
     fn render(&mut self, f: &mut Frame, area: Rect) {
+        // Calculate the actual height needed for the status bar
+        let status_text = "Tab: Filter | ↑/↓ or Ctrl+P/N: Navigate | Enter: View details | Ctrl+S: View full session | Ctrl+T: Toggle preview | Esc: Exit | ?: Help";
+        let status_paragraph = Paragraph::new(status_text).wrap(Wrap { trim: true });
+        let status_height = (status_paragraph.line_count(area.width) as u16).clamp(1, 3);
+        
         // Split area into title, content (list), and status
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(RESULT_LIST_TITLE_HEIGHT),  // Title
                 Constraint::Min(0),                            // Content (list)
-                Constraint::Length(RESULT_LIST_STATUS_HEIGHT), // Status
+                Constraint::Length(status_height),             // Status (dynamic height)
             ])
             .split(area);
 
