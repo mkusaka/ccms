@@ -6,9 +6,26 @@ use crate::search::file_discovery::discover_claude_files;
 use crate::{SearchOptions, parse_query};
 use anyhow::Result;
 use std::sync::Arc;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 // Type alias for session data: (file_path, session_id, timestamp, message_count, first_message, preview_messages, summary)
 type SessionData = (String, String, String, usize, String, Vec<(String, String)>, Option<String>);
+
+fn debug_log(message: &str) -> Result<()> {
+    if let Ok(mut file) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("debug.log") 
+    {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        writeln!(file, "[{}] {}", timestamp, message)?;
+    }
+    Ok(())
+}
 
 pub struct SearchService {
     engine: Arc<SmolEngine>,
@@ -61,17 +78,48 @@ impl SearchService {
     }
 
     pub fn get_all_sessions(&self) -> Result<Vec<SessionData>> {
+        let _ = debug_log("=== get_all_sessions called ===");
+        
         // Return format: (file_path, session_id, timestamp, message_count, first_message)
         let mut sessions: Vec<SessionData> = Vec::new();
 
         // Use discover_claude_files to find all session files
-        // Pass project_path from options if available
-        let files = discover_claude_files(self.options.project_path.as_deref())?;
+        let files = if let Some(ref project_path) = self.options.project_path {
+            let _ = debug_log(&format!("Project path provided: {}", project_path));
+            
+            // When project_path is specified, look for Claude sessions for that project
+            // Convert the project path to Claude's project directory format
+            // Replace all '/', '_', and '.' with '-' as Claude converts them
+            let normalized_path = if project_path.starts_with('/') {
+                format!("-{}", &project_path[1..])
+            } else {
+                project_path.clone()
+            }.replace('/', "-").replace('_', "-").replace('.', "-");
+            
+            let _ = debug_log(&format!("Normalized path: {}", normalized_path));
+            
+            let claude_project_dir = format!("~/.claude/projects/{}/**/*.jsonl", normalized_path);
+            let _ = debug_log(&format!("Looking for files in: {}", claude_project_dir));
+            
+            let discovered = discover_claude_files(Some(&claude_project_dir))?;
+            let _ = debug_log(&format!("Found {} files", discovered.len()));
+            discovered
+        } else {
+            let _ = debug_log("No project path, using default pattern");
+            // Use default pattern to find all sessions
+            let discovered = discover_claude_files(None)?;
+            let _ = debug_log(&format!("Found {} files", discovered.len()));
+            discovered
+        };
 
         // Find all session files
         for path in files {
+            let _ = debug_log(&format!("Processing file: {:?}", path));
+            
             // Read first line to get session info
             if let Ok(content) = std::fs::read_to_string(&path) {
+                let _ = debug_log(&format!("Successfully read file, size: {} bytes", content.len()));
+                
                 let mut session_id = String::new();
                 let mut timestamp = String::new();
                 let mut message_count = 0;
@@ -159,6 +207,9 @@ impl SearchService {
                 }
 
                 if !session_id.is_empty() {
+                    let _ = debug_log(&format!("Adding session: id={}, messages={}, first_msg_len={}", 
+                        session_id, message_count, first_message.len()));
+                    
                     sessions.push((
                         path.to_string_lossy().to_string(),
                         session_id,
@@ -168,13 +219,20 @@ impl SearchService {
                         preview_messages,
                         summary_message,
                     ));
+                } else {
+                    let _ = debug_log(&format!("Skipping file - no session ID found"));
                 }
+            } else {
+                let _ = debug_log(&format!("Failed to read file: {:?}", path));
             }
         }
+
+        let _ = debug_log(&format!("Total sessions found: {}", sessions.len()));
 
         // Sort by timestamp (descending)
         sessions.sort_by(|a, b| b.2.cmp(&a.2)); // Sort by timestamp descending
 
+        let _ = debug_log("=== get_all_sessions completed ===");
         Ok(sessions)
     }
 }

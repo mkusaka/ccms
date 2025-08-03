@@ -6,7 +6,7 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 use smol::channel::{Receiver, Sender};
-use std::io::{self, Stdout};
+use std::io::{self, Stdout, Write};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -429,6 +429,19 @@ impl InteractiveSearch {
     }
 
     async fn load_session_list(&mut self) {
+        // Debug log
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("debug.log") 
+        {
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            let _ = writeln!(file, "[{}] load_session_list called from interactive module", timestamp);
+        }
+        
         // Get list of all session files
         let search_service = self.search_service.clone();
 
@@ -436,10 +449,36 @@ impl InteractiveSearch {
 
         match sessions {
             Ok(session_list) => {
+                // Debug log
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("debug.log") 
+                {
+                    let timestamp = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis();
+                    let _ = writeln!(file, "[{}] Session list loaded successfully, count: {}", timestamp, session_list.len());
+                }
+                
                 let msg = Message::SessionListLoaded(session_list);
                 self.handle_message(msg);
             }
             Err(e) => {
+                // Debug log
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("debug.log") 
+                {
+                    let timestamp = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis();
+                    let _ = writeln!(file, "[{}] Failed to load session list: {}", timestamp, e);
+                }
+                
                 self.state.ui.message = Some(format!("Failed to load session list: {e}"));
                 self.state.session_list.is_loading = false;
             }
