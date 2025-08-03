@@ -14,17 +14,17 @@ mod tests {
         state.session.session_id = Some("test-session".to_string());
         
         // Initially preview should be disabled
-        assert_eq!(state.session.preview_enabled, false);
+        assert!(!state.session.preview_enabled);
         
         // Toggle preview
         let command = state.update(Message::ToggleSessionPreview);
         assert_eq!(command, Command::None);
-        assert_eq!(state.session.preview_enabled, true);
+        assert!(state.session.preview_enabled);
         
         // Toggle again
         let command = state.update(Message::ToggleSessionPreview);
         assert_eq!(command, Command::None);
-        assert_eq!(state.session.preview_enabled, false);
+        assert!(!state.session.preview_enabled);
     }
     
     #[test]
@@ -78,10 +78,10 @@ mod tests {
         // Enable preview
         let command = state.update(Message::ToggleSessionPreview);
         assert_eq!(command, Command::None);
-        assert_eq!(state.session.preview_enabled, true);
+        assert!(state.session.preview_enabled);
         
         // Verify preview state is maintained during navigation
         state.session.selected_index = 1;
-        assert_eq!(state.session.preview_enabled, true);
+        assert!(state.session.preview_enabled);
     }
 }
