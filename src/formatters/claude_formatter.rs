@@ -54,21 +54,21 @@ fn format_list_view(parsed: &ParsedContent) -> String {
     if parsed.has_tools() {
         // Show first tool execution
         let tool = &parsed.tool_executions[0];
-        let tool_str = format!("{} {}({})", TOOL_MARKER, tool.name, tool.arguments);
+        let tool_str = format!("{TOOL_MARKER} {}({})", tool.name, tool.arguments);
         
         // Add any text before tools
         if !parsed.text_before.is_empty() {
             let text = parsed.text_before.join(" ").replace('\n', " ");
-            format!("{} | {}", tool_str, text)
+            format!("{tool_str} | {text}")
         } else if !parsed.text_after.is_empty() {
             let text = parsed.text_after.join(" ").replace('\n', " ");
-            format!("{} | {}", tool_str, text)
+            format!("{tool_str} | {text}")
         } else {
             tool_str
         }
     } else if parsed.has_thinking() {
         // Show thinking marker
-        format!("{} Thinking...", THINKING_MARKER)
+        format!("{THINKING_MARKER} Thinking...")
     } else {
         // Regular message - join all text and replace newlines with spaces
         let mut all_text = Vec::new();
@@ -90,7 +90,7 @@ fn format_preview_view(parsed: &ParsedContent, max_lines: usize) -> String {
             if line_count >= max_lines {
                 let remaining = count_remaining_lines(parsed, line_count);
                 if remaining > 0 {
-                    lines.push(format!("{} +{} lines (press Enter to view full)", TRUNCATION_MARKER, remaining));
+                    lines.push(format!("{TRUNCATION_MARKER} +{remaining} lines (press Enter to view full)"));
                 }
                 return lines.join("\n");
             }
@@ -104,7 +104,7 @@ fn format_preview_view(parsed: &ParsedContent, max_lines: usize) -> String {
         if line_count >= max_lines {
             let remaining = count_remaining_lines(parsed, line_count);
             if remaining > 0 {
-                lines.push(format!("{} +{} lines (press Enter to view full)", TRUNCATION_MARKER, remaining));
+                lines.push(format!("{TRUNCATION_MARKER} +{remaining} lines (press Enter to view full)"));
             }
             return lines.join("\n");
         }
@@ -114,14 +114,14 @@ fn format_preview_view(parsed: &ParsedContent, max_lines: usize) -> String {
             line_count += 1;
         }
         
-        lines.push(format!("{} Thinking...", THINKING_MARKER));
+        lines.push(format!("{THINKING_MARKER} Thinking..."));
         line_count += 1;
         
         for line in thinking.content.lines() {
             if line_count >= max_lines {
                 let remaining = count_remaining_lines(parsed, line_count);
                 if remaining > 0 {
-                    lines.push(format!("{} +{} lines (press Enter to view full)", TRUNCATION_MARKER, remaining));
+                    lines.push(format!("{TRUNCATION_MARKER} +{remaining} lines (press Enter to view full)"));
                 }
                 return lines.join("\n");
             }
@@ -135,20 +135,18 @@ fn format_preview_view(parsed: &ParsedContent, max_lines: usize) -> String {
         if line_count >= max_lines {
             let remaining = count_remaining_lines(parsed, line_count);
             if remaining > 0 {
-                lines.push(format!("{} +{} lines (press Enter to view full)", TRUNCATION_MARKER, remaining));
+                lines.push(format!("{TRUNCATION_MARKER} +{remaining} lines (press Enter to view full)"));
             }
             return lines.join("\n");
         }
         
         // Add spacing between sections
-        if i > 0 || !parsed.text_before.is_empty() || !parsed.thinking_blocks.is_empty() {
-            if line_count > 0 {
-                lines.push(String::new());
-                line_count += 1;
-            }
+        if (i > 0 || !parsed.text_before.is_empty() || !parsed.thinking_blocks.is_empty()) && line_count > 0 {
+            lines.push(String::new());
+            line_count += 1;
         }
         
-        lines.push(format!("{} {}({})", TOOL_MARKER, tool.name, tool.arguments));
+        lines.push(format!("{TOOL_MARKER} {}({})", tool.name, tool.arguments));
         line_count += 1;
         
         if let Some(result) = &tool.result {
@@ -156,11 +154,11 @@ fn format_preview_view(parsed: &ParsedContent, max_lines: usize) -> String {
                 if line_count >= max_lines {
                     let remaining = count_remaining_lines(parsed, line_count);
                     if remaining > 0 {
-                        lines.push(format!("{} +{} lines (press Enter to view full)", TRUNCATION_MARKER, remaining));
+                        lines.push(format!("{TRUNCATION_MARKER} +{remaining} lines (press Enter to view full)"));
                     }
                     return lines.join("\n");
                 }
-                lines.push(format!("{} {}", RESULT_MARKER, line));
+                lines.push(format!("{RESULT_MARKER} {line}"));
                 line_count += 1;
             }
         }
@@ -171,7 +169,7 @@ fn format_preview_view(parsed: &ParsedContent, max_lines: usize) -> String {
                 if line_count >= max_lines {
                     let remaining = count_remaining_lines(parsed, line_count);
                     if remaining > 0 {
-                        lines.push(format!("{} +{} lines (press Enter to view full)", TRUNCATION_MARKER, remaining));
+                        lines.push(format!("{TRUNCATION_MARKER} +{remaining} lines (press Enter to view full)"));
                     }
                     return lines.join("\n");
                 }
@@ -192,7 +190,7 @@ fn format_preview_view(parsed: &ParsedContent, max_lines: usize) -> String {
             if line_count >= max_lines {
                 let remaining = count_remaining_lines(parsed, line_count);
                 if remaining > 0 {
-                    lines.push(format!("{} +{} lines (press Enter to view full)", TRUNCATION_MARKER, remaining));
+                    lines.push(format!("{TRUNCATION_MARKER} +{remaining} lines (press Enter to view full)"));
                 }
                 return lines.join("\n");
             }
@@ -220,7 +218,7 @@ fn format_detail_view(parsed: &ParsedContent) -> String {
         if !output.is_empty() {
             output.push(String::new());
         }
-        output.push(format!("{} Thinking...", THINKING_MARKER));
+        output.push(format!("{THINKING_MARKER} Thinking..."));
         output.push(thinking.content.clone());
     }
     
@@ -230,11 +228,11 @@ fn format_detail_view(parsed: &ParsedContent) -> String {
             output.push(String::new());
         }
         
-        output.push(format!("{} {}({})", TOOL_MARKER, tool.name, tool.arguments));
+        output.push(format!("{TOOL_MARKER} {}({})", tool.name, tool.arguments));
         
         if let Some(result) = &tool.result {
             for line in result.lines() {
-                output.push(format!("{} {}", RESULT_MARKER, line));
+                output.push(format!("{RESULT_MARKER} {line}"));
             }
         }
         
@@ -261,11 +259,7 @@ fn format_detail_view(parsed: &ParsedContent) -> String {
 /// Count remaining lines in parsed content
 fn count_remaining_lines(parsed: &ParsedContent, current_lines: usize) -> usize {
     let total_lines = count_total_lines(parsed);
-    if total_lines > current_lines {
-        total_lines - current_lines
-    } else {
-        0
-    }
+    total_lines.saturating_sub(current_lines)
 }
 
 /// Count total lines in parsed content
