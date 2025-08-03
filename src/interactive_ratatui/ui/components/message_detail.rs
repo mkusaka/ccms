@@ -19,7 +19,7 @@ pub struct MessageDetail {
     pub(super) result: Option<SearchResult>,
     pub(super) scroll_offset: usize,
     pub(super) message: Option<String>,
-    current_uuid: Option<String>,
+    pub(super) current_uuid: Option<String>,
 }
 
 impl MessageDetail {
