@@ -11,8 +11,6 @@ mod tests {
             session_id: "test-session".to_string(),
             role: role.to_string(),
             text: text.to_string(),
-            has_tools: false,
-            has_thinking: false,
             message_type: role.to_string(),
             query: QueryCondition::Literal {
                 pattern: "test".to_string(),

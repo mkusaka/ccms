@@ -331,9 +331,6 @@ pub(super) fn search_file(
                                 .unwrap_or_else(|| file_ctime.clone())
                         };
 
-                        let has_thinking = message.has_thinking();
-                        let has_tools = message.has_tool_use();
-
                         results.push(SearchResult {
                             timestamp,
                             role: message.get_type().to_string(),
@@ -343,8 +340,6 @@ pub(super) fn search_file(
                             session_id: message.get_session_id().unwrap_or("").to_string(),
                             query: query.clone(),
                             cwd: message.get_cwd().unwrap_or("").to_string(),
-                            has_thinking,
-                            has_tools,
                             message_type: message.get_type().to_string(),
                             raw_json: None,
                         });

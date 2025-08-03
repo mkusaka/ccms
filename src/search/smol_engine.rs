@@ -388,8 +388,6 @@ async fn search_file(
                                 session_id: message.get_session_id().unwrap_or("").to_string(),
                                 role: message.get_type().to_string(),
                                 text: message.get_content_text(),
-                                has_tools: message.has_tool_use(),
-                                has_thinking: message.has_thinking(),
                                 message_type: message.get_type().to_string(),
                                 query: query_owned.clone(),
                                 cwd: message.get_cwd().unwrap_or("").to_string(),
@@ -1067,7 +1065,6 @@ mod tests {
         // The actual number of results depends on whether thinking content is searched
         assert!(!results.is_empty());
         // At least one message should have thinking or tools
-        assert!(results.iter().any(|r| r.has_thinking || r.has_tools));
 
         Ok(())
     }

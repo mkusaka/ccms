@@ -425,8 +425,6 @@ impl AppState {
                         session_id: session_id.unwrap_or_default(),
                         role,
                         text: content, // Store extracted content
-                        has_tools: json_value.get("toolResults").is_some(),
-                        has_thinking: false, // Not available from session viewer
                         message_type: "message".to_string(),
                         query: QueryCondition::Literal {
                             pattern: String::new(),

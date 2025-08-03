@@ -555,26 +555,6 @@ impl SessionMessage {
         }
     }
 
-    pub fn has_tool_use(&self) -> bool {
-        match self {
-            SessionMessage::Assistant { message, .. } => message
-                .content
-                .iter()
-                .any(|c| matches!(c, Content::ToolUse { .. })),
-            _ => false,
-        }
-    }
-
-    pub fn has_thinking(&self) -> bool {
-        match self {
-            SessionMessage::Assistant { message, .. } => message
-                .content
-                .iter()
-                .any(|c| matches!(c, Content::Thinking { .. })),
-            _ => false,
-        }
-    }
-
     pub fn get_searchable_text(&self) -> String {
         let mut parts = vec![self.get_content_text()];
 
@@ -622,8 +602,6 @@ mod tests {
         assert_eq!(msg.get_uuid(), Some("test-uuid"));
         assert_eq!(msg.get_timestamp(), Some("2024-01-01T00:00:00Z"));
         assert_eq!(msg.get_session_id(), Some("test-session"));
-        assert!(!msg.has_tool_use());
-        assert!(!msg.has_thinking());
     }
 
     #[test]
@@ -670,8 +648,6 @@ mod tests {
             msg.get_content_text(),
             "I'll help you with that.\nread_file"
         );
-        assert!(msg.has_tool_use());
-        assert!(!msg.has_thinking());
     }
 
     #[test]
@@ -717,8 +693,6 @@ mod tests {
             msg.get_content_text(),
             "Let me think about this problem...\nHere's my answer."
         );
-        assert!(!msg.has_tool_use());
-        assert!(msg.has_thinking());
     }
 
     #[test]
@@ -876,7 +850,6 @@ mod tests {
             msg.get_content_text(),
             "Starting analysis...\nanalyze_code\nAnalysis complete."
         );
-        assert!(msg.has_tool_use());
     }
 
     #[test]
