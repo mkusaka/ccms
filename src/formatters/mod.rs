@@ -1,8 +1,10 @@
-pub mod tool_parser;
 pub mod claude_formatter;
+pub mod tool_parser;
 
-pub use tool_parser::{parse_raw_json, parse_text_content, ParsedContent, ToolExecution, ThinkingBlock};
 pub use claude_formatter::{
-    format_search_result, format_for_list, format_for_preview, format_for_detail,
-    DisplayMode, TOOL_MARKER, RESULT_MARKER, THINKING_MARKER, TRUNCATION_MARKER
+    DisplayMode, RESULT_MARKER, THINKING_MARKER, TOOL_MARKER, TRUNCATION_MARKER, format_for_detail,
+    format_for_list, format_for_preview, format_search_result,
+};
+pub use tool_parser::{
+    ParsedContent, ThinkingBlock, ToolExecution, parse_raw_json, parse_text_content,
 };
