@@ -446,6 +446,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "signal-hook",
  "smol",
  "sonic-rs",
  "tempfile",
