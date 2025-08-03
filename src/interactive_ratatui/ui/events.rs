@@ -56,7 +56,7 @@ pub enum Message {
 
     // Session list events
     LoadSessionList,
-    SessionListLoaded(Vec<(String, String, String, usize, String)>), // (file_path, session_id, timestamp, message_count, first_message)
+    SessionListLoaded(Vec<(String, String, String, usize, String, Vec<(String, String)>, Option<String>)>), // (file_path, session_id, timestamp, message_count, first_message, preview_messages, summary)
     SelectSessionFromList(usize),
     SessionListScrollUp,
     SessionListScrollDown,

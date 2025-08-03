@@ -34,6 +34,8 @@ pub struct SessionInfo {
     pub timestamp: String,
     pub message_count: usize,
     pub first_message: String,
+    pub preview_messages: Vec<(String, String)>,  // (role, content) pairs
+    pub summary: Option<String>,
 }
 
 pub struct SearchState {
@@ -107,7 +109,7 @@ impl AppState {
                 selected_index: 0,
                 scroll_offset: 0,
                 is_loading: false,
-                preview_enabled: false,
+                preview_enabled: true,  // Default to true for better UX
             },
             ui: UiState {
                 message: None,
@@ -329,13 +331,15 @@ impl AppState {
                 self.session_list.sessions = sessions
                     .into_iter()
                     .map(
-                        |(file_path, session_id, timestamp, message_count, first_message)| {
+                        |(file_path, session_id, timestamp, message_count, first_message, preview_messages, summary)| {
                             SessionInfo {
                                 file_path,
                                 session_id,
                                 timestamp,
                                 message_count,
                                 first_message,
+                                preview_messages,
+                                summary,
                             }
                         },
                     )

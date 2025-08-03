@@ -75,15 +75,58 @@ impl Component for SessionPreview {
 
             lines.push(Line::from(""));
 
-            // First message preview
-            lines.push(Line::from(vec![Span::styled(
-                "First Message:",
-                Style::default().fg(Color::Gray),
-            )]));
-            lines.push(Line::from(vec![Span::styled(
-                &session.first_message,
-                Style::default().fg(Color::White),
-            )]));
+            // Summary (if available)
+            if let Some(summary) = &session.summary {
+                lines.push(Line::from(vec![Span::styled(
+                    "Summary:",
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(Modifier::BOLD),
+                )]));
+                lines.push(Line::from(vec![Span::styled(
+                    summary,
+                    Style::default().fg(Color::White),
+                )]));
+                lines.push(Line::from(""));
+            }
+
+            // Preview messages
+            if !session.preview_messages.is_empty() {
+                lines.push(Line::from(vec![Span::styled(
+                    "Recent Messages:",
+                    Style::default()
+                        .fg(Color::Gray)
+                        .add_modifier(Modifier::BOLD),
+                )]));
+                
+                for (role, content) in &session.preview_messages {
+                    let role_color = match role.as_str() {
+                        "user" => Color::Green,
+                        "assistant" => Color::Blue,
+                        _ => Color::Gray,
+                    };
+                    
+                    lines.push(Line::from(vec![
+                        Span::styled(
+                            format!("{}: ", role),
+                            Style::default()
+                                .fg(role_color)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(content, Style::default().fg(Color::White)),
+                    ]));
+                }
+            } else {
+                // Fallback to first message if no preview messages
+                lines.push(Line::from(vec![Span::styled(
+                    "First Message:",
+                    Style::default().fg(Color::Gray),
+                )]));
+                lines.push(Line::from(vec![Span::styled(
+                    &session.first_message,
+                    Style::default().fg(Color::White),
+                )]));
+            }
 
             lines.push(Line::from(""));
             lines.push(Line::from(vec![Span::styled(

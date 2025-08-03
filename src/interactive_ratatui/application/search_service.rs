@@ -7,17 +7,18 @@ use crate::{SearchOptions, parse_query};
 use anyhow::Result;
 use std::sync::Arc;
 
-// Type alias for session data: (file_path, session_id, timestamp, message_count, first_message)
-type SessionData = (String, String, String, usize, String);
+// Type alias for session data: (file_path, session_id, timestamp, message_count, first_message, preview_messages, summary)
+type SessionData = (String, String, String, usize, String, Vec<(String, String)>, Option<String>);
 
 pub struct SearchService {
     engine: Arc<SmolEngine>,
+    options: SearchOptions,
 }
 
 impl SearchService {
     pub fn new(options: SearchOptions) -> Self {
-        let engine = Arc::new(SmolEngine::new(options));
-        Self { engine }
+        let engine = Arc::new(SmolEngine::new(options.clone()));
+        Self { engine, options }
     }
 
     pub fn search(&self, request: SearchRequest) -> Result<SearchResponse> {
@@ -64,7 +65,8 @@ impl SearchService {
         let mut sessions: Vec<SessionData> = Vec::new();
 
         // Use discover_claude_files to find all session files
-        let files = discover_claude_files(None)?;
+        // Pass project_path from options if available
+        let files = discover_claude_files(self.options.project_path.as_deref())?;
 
         // Find all session files
         for path in files {
@@ -74,65 +76,83 @@ impl SearchService {
                 let mut timestamp = String::new();
                 let mut message_count = 0;
                 let mut first_message = String::new();
+                let mut preview_messages: Vec<(String, String)> = Vec::new();
+                let mut summary_message: Option<String> = None;
+                const MAX_PREVIEW_MESSAGES: usize = 5;
 
                 for line in content.lines() {
-                    message_count += 1;
-
-                    // Parse first message to get session info
-                    if message_count == 1 {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                        message_count += 1;
+                        
+                        // First message - get session info
+                        if message_count == 1 {
                             if let Some(id) = json.get("sessionId").and_then(|v| v.as_str()) {
                                 session_id = id.to_string();
                             }
                             if let Some(ts) = json.get("timestamp").and_then(|v| v.as_str()) {
                                 timestamp = ts.to_string();
                             }
-
-                            // Get first message content
-                            if let Some(msg_type) = json.get("type").and_then(|v| v.as_str()) {
-                                match msg_type {
-                                    "user" | "assistant" => {
-                                        if let Some(content) = json
-                                            .get("message")
-                                            .and_then(|m| m.get("content"))
-                                            .and_then(|c| c.as_str())
-                                        {
-                                            first_message = content
-                                                .chars()
-                                                .take(100)
-                                                .collect::<String>()
-                                                .replace('\n', " ");
-                                        } else if let Some(content_array) = json
-                                            .get("message")
-                                            .and_then(|m| m.get("content"))
-                                            .and_then(|c| c.as_array())
-                                        {
-                                            if let Some(first_item) = content_array.first() {
-                                                if let Some(text) =
-                                                    first_item.get("text").and_then(|t| t.as_str())
-                                                {
-                                                    first_message = text
-                                                        .chars()
-                                                        .take(100)
-                                                        .collect::<String>()
-                                                        .replace('\n', " ");
-                                                }
+                        }
+                        
+                        // Process all messages for preview
+                        if let Some(msg_type) = json.get("type").and_then(|v| v.as_str()) {
+                            match msg_type {
+                                "user" | "assistant" => {
+                                    let mut content = String::new();
+                                    
+                                    // Extract content
+                                    if let Some(msg_content) = json
+                                        .get("message")
+                                        .and_then(|m| m.get("content"))
+                                        .and_then(|c| c.as_str())
+                                    {
+                                        content = msg_content
+                                            .chars()
+                                            .take(200)
+                                            .collect::<String>()
+                                            .replace('\n', " ");
+                                    } else if let Some(content_array) = json
+                                        .get("message")
+                                        .and_then(|m| m.get("content"))
+                                        .and_then(|c| c.as_array())
+                                    {
+                                        if let Some(first_item) = content_array.first() {
+                                            if let Some(text) =
+                                                first_item.get("text").and_then(|t| t.as_str())
+                                            {
+                                                content = text
+                                                    .chars()
+                                                    .take(200)
+                                                    .collect::<String>()
+                                                    .replace('\n', " ");
                                             }
                                         }
                                     }
-                                    "summary" => {
-                                        if let Some(summary) =
-                                            json.get("summary").and_then(|s| s.as_str())
-                                        {
-                                            first_message = summary
-                                                .chars()
-                                                .take(100)
-                                                .collect::<String>()
-                                                .replace('\n', " ");
+                                    
+                                    // Set first message if not already set
+                                    if first_message.is_empty() && msg_type == "user" && !content.is_empty() {
+                                        first_message = content.clone();
+                                    }
+                                    
+                                    // Collect preview messages
+                                    if preview_messages.len() < MAX_PREVIEW_MESSAGES && !content.is_empty() {
+                                        preview_messages.push((msg_type.to_string(), content));
+                                    }
+                                }
+                                "summary" => {
+                                    if let Some(summary) = json.get("summary").and_then(|s| s.as_str()) {
+                                        summary_message = Some(summary
+                                            .chars()
+                                            .take(200)
+                                            .collect::<String>()
+                                            .replace('\n', " "));
+                                        
+                                        if first_message.is_empty() {
+                                            first_message = summary_message.clone().unwrap_or_default();
                                         }
                                     }
-                                    _ => {}
                                 }
+                                _ => {}
                             }
                         }
                     }
@@ -145,6 +165,8 @@ impl SearchService {
                         timestamp,
                         message_count,
                         first_message,
+                        preview_messages,
+                        summary_message,
                     ));
                 }
             }

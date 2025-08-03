@@ -17,6 +17,11 @@ mod tests {
                 timestamp: "2024-01-01T12:00:00Z".to_string(),
                 message_count: 10,
                 first_message: "Hello from session 1".to_string(),
+                preview_messages: vec![
+                    ("user".to_string(), "Hello from session 1".to_string()),
+                    ("assistant".to_string(), "Hi! How can I help you?".to_string()),
+                ],
+                summary: Some("Discussion about session 1".to_string()),
             },
             SessionInfo {
                 file_path: "/path/to/session2.jsonl".to_string(),
@@ -24,6 +29,11 @@ mod tests {
                 timestamp: "2024-01-01T13:00:00Z".to_string(),
                 message_count: 20,
                 first_message: "Hello from session 2".to_string(),
+                preview_messages: vec![
+                    ("user".to_string(), "Hello from session 2".to_string()),
+                    ("assistant".to_string(), "Hello! Ready to assist.".to_string()),
+                ],
+                summary: None,
             },
             SessionInfo {
                 file_path: "/path/to/session3.jsonl".to_string(),
@@ -31,6 +41,8 @@ mod tests {
                 timestamp: "2024-01-01T14:00:00Z".to_string(),
                 message_count: 30,
                 first_message: "Hello from session 3".to_string(),
+                preview_messages: vec![],
+                summary: None,
             },
         ]
     }
@@ -125,7 +137,7 @@ mod tests {
     }
 
     #[test]
-    fn test_status_bar_text_with_preview() {
+    fn test_status_bar_text_with_preview_default() {
         let backend = TestBackend::new(120, 30);
         let mut terminal = Terminal::new(backend).unwrap();
 
@@ -133,7 +145,7 @@ mod tests {
             .draw(|f| {
                 let mut session_list = SessionList::new();
                 session_list.set_sessions(create_test_sessions());
-                session_list.set_preview_enabled(true);
+                // Preview is enabled by default
                 session_list.render(f, f.area());
             })
             .unwrap();
@@ -142,7 +154,7 @@ mod tests {
         let status_text = buffer_contains(buffer, "Hide preview");
         assert!(
             status_text,
-            "Status bar should show 'Hide preview' when preview is enabled"
+            "Status bar should show 'Hide preview' when preview is enabled (default)"
         );
     }
 

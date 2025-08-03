@@ -1148,6 +1148,8 @@ mod tests {
                 timestamp: "2024-01-01T12:00:00Z".to_string(),
                 message_count: 10,
                 first_message: "Hello from session 1".to_string(),
+                preview_messages: vec![],
+                summary: None,
             },
             crate::interactive_ratatui::ui::app_state::SessionInfo {
                 file_path: "/path/to/session2.jsonl".to_string(),
@@ -1155,6 +1157,8 @@ mod tests {
                 timestamp: "2024-01-01T13:00:00Z".to_string(),
                 message_count: 20,
                 first_message: "Hello from session 2".to_string(),
+                preview_messages: vec![],
+                summary: None,
             },
         ];
         
@@ -1166,10 +1170,10 @@ mod tests {
         let mut terminal = Terminal::new(backend).unwrap();
         terminal.draw(|f| app.renderer.render(f, &app.state)).unwrap();
 
-        // Initially preview should be disabled
+        // Initially preview should be enabled by default
         assert!(
-            !app.state.session_list.preview_enabled,
-            "Preview should be disabled initially"
+            app.state.session_list.preview_enabled,
+            "Preview should be enabled initially"
         );
 
         // Toggle preview with Ctrl+T
@@ -1180,16 +1184,16 @@ mod tests {
         terminal.draw(|f| app.renderer.render(f, &app.state)).unwrap();
         
         assert!(
-            app.state.session_list.preview_enabled,
-            "Preview should be enabled after Ctrl+T"
+            !app.state.session_list.preview_enabled,
+            "Preview should be disabled after Ctrl+T"
         );
 
-        // Toggle preview again to disable
+        // Toggle preview again to enable
         app.handle_input(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL))
             .unwrap();
         assert!(
-            !app.state.session_list.preview_enabled,
-            "Preview should be disabled after second Ctrl+T"
+            app.state.session_list.preview_enabled,
+            "Preview should be enabled after second Ctrl+T"
         );
     }
 
@@ -1210,6 +1214,8 @@ mod tests {
                 timestamp: format!("2024-01-01T{:02}:00:00Z", i),
                 message_count: i * 10,
                 first_message: format!("Hello from session {}", i),
+                preview_messages: vec![],
+                summary: None,
             });
         }
         app.state.session_list.sessions = sessions;
@@ -1253,6 +1259,11 @@ mod tests {
                 timestamp: "2024-01-01T12:00:00Z".to_string(),
                 message_count: 10,
                 first_message: "Hello from session 1".to_string(),
+                preview_messages: vec![
+                    ("user".to_string(), "Hello from session 1".to_string()),
+                    ("assistant".to_string(), "Hi! How can I help?".to_string()),
+                ],
+                summary: Some("Test session with summary".to_string()),
             }];
 
         // Enable preview
