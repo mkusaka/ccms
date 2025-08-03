@@ -797,7 +797,7 @@ mod tests {
         assert!(buffer_contains(buffer, "CWD: /test/project"));
         assert!(buffer_contains(
             buffer,
-            "UUID: 12345678-1234-5678-1234-567812345678"
+            "Message ID: 12345678-1234-5678-1234-567812345678"
         ));
         assert!(buffer_contains(
             buffer,

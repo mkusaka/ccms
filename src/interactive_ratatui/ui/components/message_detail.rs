@@ -119,7 +119,7 @@ impl MessageDetail {
                 Span::raw(&result.cwd),
             ]),
             Line::from(vec![
-                Span::styled("UUID: ", Styles::label()),
+                Span::styled("Message ID: ", Styles::label()),
                 Span::raw(&result.uuid),
             ]),
             Line::from(vec![
