@@ -1,3 +1,4 @@
+pub mod formatters;
 pub mod interactive_ratatui;
 pub mod profiling;
 #[cfg(feature = "profiling")]
