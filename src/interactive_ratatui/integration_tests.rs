@@ -901,8 +901,6 @@ mod tests {
                 session_id: "session1".to_string(),
                 role: "user".to_string(),
                 text: "Hello".to_string(),
-                has_tools: false,
-                has_thinking: false,
                 message_type: "user".to_string(),
                 query: crate::query::condition::QueryCondition::Literal {
                     pattern: "".to_string(),
@@ -918,8 +916,6 @@ mod tests {
                 session_id: "session1".to_string(),
                 role: "assistant".to_string(),
                 text: "Hi".to_string(),
-                has_tools: false,
-                has_thinking: false,
                 message_type: "assistant".to_string(),
                 query: crate::query::condition::QueryCondition::Literal {
                     pattern: "".to_string(),

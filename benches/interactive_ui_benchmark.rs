@@ -493,8 +493,6 @@ fn create_test_session_results(count: usize) -> Vec<SearchResult> {
                 session_id: format!("session-{session_num}"),
                 role: role.to_string(),
                 text,
-                has_tools: false,
-                has_thinking: false,
                 message_type: "message".to_string(),
                 query: QueryCondition::Literal {
                     pattern: "test".to_string(),

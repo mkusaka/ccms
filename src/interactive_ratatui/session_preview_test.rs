@@ -44,8 +44,6 @@ mod tests {
                 session_id: "test-session".to_string(),
                 role: "user".to_string(),
                 text: "Test message 1".to_string(),
-                has_tools: false,
-                has_thinking: false,
                 message_type: "message".to_string(),
                 query: QueryCondition::Literal {
                     pattern: "test".to_string(),
@@ -63,8 +61,6 @@ mod tests {
                 session_id: "test-session".to_string(),
                 role: "assistant".to_string(),
                 text: "Test response 1".to_string(),
-                has_tools: false,
-                has_thinking: false,
                 message_type: "message".to_string(),
                 query: QueryCondition::Literal {
                     pattern: "test".to_string(),
