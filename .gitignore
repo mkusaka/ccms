@@ -41,3 +41,6 @@ cobertura.xml
 
 # Debug log file
 debug.log
+
+# JSONL files (session data)
+*.jsonl
