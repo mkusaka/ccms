@@ -1,0 +1,2 @@
+# JSONL files should not be automatically merged
+*.jsonl merge=ours
