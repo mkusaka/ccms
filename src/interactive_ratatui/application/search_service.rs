@@ -121,7 +121,7 @@ impl SearchService {
         let mut sessions: Vec<SessionData> = Vec::new();
 
         // Use discover_claude_files to find all session files
-        let files = if let Some(ref project_path) = self.options.project_path {
+        let files = if let Some(ref project_path) = self.base_options.project_path {
             // When project_path is specified, look for Claude sessions for that project
             // Convert the project path to Claude's project directory format
             let encoded_path = encode_project_path(project_path);
