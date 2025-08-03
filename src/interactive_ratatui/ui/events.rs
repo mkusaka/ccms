@@ -10,7 +10,7 @@ pub enum CopyContent {
     FullMessageDetails(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Message {
     // Search events
     QueryChanged(String),
@@ -49,6 +49,23 @@ pub enum Message {
 
     // Display options
     TogglePreview,
+
+    // Tab navigation
+    SwitchToSearchTab,
+    SwitchToSessionListTab,
+
+    // Session list events
+    LoadSessionList,
+    SessionListLoaded(Vec<(String, String, String, usize, String)>), // (file_path, session_id, timestamp, message_count, first_message)
+    SelectSessionFromList(usize),
+    SessionListScrollUp,
+    SessionListScrollDown,
+    SessionListPageUp,
+    SessionListPageDown,
+    SessionListHalfPageUp,
+    SessionListHalfPageDown,
+    ToggleSessionListPreview,
+    EnterSessionViewerFromList(String), // file_path
 
     // Clipboard
     CopyToClipboard(CopyContent),

@@ -207,8 +207,12 @@ impl InteractiveSearch {
                 return Ok(false);
             }
             KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.handle_message(Message::TogglePreview);
-                return Ok(false);
+                // Only handle global preview toggle when not in SessionList tab
+                if self.state.mode == Mode::Search && self.state.search.current_tab != domain::models::SearchTab::SessionList {
+                    self.handle_message(Message::TogglePreview);
+                    return Ok(false);
+                }
+                // Let SessionList handle its own Ctrl+T
             }
             // Navigation shortcuts with Alt modifier
             KeyCode::Left if key.modifiers.contains(KeyModifiers::ALT) => {
@@ -238,11 +242,49 @@ impl InteractiveSearch {
     }
 
     fn handle_search_mode_input(&mut self, key: KeyEvent) -> Option<Message> {
+        use self::domain::models::SearchTab;
         use crossterm::event::KeyModifiers;
+
+        // Handle tab bar navigation first
+        if self.state.search.current_tab == SearchTab::Search {
+            // Check if tab bar can handle the key
+            if let Some(msg) = self.renderer.get_tab_bar_mut().handle_key(key) {
+                return Some(msg);
+            }
+        } else if self.state.search.current_tab == SearchTab::SessionList {
+            // In session list tab, handle specific keys
+            match key.code {
+                KeyCode::Tab => return Some(Message::SwitchToSearchTab),
+                KeyCode::Up
+                | KeyCode::Down
+                | KeyCode::Enter
+                | KeyCode::PageUp
+                | KeyCode::PageDown => {
+                    return self.renderer.get_session_list_mut().handle_key(key);
+                }
+                KeyCode::Char('s')
+                | KeyCode::Char('t')
+                | KeyCode::Char('u')
+                | KeyCode::Char('d')
+                    if key.modifiers.contains(KeyModifiers::CONTROL) =>
+                {
+                    return self.renderer.get_session_list_mut().handle_key(key);
+                }
+                _ => {}
+            }
+
+            // Let tab bar handle other keys
+            if let Some(msg) = self.renderer.get_tab_bar_mut().handle_key(key) {
+                return Some(msg);
+            }
+        }
 
         match key.code {
             // Skip Tab key processing if Ctrl is pressed (to allow Ctrl+I navigation)
-            KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+            KeyCode::Tab
+                if !key.modifiers.contains(KeyModifiers::CONTROL)
+                    && self.state.search.current_tab == SearchTab::Search =>
+            {
                 Some(Message::ToggleRoleFilter)
             }
             // Handle Ctrl+S specifically for session viewer
@@ -296,6 +338,9 @@ impl InteractiveSearch {
             }
             Command::LoadSession(file_path) => {
                 self.load_session_messages(&file_path);
+            }
+            Command::LoadSessionList => {
+                self.load_session_list().await;
             }
             Command::CopyToClipboard(content) => {
                 let (text, copy_message) = match content {
@@ -379,6 +424,24 @@ impl InteractiveSearch {
             }
             Err(e) => {
                 self.state.ui.message = Some(format!("Failed to load session: {e}"));
+            }
+        }
+    }
+
+    async fn load_session_list(&mut self) {
+        // Get list of all session files
+        let search_service = self.search_service.clone();
+
+        let sessions = blocking::unblock(move || search_service.get_all_sessions()).await;
+
+        match sessions {
+            Ok(session_list) => {
+                let msg = Message::SessionListLoaded(session_list);
+                self.handle_message(msg);
+            }
+            Err(e) => {
+                self.state.ui.message = Some(format!("Failed to load session list: {e}"));
+                self.state.session_list.is_loading = false;
             }
         }
     }
