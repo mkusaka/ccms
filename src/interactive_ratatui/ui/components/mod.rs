@@ -7,7 +7,8 @@ pub mod result_list;
 pub mod search_bar;
 pub mod session_list;
 pub mod session_preview;
-pub mod session_viewer;
+// pub mod session_viewer; // Replaced by session_viewer_unified
+pub mod session_viewer_unified;
 pub mod tab_bar;
 pub mod text_input;
 pub mod view_layout;
@@ -26,8 +27,8 @@ mod result_list_test;
 mod search_bar_test;
 #[cfg(test)]
 mod session_list_test;
-#[cfg(test)]
-mod session_viewer_test;
+// #[cfg(test)]
+// mod session_viewer_test; // Replaced by session_viewer_unified
 #[cfg(test)]
 mod text_input_test;
 #[cfg(test)]

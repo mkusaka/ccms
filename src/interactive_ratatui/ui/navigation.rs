@@ -27,6 +27,7 @@ pub struct SearchStateSnapshot {
 #[derive(Clone, Debug)]
 pub struct SessionStateSnapshot {
     pub messages: Vec<String>,
+    pub search_results: Vec<SearchResult>,
     pub query: String,
     pub filtered_indices: Vec<usize>,
     pub selected_index: usize,
@@ -199,6 +200,7 @@ mod tests {
             },
             session_state: SessionStateSnapshot {
                 messages: Vec::new(),
+                search_results: Vec::new(),
                 query: String::new(),
                 filtered_indices: Vec::new(),
                 selected_index: 0,

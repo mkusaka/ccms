@@ -6,7 +6,6 @@ use crate::search::file_discovery::discover_claude_files;
 use crate::utils::path_encoding::encode_project_path;
 use crate::{SearchOptions, parse_query};
 use anyhow::Result;
-use std::sync::Arc;
 
 // Type alias for session data: (file_path, session_id, timestamp, message_count, first_message, preview_messages, summary)
 pub type SessionData = (
@@ -20,14 +19,14 @@ pub type SessionData = (
 );
 
 pub struct SearchService {
-    engine: Arc<SmolEngine>,
-    options: SearchOptions,
+    base_options: SearchOptions,
 }
 
 impl SearchService {
     pub fn new(options: SearchOptions) -> Self {
-        let engine = Arc::new(SmolEngine::new(options.clone()));
-        Self { engine, options }
+        Self {
+            base_options: options,
+        }
     }
 
     pub fn search(&self, request: SearchRequest) -> Result<SearchResponse> {
@@ -36,6 +35,27 @@ impl SearchService {
             &request.pattern,
             request.role_filter,
             request.order,
+            None, // No session_id filter for general search
+        )?;
+
+        Ok(SearchResponse {
+            id: request.id,
+            results,
+        })
+    }
+
+    // New method for session-specific search
+    pub fn search_session(
+        &self,
+        request: SearchRequest,
+        session_id: String,
+    ) -> Result<SearchResponse> {
+        let results = self.execute_search(
+            &request.query,
+            &request.pattern,
+            request.role_filter,
+            request.order,
+            Some(session_id),
         )?;
 
         Ok(SearchResponse {
@@ -50,6 +70,7 @@ impl SearchService {
         pattern: &str,
         role_filter: Option<String>,
         order: crate::interactive_ratatui::domain::models::SearchOrder,
+        session_id: Option<String>,
     ) -> Result<Vec<SearchResult>> {
         let query_condition = if query.trim().is_empty() {
             // Empty query means "match all" - use empty AND condition
@@ -58,12 +79,38 @@ impl SearchService {
             parse_query(query)?
         };
 
-        let (results, _, _) = self.engine.search_with_role_filter_and_order(
+        // Create a new options with session_id if provided
+        let mut options = self.base_options.clone();
+
+        // Debug log
+        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+            "execute_search: base_options.max_results = {:?}, session_id = {:?}",
+            self.base_options.max_results, session_id
+        ));
+
+        if let Some(sid) = session_id {
+            options.session_id = Some(sid);
+            // For session viewer, show all messages without limit
+            options.max_results = None;
+            let _ = crate::interactive_ratatui::debug::write_debug_log(
+                "execute_search: Setting max_results to None for session viewer",
+            );
+        }
+
+        // Create a new engine with the updated options
+        let engine = SmolEngine::new(options);
+
+        let (results, _, _) = engine.search_with_role_filter_and_order(
             pattern,
             query_condition,
             role_filter,
             order,
         )?;
+
+        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+            "execute_search: Returned {} results",
+            results.len()
+        ));
 
         // Results are already sorted by the engine based on the order
         Ok(results)
@@ -74,7 +121,7 @@ impl SearchService {
         let mut sessions: Vec<SessionData> = Vec::new();
 
         // Use discover_claude_files to find all session files
-        let files = if let Some(ref project_path) = self.options.project_path {
+        let files = if let Some(ref project_path) = self.base_options.project_path {
             // When project_path is specified, look for Claude sessions for that project
             // Convert the project path to Claude's project directory format
             let encoded_path = encode_project_path(project_path);

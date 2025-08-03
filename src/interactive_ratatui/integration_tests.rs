@@ -427,6 +427,7 @@ mod tests {
             },
             session_state: SessionStateSnapshot {
                 messages: Vec::new(),
+                search_results: Vec::new(),
                 query: String::new(),
                 filtered_indices: Vec::new(),
                 selected_index: 0,
@@ -465,6 +466,7 @@ mod tests {
             },
             session_state: SessionStateSnapshot {
                 messages: Vec::new(),
+                search_results: Vec::new(),
                 query: String::new(),
                 filtered_indices: Vec::new(),
                 selected_index: 0,
@@ -890,14 +892,41 @@ mod tests {
     fn test_session_viewer_default_display() {
         let mut app = InteractiveSearch::new(SearchOptions::default());
 
-        // Load messages into session viewer
-        app.state.session.messages = vec![
-            r#"{"type":"user","message":{"content":"Hello"},"timestamp":"2024-01-01T00:00:00Z"}"#
-                .to_string(),
-            r#"{"type":"assistant","message":{"content":"Hi"},"timestamp":"2024-01-01T00:01:00Z"}"#
-                .to_string(),
+        // Load search results into session viewer (unified architecture)
+        app.state.session.search_results = vec![
+            SearchResult {
+                file: "test.jsonl".to_string(),
+                uuid: "uuid1".to_string(),
+                timestamp: "2024-01-01T00:00:00Z".to_string(),
+                session_id: "session1".to_string(),
+                role: "user".to_string(),
+                text: "Hello".to_string(),
+                message_type: "user".to_string(),
+                query: crate::query::condition::QueryCondition::Literal {
+                    pattern: "".to_string(),
+                    case_sensitive: false,
+                },
+                cwd: "/test".to_string(),
+                raw_json: Some(r#"{"type":"user","message":{"content":"Hello"},"timestamp":"2024-01-01T00:00:00Z"}"#.to_string()),
+            },
+            SearchResult {
+                file: "test.jsonl".to_string(),
+                uuid: "uuid2".to_string(),
+                timestamp: "2024-01-01T00:01:00Z".to_string(),
+                session_id: "session1".to_string(),
+                role: "assistant".to_string(),
+                text: "Hi".to_string(),
+                message_type: "assistant".to_string(),
+                query: crate::query::condition::QueryCondition::Literal {
+                    pattern: "".to_string(),
+                    case_sensitive: false,
+                },
+                cwd: "/test".to_string(),
+                raw_json: Some(r#"{"type":"assistant","message":{"content":"Hi"},"timestamp":"2024-01-01T00:01:00Z"}"#.to_string()),
+            },
         ];
-        app.state.session.filtered_indices = vec![0, 1];
+        app.state.session.file_path = Some("test.jsonl".to_string());
+        app.state.session.session_id = Some("session1".to_string());
         app.state.mode = Mode::SessionViewer;
 
         // Render and verify messages are displayed

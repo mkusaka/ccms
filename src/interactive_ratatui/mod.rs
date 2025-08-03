@@ -12,13 +12,14 @@ use signal_hook::{
 };
 use smol::channel::{Receiver, Sender};
 use std::io::{self, Stdout};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::SearchOptions;
 
 mod application;
 mod constants;
+mod debug;
 pub mod domain;
 pub mod ui;
 
@@ -26,16 +27,16 @@ pub mod ui;
 mod help_navigation_test;
 #[cfg(test)]
 mod integration_tests;
+// #[cfg(test)]
+// mod session_view_integration_test; // No longer used - using unified session viewer
 #[cfg(test)]
-mod session_view_integration_test;
+mod session_preview_test;
 #[cfg(test)]
 mod tests;
 
-use self::application::{
-    cache_service::CacheService, search_service::SearchService, session_service::SessionService,
-};
+use self::application::search_service::SearchService;
 use self::constants::*;
-use self::domain::models::{Mode, SearchRequest, SearchResponse};
+use self::domain::models::{Mode, SearchOrder, SearchRequest, SearchResponse, SessionOrder};
 use self::ui::{
     app_state::AppState, commands::Command, components::Component, events::Message,
     renderer::Renderer,
@@ -51,7 +52,6 @@ pub struct InteractiveSearch {
     state: AppState,
     renderer: Renderer,
     search_service: Arc<SearchService>,
-    session_service: Arc<SessionService>,
     search_sender: Option<Sender<SearchRequest>>,
     search_receiver: Option<Receiver<SearchResponse>>,
     search_task: Option<smol::Task<()>>,
@@ -68,16 +68,12 @@ pub struct InteractiveSearch {
 
 impl InteractiveSearch {
     pub fn new(options: SearchOptions) -> Self {
-        let cache = Arc::new(Mutex::new(CacheService::new()));
-
         let search_service = Arc::new(SearchService::new(options.clone()));
-        let session_service = Arc::new(SessionService::new(cache));
 
         Self {
             state: AppState::new(),
             renderer: Renderer::new(),
             search_service,
-            session_service,
             search_sender: None,
             search_receiver: None,
             search_task: None,
@@ -98,6 +94,11 @@ impl InteractiveSearch {
     }
 
     async fn run_async(&mut self, pattern: &str) -> Result<()> {
+        let _ = crate::interactive_ratatui::debug::clear_debug_log();
+        let _ = crate::interactive_ratatui::debug::write_debug_log(
+            "=== Starting interactive search session ===",
+        );
+
         self.pattern = pattern.to_string();
         let mut terminal = self.setup_terminal()?;
 
@@ -263,14 +264,29 @@ impl InteractiveSearch {
                 return Ok(false);
             }
             KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                // Only handle global preview toggle when not in SessionList tab
-                if self.state.mode == Mode::Search
-                    && self.state.search.current_tab != domain::models::SearchTab::SessionList
-                {
-                    self.handle_message(Message::TogglePreview);
+                // Send appropriate preview message based on current mode
+                let message = match self.state.mode {
+                    Mode::Search => {
+                        // Only handle global preview toggle when not in SessionList tab
+                        if self.state.search.current_tab != domain::models::SearchTab::SessionList {
+                            Some(Message::TogglePreview)
+                        } else {
+                            None // Let SessionList handle its own Ctrl+T
+                        }
+                    }
+                    Mode::SessionViewer => Some(Message::ToggleSessionPreview),
+                    _ => None, // No preview for other modes
+                };
+
+                if let Some(msg) = message {
+                    let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+                        "Ctrl+T pressed in mode {:?}, sending {:?}",
+                        self.state.mode, msg
+                    ));
+                    self.handle_message(msg);
                     return Ok(false);
                 }
-                // Let SessionList handle its own Ctrl+T
+                // If no message, let it flow through to component handlers
             }
             // Navigation shortcuts with Alt modifier
             KeyCode::Left if key.modifiers.contains(KeyModifiers::ALT) => {
@@ -390,6 +406,9 @@ impl InteractiveSearch {
             Command::ExecuteSearch => {
                 self.execute_search().await;
             }
+            Command::ExecuteSessionSearch => {
+                self.execute_session_search().await;
+            }
             Command::ScheduleSearch(delay) => {
                 self.last_search_timer = Some(std::time::Instant::now());
                 self.scheduled_search_delay = Some(delay);
@@ -470,18 +489,68 @@ impl InteractiveSearch {
     }
 
     fn load_session_messages(&mut self, file_path: &str) {
-        match self.session_service.load_session(file_path) {
-            Ok(_messages) => {
-                let raw_lines = self
-                    .session_service
-                    .get_raw_lines(file_path)
-                    .unwrap_or_default();
-                self.state.session.messages = raw_lines;
-                // Apply filtering and sorting
-                self.state.update_session_filter();
+        // Use search service to load session messages with session_id filter
+        if let Some(session_id) = &self.state.session.session_id {
+            let request = SearchRequest {
+                id: self.state.search.current_search_id,
+                query: self.state.session.query.clone(),
+                pattern: file_path.to_string(),
+                role_filter: self.state.session.role_filter.clone(),
+                order: match self.state.session.order {
+                    SessionOrder::Ascending => SearchOrder::Ascending,
+                    SessionOrder::Descending => SearchOrder::Descending,
+                },
+            };
+
+            match self
+                .search_service
+                .search_session(request, session_id.clone())
+            {
+                Ok(response) => {
+                    self.state.session.search_results = response.results;
+                    // Clear old messages - will be removed later after full migration
+                    self.state.session.messages = vec![];
+                    self.state.session.filtered_indices = vec![];
+                }
+                Err(e) => {
+                    self.state.ui.message = Some(format!("Failed to load session: {e}"));
+                }
             }
-            Err(e) => {
-                self.state.ui.message = Some(format!("Failed to load session: {e}"));
+        } else {
+            self.state.ui.message = Some("No session ID available".to_string());
+        }
+    }
+
+    async fn execute_session_search(&mut self) {
+        // Execute search with session_id filter
+        if let Some(session_id) = &self.state.session.session_id {
+            if let Some(file_path) = &self.state.session.file_path {
+                let request = SearchRequest {
+                    id: self.state.search.current_search_id,
+                    query: self.state.session.query.clone(),
+                    pattern: file_path.clone(),
+                    role_filter: self.state.session.role_filter.clone(),
+                    order: match self.state.session.order {
+                        SessionOrder::Ascending => SearchOrder::Ascending,
+                        SessionOrder::Descending => SearchOrder::Descending,
+                    },
+                };
+
+                match self
+                    .search_service
+                    .search_session(request, session_id.clone())
+                {
+                    Ok(response) => {
+                        self.state.session.search_results = response.results;
+                        // Clear old messages - will be removed later after full migration
+                        self.state.session.messages = vec![];
+                        self.state.session.filtered_indices = vec![];
+                        self.state.ui.message = None;
+                    }
+                    Err(e) => {
+                        self.state.ui.message = Some(format!("Failed to search session: {e}"));
+                    }
+                }
             }
         }
     }

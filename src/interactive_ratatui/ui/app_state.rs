@@ -52,15 +52,17 @@ pub struct SearchState {
 }
 
 pub struct SessionState {
-    pub messages: Vec<String>,
+    pub messages: Vec<String>, // Will be removed after full migration
+    pub search_results: Vec<SearchResult>, // New: unified with search results
     pub query: String,
-    pub filtered_indices: Vec<usize>,
+    pub filtered_indices: Vec<usize>, // Will be removed (handled by ResultList)
     pub selected_index: usize,
     pub scroll_offset: usize,
     pub order: SessionOrder,
     pub file_path: Option<String>,
     pub session_id: Option<String>,
     pub role_filter: Option<String>,
+    pub preview_enabled: bool,
 }
 
 pub struct UiState {
@@ -95,6 +97,7 @@ impl AppState {
             },
             session: SessionState {
                 messages: Vec::new(),
+                search_results: Vec::new(),
                 query: String::new(),
                 filtered_indices: Vec::new(),
                 selected_index: 0,
@@ -103,6 +106,7 @@ impl AppState {
                 file_path: None,
                 session_id: None,
                 role_filter: None,
+                preview_enabled: false,
             },
             session_list: SessionListState {
                 sessions: Vec::new(),
@@ -447,8 +451,12 @@ impl AppState {
             }
             Message::SessionQueryChanged(q) => {
                 self.session.query = q;
-                self.update_session_filter();
-                Command::None
+                // Trigger a new search with session_id filter
+                if self.session.session_id.is_some() {
+                    Command::ExecuteSessionSearch
+                } else {
+                    Command::None
+                }
             }
             Message::SessionScrollUp => {
                 // Deprecated: Navigation is now handled internally by SessionViewer
@@ -469,14 +477,17 @@ impl AppState {
                     SessionOrder::Ascending => SessionOrder::Descending,
                     SessionOrder::Descending => SessionOrder::Ascending,
                 };
-                // Re-apply filter with new order
-                self.update_session_filter();
                 // Update navigation history to preserve sort order
                 if self.navigation_history.current_position().is_some() {
                     self.navigation_history
                         .update_current(self.create_navigation_state());
                 }
-                Command::None
+                // Trigger a new search with updated order
+                if self.session.session_id.is_some() {
+                    Command::ExecuteSessionSearch
+                } else {
+                    Command::None
+                }
             }
             Message::ToggleSessionRoleFilter => {
                 self.session.role_filter = match &self.session.role_filter {
@@ -486,13 +497,24 @@ impl AppState {
                     Some(r) if r == "system" => Some("summary".to_string()),
                     _ => None,
                 };
-                // Re-apply filter with new role
-                self.update_session_filter();
                 // Update navigation history to preserve filter state
                 if self.navigation_history.current_position().is_some() {
                     self.navigation_history
                         .update_current(self.create_navigation_state());
                 }
+                // Trigger a new search with updated filter
+                if self.session.session_id.is_some() {
+                    Command::ExecuteSessionSearch
+                } else {
+                    Command::None
+                }
+            }
+            Message::ToggleSessionPreview => {
+                self.session.preview_enabled = !self.session.preview_enabled;
+                let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+                    "ToggleSessionPreview: preview_enabled = {}",
+                    self.session.preview_enabled
+                ));
                 Command::None
             }
             Message::SetStatus(msg) => {
@@ -504,8 +526,15 @@ impl AppState {
                 Command::None
             }
             Message::EnterMessageDetailFromSession(raw_json, file_path, session_id) => {
+                let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+                    "EnterMessageDetailFromSession: raw_json length = {}",
+                    raw_json.len()
+                ));
                 // Parse the raw JSON to create a SearchResult
                 if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&raw_json) {
+                    let _ = crate::interactive_ratatui::debug::write_debug_log(
+                        "EnterMessageDetailFromSession: Successfully parsed JSON",
+                    );
                     let role = json_value
                         .get("type")
                         .and_then(|v| v.as_str())
@@ -620,12 +649,27 @@ impl AppState {
 
                     self.ui.selected_result = Some(result);
                     self.ui.detail_scroll_offset = 0;
+                    let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+                        "EnterMessageDetailFromSession: Setting mode to MessageDetail (was {:?})",
+                        self.mode
+                    ));
                     self.mode = Mode::MessageDetail;
+                    let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+                        "EnterMessageDetailFromSession: Mode is now {:?}",
+                        self.mode
+                    ));
 
                     // Save the new state after transitioning
                     let new_state = self.create_navigation_state();
                     self.navigation_history.push(new_state);
+                } else {
+                    let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+                        "EnterMessageDetailFromSession: Failed to parse JSON: {raw_json}"
+                    ));
                 }
+                let _ = crate::interactive_ratatui::debug::write_debug_log(
+                    "EnterMessageDetailFromSession: Returning Command::None",
+                );
                 Command::None
             }
             Message::NavigateBack => {
@@ -680,58 +724,6 @@ impl AppState {
         }
     }
 
-    pub fn update_session_filter(&mut self) {
-        use crate::interactive_ratatui::domain::filter::SessionFilter;
-        use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
-
-        // Convert raw JSON strings to SessionListItems for search
-        let items: Vec<SessionListItem> = self
-            .session
-            .messages
-            .iter()
-            .filter_map(|line| SessionListItem::from_json_line(line))
-            .collect();
-
-        self.session.filtered_indices =
-            SessionFilter::filter_messages(&items, &self.session.query, &self.session.role_filter);
-
-        // Apply ordering
-        match self.session.order {
-            SessionOrder::Ascending => {
-                // Sort indices by timestamp (ascending)
-                // Empty timestamps come first
-                self.session.filtered_indices.sort_by(|&a, &b| {
-                    let a_time = &items[a].timestamp;
-                    let b_time = &items[b].timestamp;
-                    match (a_time.is_empty(), b_time.is_empty()) {
-                        (true, false) => std::cmp::Ordering::Less,
-                        (false, true) => std::cmp::Ordering::Greater,
-                        _ => a_time.cmp(b_time),
-                    }
-                });
-            }
-            SessionOrder::Descending => {
-                // Sort indices by timestamp (descending)
-                // Empty timestamps come first (at the top)
-                self.session.filtered_indices.sort_by(|&a, &b| {
-                    let a_time = &items[a].timestamp;
-                    let b_time = &items[b].timestamp;
-                    match (a_time.is_empty(), b_time.is_empty()) {
-                        (true, false) => std::cmp::Ordering::Less,
-                        (false, true) => std::cmp::Ordering::Greater,
-                        _ => b_time.cmp(a_time),
-                    }
-                });
-            }
-        }
-
-        // Reset selection if current selection is out of bounds
-        if self.session.selected_index >= self.session.filtered_indices.len() {
-            self.session.selected_index = 0;
-            self.session.scroll_offset = 0;
-        }
-    }
-
     // Create a snapshot of current state
     pub fn create_navigation_state(&self) -> NavigationState {
         NavigationState {
@@ -748,6 +740,7 @@ impl AppState {
             },
             session_state: SessionStateSnapshot {
                 messages: self.session.messages.clone(),
+                search_results: self.session.search_results.clone(),
                 query: self.session.query.clone(),
                 filtered_indices: self.session.filtered_indices.clone(),
                 selected_index: self.session.selected_index,
@@ -782,6 +775,7 @@ impl AppState {
 
         // Restore session state
         self.session.messages = state.session_state.messages.clone();
+        self.session.search_results = state.session_state.search_results.clone();
         self.session.query = state.session_state.query.clone();
         self.session.filtered_indices = state.session_state.filtered_indices.clone();
         self.session.selected_index = state.session_state.selected_index;

@@ -74,7 +74,6 @@ impl SearchEngineTrait for RayonEngine {
 
         // Channel for collecting results
         let (sender, receiver) = channel::unbounded();
-        let max_results = self.options.max_results.unwrap_or(50);
 
         // Process files in parallel using Rayon
         let search_start = std::time::Instant::now();
@@ -124,7 +123,11 @@ impl SearchEngineTrait for RayonEngine {
         }
 
         let total_count = all_results.len();
-        all_results.truncate(max_results);
+
+        // Only truncate if max_results is specified
+        if let Some(limit) = self.options.max_results {
+            all_results.truncate(limit);
+        }
 
         let elapsed = start_time.elapsed();
 
@@ -331,6 +334,13 @@ pub(super) fn search_file(
                                 .unwrap_or_else(|| file_ctime.clone())
                         };
 
+                        // For SessionViewer, we need raw_json
+                        let raw_json = if options.session_id.is_some() {
+                            // Convert line_buffer to String for raw_json
+                            Some(String::from_utf8_lossy(&line_buffer).to_string())
+                        } else {
+                            None
+                        };
                         results.push(SearchResult {
                             timestamp,
                             role: message.get_type().to_string(),
@@ -341,7 +351,7 @@ pub(super) fn search_file(
                             query: query.clone(),
                             cwd: message.get_cwd().unwrap_or("").to_string(),
                             message_type: message.get_type().to_string(),
-                            raw_json: None,
+                            raw_json,
                         });
                     }
                 }

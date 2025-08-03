@@ -4,8 +4,8 @@ use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::components::{
     Component, help_dialog::HelpDialog, is_exit_prompt, message_detail::MessageDetail,
     message_preview::MessagePreview, result_list::ResultList, search_bar::SearchBar,
-    session_list::SessionList, session_preview::SessionPreview, session_viewer::SessionViewer,
-    tab_bar::TabBar,
+    session_list::SessionList, session_preview::SessionPreview,
+    session_viewer_unified::SessionViewerUnified, tab_bar::TabBar,
 };
 use ratatui::{
     Frame,
@@ -20,7 +20,7 @@ pub struct Renderer {
     result_list: ResultList,
     message_detail: MessageDetail,
     message_preview: MessagePreview,
-    session_viewer: SessionViewer,
+    session_viewer: SessionViewerUnified,
     session_list: SessionList,
     session_preview: SessionPreview,
     tab_bar: TabBar,
@@ -34,7 +34,7 @@ impl Renderer {
             result_list: ResultList::new(),
             message_detail: MessageDetail::new(),
             message_preview: MessagePreview::new(),
-            session_viewer: SessionViewer::new(),
+            session_viewer: SessionViewerUnified::new(),
             session_list: SessionList::new(),
             session_preview: SessionPreview::new(),
             tab_bar: TabBar::new(),
@@ -43,6 +43,10 @@ impl Renderer {
     }
 
     pub fn render(&mut self, f: &mut Frame, state: &AppState) {
+        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+            "Renderer::render called with mode: {:?}",
+            state.mode
+        ));
         match state.mode {
             Mode::Search => self.render_search_mode(f, state),
             Mode::MessageDetail => self.render_detail_mode(f, state),
@@ -202,19 +206,29 @@ impl Renderer {
     }
 
     fn render_detail_mode(&mut self, f: &mut Frame, state: &AppState) {
+        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+            "Renderer::render_detail_mode called, selected_result: {}",
+            state.ui.selected_result.is_some()
+        ));
         if let Some(result) = &state.ui.selected_result {
+            let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+                "Renderer::render_detail_mode: rendering result with uuid: {}",
+                result.uuid
+            ));
             self.message_detail.set_result(result.clone());
             self.message_detail.set_message(state.ui.message.clone());
             self.message_detail.render(f, f.area());
+        } else {
+            let _ = crate::interactive_ratatui::debug::write_debug_log(
+                "Renderer::render_detail_mode: No selected_result to render!",
+            );
         }
     }
 
     fn render_session_mode(&mut self, f: &mut Frame, state: &AppState) {
-        // Update session viewer state
+        // Update session viewer state with search results
         self.session_viewer
-            .set_messages(state.session.messages.clone());
-        self.session_viewer
-            .set_filtered_indices(state.session.filtered_indices.clone());
+            .set_results(state.session.search_results.clone());
         self.session_viewer.set_query(state.session.query.clone());
         self.session_viewer.set_order(state.session.order);
         self.session_viewer
@@ -224,11 +238,15 @@ impl Renderer {
         self.session_viewer.set_message(state.ui.message.clone());
         self.session_viewer
             .set_role_filter(state.session.role_filter.clone());
-        // Restore the selected index and scroll offset
+        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+            "Renderer::render_session_mode: setting preview_enabled = {}",
+            state.session.preview_enabled
+        ));
+        self.session_viewer
+            .set_preview_enabled(state.session.preview_enabled);
+        // Restore the selected index
         self.session_viewer
             .set_selected_index(state.session.selected_index);
-        self.session_viewer
-            .set_scroll_offset(state.session.scroll_offset);
         self.session_viewer
             .set_truncation_enabled(state.ui.truncation_enabled);
 
@@ -255,7 +273,7 @@ impl Renderer {
         &mut self.message_detail
     }
 
-    pub fn get_session_viewer_mut(&mut self) -> &mut SessionViewer {
+    pub fn get_session_viewer_mut(&mut self) -> &mut SessionViewerUnified {
         &mut self.session_viewer
     }
 

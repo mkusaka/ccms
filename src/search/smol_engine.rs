@@ -111,7 +111,6 @@ impl SmolEngine {
 
         // Channel for collecting results
         let (sender, receiver) = channel::unbounded();
-        let max_results = self.options.max_results.unwrap_or(50);
 
         // Process files concurrently using multi-threaded executor
         let search_start = std::time::Instant::now();
@@ -174,7 +173,11 @@ impl SmolEngine {
         }
 
         let total_count = all_results.len();
-        all_results.truncate(max_results);
+
+        // Only truncate if max_results is specified
+        if let Some(limit) = self.options.max_results {
+            all_results.truncate(limit);
+        }
 
         let elapsed = start_time.elapsed();
 
@@ -385,6 +388,14 @@ async fn search_file(
                                 })
                                 .unwrap_or_else(|| file_ctime.clone());
 
+                            // For SessionViewer, we need raw_json
+                            let raw_json = if options_owned.session_id.is_some() {
+                                // Convert line_buffer to String for raw_json
+                                Some(String::from_utf8_lossy(&line_buffer).to_string())
+                            } else {
+                                None
+                            };
+
                             let result = SearchResult {
                                 file: file_path_owned.to_string_lossy().to_string(),
                                 uuid: message.get_uuid().unwrap_or("").to_string(),
@@ -395,7 +406,7 @@ async fn search_file(
                                 message_type: message.get_type().to_string(),
                                 query: query_owned.clone(),
                                 cwd: message.get_cwd().unwrap_or("").to_string(),
-                                raw_json: None,
+                                raw_json,
                             };
                             results.push(result);
                         }

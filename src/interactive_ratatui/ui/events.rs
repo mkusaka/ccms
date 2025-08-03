@@ -44,6 +44,7 @@ pub enum Message {
     SessionNavigated(usize, usize), // (selected_index, scroll_offset)
     ToggleSessionOrder,
     ToggleSessionRoleFilter,
+    ToggleSessionPreview,
 
     // Role filter
     ToggleRoleFilter,

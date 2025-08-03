@@ -1,7 +1,8 @@
 use ccms::interactive_ratatui::ui::{
     app_state::AppState,
     components::{
-        Component, result_list::ResultList, search_bar::SearchBar, session_viewer::SessionViewer,
+        Component, result_list::ResultList, search_bar::SearchBar,
+        session_viewer_unified::SessionViewerUnified,
     },
     events::Message,
     renderer::Renderer,
@@ -461,19 +462,57 @@ fn create_test_session_messages(count: usize) -> Vec<SessionMessage> {
         .collect()
 }
 
+fn create_test_session_results(count: usize) -> Vec<SearchResult> {
+    let messages = create_test_session_messages(count);
+    messages
+        .into_iter()
+        .enumerate()
+        .map(|(i, msg)| {
+            let (role, text) = match &msg {
+                SessionMessage::User { message, .. } => {
+                    let content = match &message.content {
+                        UserContent::String(s) => s.clone(),
+                        UserContent::Array(_) => "Array content".to_string(),
+                    };
+                    ("user", content)
+                }
+                SessionMessage::Assistant { .. } => {
+                    ("assistant", format!("Assistant response {i}"))
+                }
+                SessionMessage::System { .. } => ("system", format!("System message {i}")),
+                SessionMessage::Summary { .. } => ("summary", format!("Summary {i}")),
+            };
+
+            let raw_json = serde_json::to_string(&msg).unwrap_or_default();
+            let session_num = i % 10;
+
+            SearchResult {
+                file: "test.jsonl".to_string(),
+                uuid: format!("uuid-{i}"),
+                timestamp: "2024-01-01T00:00:00Z".to_string(),
+                session_id: format!("session-{session_num}"),
+                role: role.to_string(),
+                text,
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: "test".to_string(),
+                    case_sensitive: false,
+                },
+                cwd: "/test".to_string(),
+                raw_json: Some(raw_json),
+            }
+        })
+        .collect()
+}
+
 fn benchmark_session_viewer_rendering(c: &mut Criterion) {
     let mut group = c.benchmark_group("session_viewer");
 
     // Session viewer rendering (small dataset)
     group.bench_function("render_session_200", |b| {
-        let mut session_viewer = SessionViewer::new();
-        let messages = create_test_session_messages(200);
-        let message_strings: Vec<String> = messages
-            .iter()
-            .map(|msg| serde_json::to_string(msg).unwrap_or_default())
-            .collect();
-        session_viewer.set_messages(message_strings);
-        session_viewer.set_filtered_indices(vec![0, 10, 20, 30, 40, 50]);
+        let mut session_viewer = SessionViewerUnified::new();
+        let results = create_test_session_results(200);
+        session_viewer.set_results(results);
 
         b.iter_batched(
             || TestBackend::new(120, 40),
@@ -491,16 +530,9 @@ fn benchmark_session_viewer_rendering(c: &mut Criterion) {
 
     // Production-scale session messages (50k entries)
     group.bench_function("render_session_50k", |b| {
-        let mut session_viewer = SessionViewer::new();
-        let messages = create_test_session_messages(50_000);
-        let message_strings: Vec<String> = messages
-            .iter()
-            .map(|msg| serde_json::to_string(msg).unwrap_or_default())
-            .collect();
-        session_viewer.set_messages(message_strings);
-        // More filtered indices
-        let filtered_indices: Vec<usize> = (0..50_000).step_by(100).collect();
-        session_viewer.set_filtered_indices(filtered_indices);
+        let mut session_viewer = SessionViewerUnified::new();
+        let results = create_test_session_results(50_000);
+        session_viewer.set_results(results);
 
         b.iter_batched(
             || TestBackend::new(120, 40),
