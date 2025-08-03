@@ -16,6 +16,7 @@ use ratatui::{
 pub struct ResultList {
     list_viewer: ListViewer<SearchResult>,
     preview_enabled: bool,
+    show_status_bar: bool,
 }
 
 impl ResultList {
@@ -23,7 +24,13 @@ impl ResultList {
         Self {
             list_viewer: ListViewer::new("Results".to_string(), "No results found".to_string()),
             preview_enabled: false,
+            show_status_bar: true,
         }
+    }
+
+    pub fn with_status_bar(mut self, show: bool) -> Self {
+        self.show_status_bar = show;
+        self
     }
 
     pub fn set_results(&mut self, results: Vec<SearchResult>) {
@@ -64,18 +71,31 @@ impl ResultList {
     pub fn get_scroll_offset(&self) -> usize {
         self.list_viewer.scroll_offset
     }
+
+    pub fn items_count(&self) -> usize {
+        self.list_viewer.items_count()
+    }
 }
 
 impl Component for ResultList {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        // Split area into title, content (list), and status
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
+        // Split area into title, content (list), and optionally status
+        let constraints = if self.show_status_bar {
+            vec![
                 Constraint::Length(RESULT_LIST_TITLE_HEIGHT),  // Title
                 Constraint::Min(0),                            // Content (list)
                 Constraint::Length(RESULT_LIST_STATUS_HEIGHT), // Status
-            ])
+            ]
+        } else {
+            vec![
+                Constraint::Length(RESULT_LIST_TITLE_HEIGHT),  // Title
+                Constraint::Min(0),                            // Content (list)
+            ]
+        };
+        
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(constraints)
             .split(area);
 
         // Render title
@@ -89,13 +109,15 @@ impl Component for ResultList {
         // Render list
         self.list_viewer.render(f, chunks[1]);
 
-        // Render status bar (updated to include Ctrl+S and Tab: Filter)
-        let status_text = "Tab: Filter | ↑/↓ or Ctrl+P/N: Navigate | Enter: View details | Ctrl+S: View full session | Ctrl+T: Toggle preview | Esc: Exit | ?: Help";
-        let status_bar = Paragraph::new(status_text)
-            .style(Styles::dimmed())
-            .alignment(ratatui::layout::Alignment::Center)
-            .wrap(Wrap { trim: true });
-        f.render_widget(status_bar, chunks[2]);
+        // Render status bar only if enabled
+        if self.show_status_bar {
+            let status_text = "Tab: Filter | ↑/↓ or Ctrl+P/N: Navigate | Enter: View details | Ctrl+S: View full session | Ctrl+T: Toggle preview | Esc: Exit | ?: Help";
+            let status_bar = Paragraph::new(status_text)
+                .style(Styles::dimmed())
+                .alignment(ratatui::layout::Alignment::Center)
+                .wrap(Wrap { trim: true });
+            f.render_widget(status_bar, chunks[2]);
+        }
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {

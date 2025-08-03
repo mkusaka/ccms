@@ -14,6 +14,7 @@ use crate::SearchOptions;
 
 mod application;
 mod constants;
+mod debug;
 pub mod domain;
 pub mod ui;
 
@@ -25,6 +26,8 @@ mod integration_tests;
 // mod session_view_integration_test; // No longer used - using unified session viewer
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod session_preview_test;
 
 use self::application::search_service::SearchService;
 use self::constants::*;
@@ -76,6 +79,9 @@ impl InteractiveSearch {
     }
 
     async fn run_async(&mut self, pattern: &str) -> Result<()> {
+        let _ = crate::interactive_ratatui::debug::clear_debug_log();
+        let _ = crate::interactive_ratatui::debug::write_debug_log("=== Starting interactive search session ===");
+        
         self.pattern = pattern.to_string();
         let mut terminal = self.setup_terminal()?;
 
@@ -200,7 +206,16 @@ impl InteractiveSearch {
                 return Ok(false);
             }
             KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.handle_message(Message::TogglePreview);
+                // Send appropriate preview message based on current mode
+                let message = match self.state.mode {
+                    Mode::Search => Message::TogglePreview,
+                    Mode::SessionViewer => Message::ToggleSessionPreview,
+                    _ => return Ok(false), // No preview for other modes
+                };
+                let _ = crate::interactive_ratatui::debug::write_debug_log(
+                    &format!("Ctrl+T pressed in mode {:?}, sending {:?}", self.state.mode, message)
+                );
+                self.handle_message(message);
                 return Ok(false);
             }
             // Navigation shortcuts with Alt modifier

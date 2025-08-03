@@ -435,6 +435,7 @@ dependencies = [
  "futures-lite",
  "globset",
  "jwalk",
+ "lazy_static",
  "lru 0.16.0",
  "mimalloc",
  "nom 8.0.0",

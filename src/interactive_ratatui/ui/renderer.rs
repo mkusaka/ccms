@@ -157,6 +157,11 @@ impl Renderer {
         self.session_viewer.set_message(state.ui.message.clone());
         self.session_viewer
             .set_role_filter(state.session.role_filter.clone());
+        let _ = crate::interactive_ratatui::debug::write_debug_log(
+            &format!("Renderer::render_session_mode: setting preview_enabled = {}", state.session.preview_enabled)
+        );
+        self.session_viewer
+            .set_preview_enabled(state.session.preview_enabled);
         // Restore the selected index
         self.session_viewer
             .set_selected_index(state.session.selected_index);

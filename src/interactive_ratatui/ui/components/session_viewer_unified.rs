@@ -40,7 +40,7 @@ impl Default for SessionViewerUnified {
 impl SessionViewerUnified {
     pub fn new() -> Self {
         Self {
-            result_list: ResultList::new(),
+            result_list: ResultList::new().with_status_bar(false),
             message_preview: MessagePreview::new(),
             text_input: TextInput::new(),
             order: SessionOrder::Ascending,
@@ -102,6 +102,14 @@ impl SessionViewerUnified {
         self.role_filter = role_filter;
     }
 
+    pub fn set_preview_enabled(&mut self, enabled: bool) {
+        let _ = crate::interactive_ratatui::debug::write_debug_log(
+            &format!("SessionViewerUnified::set_preview_enabled: {} -> {}", self.preview_enabled, enabled)
+        );
+        self.preview_enabled = enabled;
+        self.result_list.set_preview_enabled(enabled);
+    }
+
     pub fn start_search(&mut self) {
         self.is_searching = true;
         self.text_input.set_text(String::new());
@@ -109,6 +117,15 @@ impl SessionViewerUnified {
 
     pub fn stop_search(&mut self) {
         self.is_searching = false;
+    }
+    
+    #[cfg(test)]
+    pub fn is_preview_enabled(&self) -> bool {
+        self.preview_enabled
+    }
+    
+    pub fn get_result_list(&self) -> &ResultList {
+        &self.result_list
     }
 
     fn format_order(order: &SessionOrder) -> &'static str {
@@ -119,6 +136,10 @@ impl SessionViewerUnified {
     }
 
     fn render_content(&mut self, f: &mut Frame, area: Rect) {
+        let _ = crate::interactive_ratatui::debug::write_debug_log(
+            &format!("SessionViewerUnified::render_content: area = {:?}", area)
+        );
+        
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -156,23 +177,39 @@ impl SessionViewerUnified {
                 String::new()
             };
 
-            let result_count = self.result_list.selected_result()
-                .map(|_| self.result_list.get_selected_index() + 1)
-                .unwrap_or(0);
-            let total_results = self.result_list.get_selected_index() + 1; // This is a simplification
+            let total_count = self.result_list.items_count();
+            let selected_index = if total_count > 0 {
+                self.result_list.get_selected_index() + 1
+            } else {
+                0
+            };
 
-            let info_text = format!(
-                "Messages: {} (showing: {}){}{} | Press '/' to search",
-                total_results,
-                result_count,
-                order_part,
-                role_part
-            );
+            let info_text = if total_count == 0 {
+                format!(
+                    "No messages{}{} | Press '/' to search",
+                    order_part,
+                    role_part
+                )
+            } else {
+                format!(
+                    "Total: {} messages | Position: {}/{}{}{} | Press '/' to search",
+                    total_count,
+                    selected_index,
+                    total_count,
+                    order_part,
+                    role_part
+                )
+            };
             let info_bar = Paragraph::new(info_text).block(Block::default().borders(Borders::ALL));
             f.render_widget(info_bar, chunks[0]);
         }
 
         // Split the content area if preview is enabled
+        let _ = crate::interactive_ratatui::debug::write_debug_log(
+            &format!("SessionViewerUnified::render_content: preview_enabled = {}, has_selected_result = {}", 
+                self.preview_enabled, 
+                self.result_list.selected_result().is_some())
+        );
         if self.preview_enabled && self.result_list.selected_result().is_some() {
             // Split content area into list and preview
             let content_chunks = Layout::default()
@@ -368,6 +405,18 @@ impl Component for SessionViewerUnified {
                         self.result_list.get_scroll_offset(),
                     ))
                 }
+                KeyCode::Enter => {
+                    // Navigate to result detail for selected message
+                    if let Some(result) = self.result_list.selected_result() {
+                        Some(Message::EnterMessageDetailFromSession(
+                            result.raw_json.clone().unwrap_or_default(),
+                            self.file_path.clone().unwrap_or_default(),
+                            self.session_id.clone(),
+                        ))
+                    } else {
+                        None
+                    }
+                }
                 KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
                     self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
@@ -396,6 +445,13 @@ impl Component for SessionViewerUnified {
                         self.result_list.get_scroll_offset(),
                     ))
                 }
+                KeyCode::PageUp | KeyCode::PageDown | KeyCode::Home | KeyCode::End => {
+                    self.result_list.handle_key(key);
+                    Some(Message::SessionNavigated(
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
+                    ))
+                }
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(Message::ToggleSessionRoleFilter)
                 }
@@ -407,16 +463,10 @@ impl Component for SessionViewerUnified {
                     Some(Message::ToggleSessionOrder)
                 }
                 KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
-                    self.preview_enabled = !self.preview_enabled;
-                    self.result_list.set_preview_enabled(self.preview_enabled);
-                    Some(Message::SetStatus(format!(
-                        "Preview {}",
-                        if self.preview_enabled {
-                            "enabled"
-                        } else {
-                            "disabled"
-                        }
-                    )))
+                    let _ = crate::interactive_ratatui::debug::write_debug_log(
+                        "SessionViewerUnified: Ctrl+T pressed, sending ToggleSessionPreview"
+                    );
+                    Some(Message::ToggleSessionPreview)
                 }
                 // Unified copy operations
                 KeyCode::Char('c') => self.result_list.selected_result().map(|result| {
@@ -439,13 +489,6 @@ impl Component for SessionViewerUnified {
                     .file_path
                     .clone()
                     .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path))),
-                KeyCode::Enter => self.result_list.selected_result().map(|result| {
-                    Message::EnterMessageDetailFromSession(
-                        result.raw_json.clone().unwrap_or_default(),
-                        self.file_path.clone().unwrap_or_default(),
-                        self.session_id.clone(),
-                    )
-                }),
                 KeyCode::Esc => Some(Message::ExitToSearch),
                 _ => None,
             }

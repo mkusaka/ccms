@@ -41,6 +41,7 @@ pub struct SessionState {
     pub file_path: Option<String>,
     pub session_id: Option<String>,
     pub role_filter: Option<String>,
+    pub preview_enabled: bool,
 }
 
 pub struct UiState {
@@ -83,6 +84,7 @@ impl AppState {
                 file_path: None,
                 session_id: None,
                 role_filter: None,
+                preview_enabled: false,
             },
             ui: UiState {
                 message: None,
@@ -335,6 +337,13 @@ impl AppState {
                 } else {
                     Command::None
                 }
+            }
+            Message::ToggleSessionPreview => {
+                self.session.preview_enabled = !self.session.preview_enabled;
+                let _ = crate::interactive_ratatui::debug::write_debug_log(
+                    &format!("ToggleSessionPreview: preview_enabled = {}", self.session.preview_enabled)
+                );
+                Command::None
             }
             Message::SetStatus(msg) => {
                 self.ui.message = Some(msg);

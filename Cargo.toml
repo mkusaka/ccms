@@ -41,6 +41,9 @@ anyhow = "1.0"
 chrono = "0.4"
 parse_datetime = "0.11"
 
+# Utility
+lazy_static = "1.4"
+
 # Query parsing
 nom = "8.0"
 
