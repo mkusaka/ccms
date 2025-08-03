@@ -1,13 +1,15 @@
 use crate::interactive_ratatui::constants::*;
+use crate::interactive_ratatui::domain::models::SearchTab;
 use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::components::{
     Component, help_dialog::HelpDialog, is_exit_prompt, message_detail::MessageDetail,
     message_preview::MessagePreview, result_list::ResultList, search_bar::SearchBar,
-    session_viewer::SessionViewer,
+    session_list::SessionList, session_preview::SessionPreview, session_viewer::SessionViewer,
+    tab_bar::TabBar,
 };
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     widgets::Paragraph,
 };
@@ -19,6 +21,9 @@ pub struct Renderer {
     message_detail: MessageDetail,
     message_preview: MessagePreview,
     session_viewer: SessionViewer,
+    session_list: SessionList,
+    session_preview: SessionPreview,
+    tab_bar: TabBar,
     help_dialog: HelpDialog,
 }
 
@@ -30,6 +35,9 @@ impl Renderer {
             message_detail: MessageDetail::new(),
             message_preview: MessagePreview::new(),
             session_viewer: SessionViewer::new(),
+            session_list: SessionList::new(),
+            session_preview: SessionPreview::new(),
+            tab_bar: TabBar::new(),
             help_dialog: HelpDialog::new(),
         }
     }
@@ -51,6 +59,7 @@ impl Renderer {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
+                    Constraint::Length(3),                  // Tab bar (with borders)
                     Constraint::Length(SEARCH_BAR_HEIGHT),  // Search bar
                     Constraint::Min(0),                     // Results
                     Constraint::Length(EXIT_PROMPT_HEIGHT), // Exit prompt
@@ -60,11 +69,16 @@ impl Renderer {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
+                    Constraint::Length(3),                 // Tab bar (with borders)
                     Constraint::Length(SEARCH_BAR_HEIGHT), // Search bar
                     Constraint::Min(0),                    // Results
                 ])
                 .split(f.area())
         };
+
+        // Update and render tab bar
+        self.tab_bar.set_current_tab(state.search.current_tab);
+        self.tab_bar.render(f, chunks[0]);
 
         // Update search bar state
         self.search_bar.set_query(state.search.query.clone());
@@ -79,48 +93,99 @@ impl Renderer {
             .set_role_filter(state.search.role_filter.clone());
         self.search_bar.set_search_order(state.search.order);
 
-        // Render search bar
-        self.search_bar.render(f, chunks[0]);
+        // Render search bar (only for Search tab)
+        if state.search.current_tab == SearchTab::Search {
+            self.search_bar.render(f, chunks[1]);
+        }
 
-        // Split the content area if preview is enabled
-        if state.search.preview_enabled && !state.search.results.is_empty() {
-            // Split content area into list and preview
-            let content_chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([
-                    Constraint::Percentage(40), // Results list
-                    Constraint::Percentage(60), // Preview
-                ])
-                .split(chunks[1]);
+        // Render content based on current tab
+        match state.search.current_tab {
+            SearchTab::Search => {
+                // For Search tab, content is in chunks[2]
+                let content_area = chunks[2];
 
-            // Update result list state
-            self.result_list.set_results(state.search.results.clone());
-            self.result_list
-                .set_selected_index(state.search.selected_index);
-            self.result_list
-                .set_truncation_enabled(state.ui.truncation_enabled);
-            self.result_list.set_preview_enabled(true);
+                if state.search.preview_enabled && !state.search.results.is_empty() {
+                    // Split content area into list and preview
+                    let content_chunks = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .constraints([
+                            Constraint::Percentage(40), // Results list
+                            Constraint::Percentage(60), // Preview
+                        ])
+                        .split(content_area);
 
-            // Update preview state
-            let selected_result = state
-                .search
-                .results
-                .get(state.search.selected_index)
-                .cloned();
-            self.message_preview.set_result(selected_result);
+                    // Update result list state
+                    self.result_list.set_results(state.search.results.clone());
+                    self.result_list
+                        .set_selected_index(state.search.selected_index);
+                    self.result_list
+                        .set_truncation_enabled(state.ui.truncation_enabled);
+                    self.result_list.set_preview_enabled(true);
 
-            // Render both components
-            self.result_list.render(f, content_chunks[0]);
-            self.message_preview.render(f, content_chunks[1]);
-        } else {
-            // No preview - use full width for results
-            self.result_list.set_results(state.search.results.clone());
-            self.result_list
-                .set_selected_index(state.search.selected_index);
-            self.result_list
-                .set_truncation_enabled(state.ui.truncation_enabled);
-            self.result_list.set_preview_enabled(false);
-            self.result_list.render(f, chunks[1]);
+                    // Update preview state
+                    let selected_result = state
+                        .search
+                        .results
+                        .get(state.search.selected_index)
+                        .cloned();
+                    self.message_preview.set_result(selected_result);
+
+                    // Render both components
+                    self.result_list.render(f, content_chunks[0]);
+                    self.message_preview.render(f, content_chunks[1]);
+                } else {
+                    // No preview - use full width for results
+                    self.result_list.set_results(state.search.results.clone());
+                    self.result_list
+                        .set_selected_index(state.search.selected_index);
+                    self.result_list
+                        .set_truncation_enabled(state.ui.truncation_enabled);
+                    self.result_list.set_preview_enabled(false);
+                    self.result_list.render(f, content_area);
+                }
+            }
+            SearchTab::SessionList => {
+                // Update session list state
+                self.session_list
+                    .set_sessions(state.session_list.sessions.clone());
+                self.session_list
+                    .set_selected_index(state.session_list.selected_index);
+                self.session_list
+                    .set_is_loading(state.session_list.is_loading);
+                self.session_list
+                    .set_preview_enabled(state.session_list.preview_enabled);
+
+                // For SessionList tab, combine the search bar area and content area
+                // This uses chunks[1] (search bar area) and chunks[2] (content area)
+                let combined_area = Rect {
+                    x: chunks[1].x,
+                    y: chunks[1].y,
+                    width: chunks[1].width,
+                    height: chunks[1].height + chunks[2].height,
+                };
+
+                if state.session_list.preview_enabled && !state.session_list.sessions.is_empty() {
+                    // Split the combined area into list and preview
+                    let preview_chunks = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .constraints([
+                            Constraint::Percentage(50), // Session list
+                            Constraint::Percentage(50), // Preview
+                        ])
+                        .split(combined_area);
+
+                    // Update preview state
+                    self.session_preview
+                        .set_session(self.session_list.get_selected_session().cloned());
+
+                    // Render both components
+                    self.session_list.render(f, preview_chunks[0]);
+                    self.session_preview.render(f, preview_chunks[1]);
+                } else {
+                    // No preview - use full width for session list
+                    self.session_list.render(f, combined_area);
+                }
+            }
         }
 
         // Render exit prompt at bottom if needed
@@ -132,7 +197,7 @@ impl Renderer {
                         .add_modifier(Modifier::BOLD),
                 )
                 .alignment(ratatui::layout::Alignment::Center);
-            f.render_widget(exit_prompt, chunks[2]);
+            f.render_widget(exit_prompt, chunks[3]);
         }
     }
 
@@ -196,5 +261,13 @@ impl Renderer {
 
     pub fn get_help_dialog_mut(&mut self) -> &mut HelpDialog {
         &mut self.help_dialog
+    }
+
+    pub fn get_session_list_mut(&mut self) -> &mut SessionList {
+        &mut self.session_list
+    }
+
+    pub fn get_tab_bar_mut(&mut self) -> &mut TabBar {
+        &mut self.tab_bar
     }
 }

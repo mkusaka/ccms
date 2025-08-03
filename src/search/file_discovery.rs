@@ -77,6 +77,10 @@ pub fn discover_claude_files(pattern: Option<&str>) -> Result<Vec<PathBuf>> {
         let base = &path_str[..pos];
         let parent = Path::new(base).parent().unwrap_or(Path::new("/"));
         (parent.to_path_buf(), path_str.to_string())
+    } else if expanded_path.is_dir() {
+        // If it's a directory, append the jsonl pattern
+        let glob_pattern = format!("{}/**/*.jsonl", expanded_path.display());
+        (expanded_path, glob_pattern)
     } else {
         // No glob pattern, treat as single file
         return Ok(vec![expanded_path]);

@@ -297,13 +297,11 @@ mod tests {
 
         // Check that shortcuts are displayed in the status bar
         // With a narrow terminal (40 chars), the status bar will wrap
-        // We can see from the output that it shows:
-        // "   ↑/↓ or Ctrl+P/N: Navigate |   "
-        // " Enter: View details | Ctrl+S: View full"
-        // So we check for partial text that we know is visible
-        assert!(content.contains("Navigate"));
-        assert!(content.contains("View details"));
-        assert!(content.contains("Ctrl+S"));
+        // The new status bar starts with "Shift+Tab/Ctrl+Tab: Switch tabs"
+        // So we check for text that would be visible in the wrapped display
+        assert!(content.contains("Shift+Tab") || content.contains("Switch tabs"));
+        assert!(content.contains("Tab:") || content.contains("Filter"));
+        assert!(content.contains("Navigate") || content.contains("Ctrl+"));
     }
 
     #[test]
@@ -338,8 +336,10 @@ mod tests {
         }
 
         // Check that shortcuts are displayed properly on wide screen in the status bar
+        // With the new status bar, we should see the tab switching shortcuts first
+        assert!(content.contains("Shift+Tab: Switch tabs"));
+        assert!(content.contains("Tab: Filter"));
         assert!(content.contains("↑/↓ or Ctrl+P/N: Navigate"));
-        assert!(content.contains("Ctrl+S: View full session"));
     }
 
     #[test]

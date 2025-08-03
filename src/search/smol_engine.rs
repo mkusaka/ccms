@@ -41,6 +41,10 @@ impl SmolEngine {
         initialize_blocking_threads(options.verbose);
         Self { options }
     }
+
+    pub fn get_options(&self) -> &SearchOptions {
+        &self.options
+    }
 }
 
 impl SearchEngineTrait for SmolEngine {
