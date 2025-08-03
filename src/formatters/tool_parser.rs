@@ -19,7 +19,7 @@ pub struct ThinkingBlock {
 }
 
 /// Parsed content from a message
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ParsedContent {
     /// Regular text content before any tool executions
     pub text_before: Vec<String>,
@@ -36,13 +36,7 @@ pub struct ParsedContent {
 impl ParsedContent {
     /// Create a new empty ParsedContent
     pub fn new() -> Self {
-        Self {
-            text_before: Vec::new(),
-            tool_executions: Vec::new(),
-            thinking_blocks: Vec::new(),
-            text_between: Vec::new(),
-            text_after: Vec::new(),
-        }
+        Self::default()
     }
 
     /// Check if the content has any tool executions
