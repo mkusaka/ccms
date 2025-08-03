@@ -106,18 +106,30 @@ impl SearchService {
         let mut sessions: Vec<SessionData> = Vec::new();
 
         // Use discover_claude_files to find all session files
-        let all_files = discover_claude_files(None)?;
-
         let files = if let Some(ref project_path) = self.base_options.project_path {
-            // Filter files that belong to the specified project
-            use crate::utils::path_encoding::file_belongs_to_project;
-            all_files
-                .into_iter()
-                .filter(|path| file_belongs_to_project(&path.to_string_lossy(), project_path))
-                .collect()
+            // When project_path is specified, look for Claude sessions for that project
+            // Use wildcard pattern to include subprojects
+            use crate::utils::path_encoding::encode_project_path;
+            use std::path::Path;
+
+            // Convert to absolute path first
+            let absolute_path = if Path::new(project_path).is_absolute() {
+                project_path.to_string()
+            } else {
+                std::env::current_dir()
+                    .ok()
+                    .and_then(|cwd| cwd.join(project_path).canonicalize().ok())
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| project_path.to_string())
+            };
+
+            let encoded_path = encode_project_path(&absolute_path);
+            let claude_project_dir = format!("~/.claude/projects/{encoded_path}*/**/*.jsonl");
+
+            discover_claude_files(Some(&claude_project_dir))?
         } else {
             // No filter, use all files
-            all_files
+            discover_claude_files(None)?
         };
 
         // Find all session files
