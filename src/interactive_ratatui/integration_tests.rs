@@ -1203,11 +1203,11 @@ mod tests {
         let mut sessions = Vec::new();
         for i in 0..10 {
             sessions.push(crate::interactive_ratatui::ui::app_state::SessionInfo {
-                file_path: format!("/path/to/session{}.jsonl", i),
-                session_id: format!("session-{}", i),
-                timestamp: format!("2024-01-01T{:02}:00:00Z", i),
+                file_path: format!("/path/to/session{i}.jsonl"),
+                session_id: format!("session-{i}"),
+                timestamp: format!("2024-01-01T{i:02}:00:00Z"),
                 message_count: i * 10,
-                first_message: format!("Hello from session {}", i),
+                first_message: format!("Hello from session {i}"),
                 preview_messages: vec![],
                 summary: None,
             });
