@@ -1,4 +1,5 @@
 use crate::interactive_ratatui::application::search_service::SessionData;
+use crate::interactive_ratatui::ui::app_state::SessionInfo;
 use crate::query::condition::SearchResult;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -59,6 +60,9 @@ pub enum Message {
     // Session list events
     LoadSessionList,
     SessionListLoaded(Vec<SessionData>), // (file_path, session_id, timestamp, message_count, first_message, preview_messages, summary)
+    SessionListQueryChanged(String),
+    SessionListSearchRequested,
+    SessionListSearchCompleted(Vec<SessionInfo>),
     SelectSessionFromList(usize),
     SessionListScrollUp,
     SessionListScrollDown,

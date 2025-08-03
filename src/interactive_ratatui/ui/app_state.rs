@@ -21,13 +21,17 @@ pub struct AppState {
 
 pub struct SessionListState {
     pub sessions: Vec<SessionInfo>,
+    pub filtered_sessions: Vec<SessionInfo>,
+    pub query: String,
     pub selected_index: usize,
     pub scroll_offset: usize,
     pub is_loading: bool,
+    pub is_searching: bool,
+    pub current_search_id: u64,
     pub preview_enabled: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SessionInfo {
     pub file_path: String,
     pub session_id: String,
@@ -110,9 +114,13 @@ impl AppState {
             },
             session_list: SessionListState {
                 sessions: Vec::new(),
+                filtered_sessions: Vec::new(),
+                query: String::new(),
                 selected_index: 0,
                 scroll_offset: 0,
                 is_loading: false,
+                is_searching: false,
+                current_search_id: 0,
                 preview_enabled: true, // Default to true for better UX
             },
             ui: UiState {
@@ -359,10 +367,31 @@ impl AppState {
                 self.session_list.is_loading = false;
                 self.session_list.selected_index = 0;
                 self.session_list.scroll_offset = 0;
+                // Copy all sessions to filtered_sessions initially
+                self.session_list.filtered_sessions = self.session_list.sessions.clone();
+                Command::None
+            }
+            Message::SessionListQueryChanged(q) => {
+                self.session_list.query = q;
+                self.ui.message = Some("[typing...]".to_string());
+                Command::ScheduleSessionListSearch(300) // 300ms debounce
+            }
+            Message::SessionListSearchRequested => {
+                self.session_list.is_searching = true;
+                self.ui.message = Some("[searching...]".to_string());
+                self.session_list.current_search_id += 1;
+                Command::ExecuteSessionListSearch
+            }
+            Message::SessionListSearchCompleted(filtered_sessions) => {
+                self.session_list.filtered_sessions = filtered_sessions;
+                self.session_list.is_searching = false;
+                self.session_list.selected_index = 0;
+                self.session_list.scroll_offset = 0;
+                self.ui.message = None;
                 Command::None
             }
             Message::SelectSessionFromList(index) => {
-                if index < self.session_list.sessions.len() {
+                if index < self.session_list.filtered_sessions.len() {
                     self.session_list.selected_index = index;
                 }
                 Command::None
@@ -374,7 +403,8 @@ impl AppState {
                 Command::None
             }
             Message::SessionListScrollDown => {
-                if self.session_list.selected_index + 1 < self.session_list.sessions.len() {
+                if self.session_list.selected_index + 1 < self.session_list.filtered_sessions.len()
+                {
                     self.session_list.selected_index += 1;
                 }
                 Command::None
@@ -389,7 +419,7 @@ impl AppState {
             Message::SessionListPageDown => {
                 // Move down by full page (default 30 lines)
                 let page_size = 30;
-                let max_index = self.session_list.sessions.len().saturating_sub(1);
+                let max_index = self.session_list.filtered_sessions.len().saturating_sub(1);
                 self.session_list.selected_index =
                     (self.session_list.selected_index + page_size).min(max_index);
                 Command::None
@@ -404,7 +434,7 @@ impl AppState {
             Message::SessionListHalfPageDown => {
                 // Move down by half page (default 15 lines)
                 let half_page = 15;
-                let max_index = self.session_list.sessions.len().saturating_sub(1);
+                let max_index = self.session_list.filtered_sessions.len().saturating_sub(1);
                 self.session_list.selected_index =
                     (self.session_list.selected_index + half_page).min(max_index);
                 Command::None
@@ -417,7 +447,7 @@ impl AppState {
                 // Find the session info to get the session_id
                 if let Some(session_info) = self
                     .session_list
-                    .sessions
+                    .filtered_sessions
                     .iter()
                     .find(|s| s.file_path == file_path)
                 {
