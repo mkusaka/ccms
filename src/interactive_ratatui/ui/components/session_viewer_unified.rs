@@ -326,13 +326,23 @@ impl Component for SessionViewerUnified {
                 }
                 KeyCode::Enter => {
                     // Navigate to result detail for selected message (keep search mode active)
+                    let _ = crate::interactive_ratatui::debug::write_debug_log(
+                        "SessionViewerUnified (searching): Enter pressed"
+                    );
+                    
                     if let Some(result) = self.result_list.selected_result() {
+                        let _ = crate::interactive_ratatui::debug::write_debug_log(
+                            &format!("SessionViewerUnified: Found selected result, sending EnterMessageDetailFromSession")
+                        );
                         Some(Message::EnterMessageDetailFromSession(
                             result.raw_json.clone().unwrap_or_default(),
                             self.file_path.clone().unwrap_or_default(),
                             self.session_id.clone(),
                         ))
                     } else {
+                        let _ = crate::interactive_ratatui::debug::write_debug_log(
+                            "SessionViewerUnified: No selected result"
+                        );
                         None
                     }
                 }

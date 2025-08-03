@@ -333,6 +333,14 @@ pub(super) fn search_file(
                         let has_thinking = message.has_thinking();
                         let has_tools = message.has_tool_use();
 
+                        // For SessionViewer, we need raw_json
+                        let raw_json = if options.session_id.is_some() {
+                            // Convert line_buffer to String for raw_json
+                            Some(String::from_utf8_lossy(&line_buffer).to_string())
+                        } else {
+                            None
+                        };
+
                         results.push(SearchResult {
                             timestamp,
                             role: message.get_type().to_string(),
@@ -345,7 +353,7 @@ pub(super) fn search_file(
                             has_thinking,
                             has_tools,
                             message_type: message.get_type().to_string(),
-                            raw_json: None,
+                            raw_json,
                         });
                     }
                 }
