@@ -35,12 +35,12 @@ impl MessageDetail {
     pub fn set_result(&mut self, result: SearchResult) {
         // Only reset scroll if it's a different message
         let should_reset_scroll = self.current_uuid.as_ref() != Some(&result.uuid);
-        
+
         if should_reset_scroll {
             self.scroll_offset = 0;
             self.current_uuid = Some(result.uuid.clone());
         }
-        
+
         self.result = Some(result);
     }
 
