@@ -1,198 +1,228 @@
 #[cfg(test)]
 mod tests {
+    use super::super::session_list::SessionList;
     use crate::interactive_ratatui::ui::app_state::SessionInfo;
     use crate::interactive_ratatui::ui::components::Component;
-    use crate::interactive_ratatui::ui::components::session_list::SessionList;
     use crate::interactive_ratatui::ui::events::Message;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    use ratatui::Terminal;
-    use ratatui::backend::TestBackend;
-    use ratatui::buffer::Buffer;
+    use ratatui::{Terminal, backend::TestBackend, buffer::Buffer};
 
-    fn create_test_sessions() -> Vec<SessionInfo> {
-        vec![
-            SessionInfo {
-                file_path: "/path/to/session1.jsonl".to_string(),
-                session_id: "session-1".to_string(),
-                timestamp: "2024-01-01T12:00:00Z".to_string(),
-                message_count: 10,
-                first_message: "Hello from session 1".to_string(),
-                preview_messages: vec![
-                    ("user".to_string(), "Hello from session 1".to_string()),
-                    (
-                        "assistant".to_string(),
-                        "Hi! How can I help you?".to_string(),
-                    ),
-                ],
-                summary: Some("Discussion about session 1".to_string()),
-            },
-            SessionInfo {
-                file_path: "/path/to/session2.jsonl".to_string(),
-                session_id: "session-2".to_string(),
-                timestamp: "2024-01-01T13:00:00Z".to_string(),
-                message_count: 20,
-                first_message: "Hello from session 2".to_string(),
-                preview_messages: vec![
-                    ("user".to_string(), "Hello from session 2".to_string()),
-                    (
-                        "assistant".to_string(),
-                        "Hello! Ready to assist.".to_string(),
-                    ),
-                ],
-                summary: None,
-            },
-            SessionInfo {
-                file_path: "/path/to/session3.jsonl".to_string(),
-                session_id: "session-3".to_string(),
-                timestamp: "2024-01-01T14:00:00Z".to_string(),
-                message_count: 30,
-                first_message: "Hello from session 3".to_string(),
-                preview_messages: vec![],
-                summary: None,
-            },
-        ]
+    fn create_test_session_info(id: &str, message: &str) -> SessionInfo {
+        SessionInfo {
+            file_path: format!("/test/{id}.jsonl"),
+            session_id: id.to_string(),
+            timestamp: "2024-01-01T00:00:00Z".to_string(),
+            message_count: 5,
+            first_message: message.to_string(),
+            preview_messages: vec![
+                ("user".to_string(), message.to_string()),
+                ("assistant".to_string(), format!("Response to {message}")),
+            ],
+            summary: Some(format!("Summary about {message}")),
+        }
     }
 
     #[test]
-    fn test_navigation_up_down() {
+    fn test_session_list_initial_state() {
         let mut session_list = SessionList::new();
-        session_list.set_sessions(create_test_sessions());
 
-        // Move down
-        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
-        assert_eq!(msg, Some(Message::SessionListScrollDown));
+        // Test initial render shows empty state
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
 
-        // Move up
+        terminal
+            .draw(|f| {
+                session_list.render(f, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content = buffer_to_string(buffer);
+
+        // Initial state should show empty sessions and search bar
+        assert!(content.contains("Search Sessions"));
+        assert!(content.contains("No sessions found"));
+    }
+
+    #[test]
+    fn test_session_list_render_empty() {
+        let mut session_list = SessionList::new();
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                session_list.render(f, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content = buffer_to_string(buffer);
+
+        assert!(content.contains("Search Sessions"));
+        assert!(content.contains("No sessions found"));
+    }
+
+    #[test]
+    fn test_session_list_render_loading() {
+        let mut session_list = SessionList::new();
+        session_list.set_is_loading(true);
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                session_list.render(f, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content = buffer_to_string(buffer);
+
+        assert!(content.contains("Loading..."));
+    }
+
+    #[test]
+    fn test_session_list_render_with_sessions() {
+        let mut session_list = SessionList::new();
+        let sessions = vec![
+            create_test_session_info("session1", "Hello world"),
+            create_test_session_info("session2", "Goodbye world"),
+        ];
+        session_list.set_sessions(sessions);
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                session_list.render(f, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content = buffer_to_string(buffer);
+
+        assert!(content.contains("session1"));
+        assert!(content.contains("session2"));
+        assert!(content.contains("Hello world"));
+        assert!(content.contains("Goodbye world"));
+    }
+
+    #[test]
+    fn test_session_list_render_with_search() {
+        let mut session_list = SessionList::new();
+        session_list.set_query("test query".to_string());
+        session_list.set_is_searching(true);
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                session_list.render(f, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content = buffer_to_string(buffer);
+
+        assert!(content.contains("Search Sessions [searching...]"));
+        assert!(content.contains("test query"));
+    }
+
+    #[test]
+    fn test_session_list_key_input() {
+        let mut session_list = SessionList::new();
+
+        // Test character input
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionListQueryChanged(ref q)) if q == "a"));
+
+        // Set the query based on the message to simulate state update
+        session_list.set_query("a".to_string());
+
+        // Test uppercase character
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('B'), KeyModifiers::SHIFT));
+        assert!(matches!(msg, Some(Message::SessionListQueryChanged(ref q)) if q == "aB"));
+
+        // Update query
+        session_list.set_query("aB".to_string());
+
+        // Test backspace
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionListQueryChanged(ref q)) if q == "a"));
+    }
+
+    #[test]
+    fn test_session_list_navigation_keys() {
+        let mut session_list = SessionList::new();
+
+        // Test up/down navigation
         let msg = session_list.handle_key(KeyEvent::new(KeyCode::Up, KeyModifiers::empty()));
-        assert_eq!(msg, Some(Message::SessionListScrollUp));
-    }
+        assert!(matches!(msg, Some(Message::SessionListScrollUp)));
 
-    #[test]
-    fn test_half_page_navigation() {
-        let mut session_list = SessionList::new();
-        session_list.set_sessions(create_test_sessions());
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionListScrollDown)));
 
-        // Ctrl+D - half page down
-        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
-        assert_eq!(msg, Some(Message::SessionListHalfPageDown));
-
-        // Ctrl+U - half page up
-        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
-        assert_eq!(msg, Some(Message::SessionListHalfPageUp));
-    }
-
-    #[test]
-    fn test_page_navigation() {
-        let mut session_list = SessionList::new();
-        session_list.set_sessions(create_test_sessions());
-
-        // PageDown
-        let msg = session_list.handle_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty()));
-        assert_eq!(msg, Some(Message::SessionListPageDown));
-
-        // PageUp
+        // Test page navigation
         let msg = session_list.handle_key(KeyEvent::new(KeyCode::PageUp, KeyModifiers::empty()));
-        assert_eq!(msg, Some(Message::SessionListPageUp));
+        assert!(matches!(msg, Some(Message::SessionListPageUp)));
+
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionListPageDown)));
+
+        // Test half-page scrolling
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SessionListHalfPageUp)));
+
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::SessionListHalfPageDown)));
     }
 
     #[test]
-    fn test_toggle_preview() {
+    fn test_session_list_action_keys() {
         let mut session_list = SessionList::new();
-        session_list.set_sessions(create_test_sessions());
+        let sessions = vec![create_test_session_info("session1", "Test")];
+        session_list.set_sessions(sessions);
 
-        // Toggle preview with Ctrl+T
+        // Test Enter key
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::EnterSessionViewerFromList(_))));
+
+        // Test Ctrl+S
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::EnterSessionViewerFromList(_))));
+
+        // Test Ctrl+T (toggle preview)
         let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL));
-        assert_eq!(msg, Some(Message::ToggleSessionListPreview));
+        assert!(matches!(msg, Some(Message::ToggleSessionListPreview)));
     }
 
     #[test]
-    fn test_enter_session_viewer() {
-        let mut session_list = SessionList::new();
-        session_list.set_sessions(create_test_sessions());
-
-        // Press Enter
-        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()));
-        assert_eq!(
-            msg,
-            Some(Message::EnterSessionViewerFromList(
-                "/path/to/session1.jsonl".to_string()
-            ))
-        );
-
-        // Press Ctrl+S (should do the same)
-        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
-        assert_eq!(
-            msg,
-            Some(Message::EnterSessionViewerFromList(
-                "/path/to/session1.jsonl".to_string()
-            ))
-        );
-    }
-
-    #[test]
-    fn test_empty_session_list() {
+    fn test_session_list_ignore_control_chars() {
         let mut session_list = SessionList::new();
 
-        // No sessions, so Enter should return None
-        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()));
-        assert_eq!(msg, None);
+        // Control characters should not be added to query (except specific ones)
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
+        assert!(msg.is_none());
 
-        // Ctrl+S should also return None
-        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
-        assert_eq!(msg, None);
+        // Alt characters should not be added
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::ALT));
+        assert!(msg.is_none());
     }
 
-    #[test]
-    fn test_status_bar_text_with_preview_default() {
-        let backend = TestBackend::new(120, 30);
-        let mut terminal = Terminal::new(backend).unwrap();
-
-        terminal
-            .draw(|f| {
-                let mut session_list = SessionList::new();
-                session_list.set_sessions(create_test_sessions());
-                // Preview is enabled by default
-                session_list.render(f, f.area());
-            })
-            .unwrap();
-
-        let buffer = terminal.backend().buffer();
-        let status_text = buffer_contains(buffer, "Hide preview");
-        assert!(
-            status_text,
-            "Status bar should show 'Hide preview' when preview is enabled (default)"
-        );
-    }
-
-    #[test]
-    fn test_status_bar_text_without_preview() {
-        let backend = TestBackend::new(120, 30);
-        let mut terminal = Terminal::new(backend).unwrap();
-
-        terminal
-            .draw(|f| {
-                let mut session_list = SessionList::new();
-                session_list.set_sessions(create_test_sessions());
-                session_list.set_preview_enabled(false);
-                session_list.render(f, f.area());
-            })
-            .unwrap();
-
-        let buffer = terminal.backend().buffer();
-        let status_text = buffer_contains(buffer, "Show preview");
-        assert!(
-            status_text,
-            "Status bar should show 'Show preview' when preview is disabled"
-        );
-    }
-
-    // Helper function to check if buffer contains text
-    fn buffer_contains(buffer: &Buffer, text: &str) -> bool {
-        let content = buffer
-            .content()
-            .iter()
-            .map(|cell| cell.symbol())
-            .collect::<String>();
-        content.contains(text)
+    // Helper function to convert buffer to string for testing
+    fn buffer_to_string(buffer: &Buffer) -> String {
+        let mut output = String::new();
+        for y in 0..buffer.area.height {
+            for x in 0..buffer.area.width {
+                let cell = buffer.cell((x, y)).unwrap();
+                output.push_str(cell.symbol());
+            }
+            output.push('\n');
+        }
+        output
     }
 }

@@ -86,18 +86,27 @@ impl Component for SessionList {
             .split(area);
 
         // Render search bar
+        let search_status = if self.is_searching {
+            " [searching...]"
+        } else {
+            ""
+        };
+        let session_count = if !self.query.is_empty() {
+            format!(
+                " ({}/{})",
+                self.filtered_sessions.len(),
+                self.sessions.len()
+            )
+        } else {
+            format!(" ({})", self.sessions.len())
+        };
         let search_block = Block::default()
             .borders(Borders::ALL)
-            .title("Search Sessions");
-        let search_text = if self.is_searching {
-            format!("{}  [searching...]", self.query)
-        } else {
-            self.query.clone()
-        };
-        let search_bar = Paragraph::new(search_text)
-            .block(search_block)
-            .style(Style::default().fg(Color::White));
-        f.render_widget(search_bar, chunks[0]);
+            .title(format!("Search Sessions{search_status}{session_count}"));
+        let search_text = Paragraph::new(self.query.as_str())
+            .style(Style::default().fg(Color::White))
+            .block(search_block);
+        f.render_widget(search_text, chunks[0]);
 
         let block = Block::default().borders(Borders::ALL).title("Sessions");
 
@@ -190,7 +199,7 @@ impl Component for SessionList {
         use crossterm::event::KeyModifiers;
 
         match key.code {
-            // Character input for search
+            // Text input for search
             KeyCode::Char(c)
                 if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT =>
             {
@@ -200,14 +209,6 @@ impl Component for SessionList {
             KeyCode::Backspace => {
                 self.query.pop();
                 Some(Message::SessionListQueryChanged(self.query.clone()))
-            }
-            KeyCode::Esc => {
-                if !self.query.is_empty() {
-                    self.query.clear();
-                    Some(Message::SessionListQueryChanged(self.query.clone()))
-                } else {
-                    None
-                }
             }
             KeyCode::Up => Some(Message::SessionListScrollUp),
             KeyCode::Down => Some(Message::SessionListScrollDown),

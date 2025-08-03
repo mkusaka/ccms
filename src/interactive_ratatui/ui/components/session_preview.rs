@@ -13,15 +13,23 @@ use ratatui::{
 #[derive(Default)]
 pub struct SessionPreview {
     session_info: Option<SessionInfo>,
+    query: String,
 }
 
 impl SessionPreview {
     pub fn new() -> Self {
-        Self { session_info: None }
+        Self {
+            session_info: None,
+            query: String::new(),
+        }
     }
 
     pub fn set_session(&mut self, session: Option<SessionInfo>) {
         self.session_info = session;
+    }
+
+    pub fn set_query(&mut self, query: String) {
+        self.query = query;
     }
 }
 
@@ -99,7 +107,55 @@ impl Component for SessionPreview {
                         .add_modifier(Modifier::BOLD),
                 )]));
 
-                for (role, content) in &session.preview_messages {
+                // Separate messages into matching and non-matching
+                let mut matching_messages = vec![];
+                let mut non_matching_messages = vec![];
+
+                if !self.query.is_empty() {
+                    let query_lower = self.query.to_lowercase();
+                    for (role, content) in &session.preview_messages {
+                        if content.to_lowercase().contains(&query_lower) {
+                            matching_messages.push((role, content, true));
+                        } else {
+                            non_matching_messages.push((role, content, false));
+                        }
+                    }
+                } else {
+                    // No query, all messages are non-matching
+                    for (role, content) in &session.preview_messages {
+                        non_matching_messages.push((role, content, false));
+                    }
+                }
+
+                // Display matching messages first
+                let matching_count = matching_messages.len();
+                for (role, content, is_match) in matching_messages {
+                    let role_color = match role.as_str() {
+                        "user" => Color::Green,
+                        "assistant" => Color::Blue,
+                        _ => Color::Gray,
+                    };
+
+                    let content_style = if is_match {
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+
+                    lines.push(Line::from(vec![
+                        Span::styled(
+                            format!("{role}: "),
+                            Style::default().fg(role_color).add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(content, content_style),
+                    ]));
+                }
+
+                // Then display remaining messages (up to limit)
+                let remaining_space = 5 - matching_count;
+                for (role, content, _) in non_matching_messages.into_iter().take(remaining_space) {
                     let role_color = match role.as_str() {
                         "user" => Color::Green,
                         "assistant" => Color::Blue,

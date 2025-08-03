@@ -111,6 +111,10 @@ harness = false
 name = "engine_comparison_benchmark"
 harness = false
 
+[[bench]]
+name = "session_list_benchmark"
+harness = false
+
 
 [profile.release]
 lto = true
