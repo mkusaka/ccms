@@ -153,9 +153,15 @@ impl Renderer {
                 self.session_list
                     .set_sessions(state.session_list.sessions.clone());
                 self.session_list
+                    .set_filtered_sessions(state.session_list.filtered_sessions.clone());
+                self.session_list
+                    .set_query(state.session_list.query.clone());
+                self.session_list
                     .set_selected_index(state.session_list.selected_index);
                 self.session_list
                     .set_is_loading(state.session_list.is_loading);
+                self.session_list
+                    .set_is_searching(state.session_list.is_searching);
                 self.session_list
                     .set_preview_enabled(state.session_list.preview_enabled);
 
@@ -168,7 +174,7 @@ impl Renderer {
                     height: chunks[1].height + chunks[2].height,
                 };
 
-                if state.session_list.preview_enabled && !state.session_list.sessions.is_empty() {
+                if state.session_list.preview_enabled && !state.session_list.filtered_sessions.is_empty() {
                     // Split the combined area into list and preview
                     let preview_chunks = Layout::default()
                         .direction(Direction::Horizontal)

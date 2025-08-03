@@ -1245,7 +1245,8 @@ mod tests {
                 summary: None,
             });
         }
-        app.state.session_list.sessions = sessions;
+        app.state.session_list.sessions = sessions.clone();
+        app.state.session_list.filtered_sessions = sessions;
 
         // Initial position
         assert_eq!(app.state.session_list.selected_index, 0);
@@ -1279,19 +1280,20 @@ mod tests {
             crate::interactive_ratatui::domain::models::SearchTab::SessionList;
 
         // Add test sessions
-        app.state.session_list.sessions =
-            vec![crate::interactive_ratatui::ui::app_state::SessionInfo {
-                file_path: "/path/to/session1.jsonl".to_string(),
-                session_id: "session-1".to_string(),
-                timestamp: "2024-01-01T12:00:00Z".to_string(),
-                message_count: 10,
-                first_message: "Hello from session 1".to_string(),
-                preview_messages: vec![
-                    ("user".to_string(), "Hello from session 1".to_string()),
-                    ("assistant".to_string(), "Hi! How can I help?".to_string()),
-                ],
-                summary: Some("Test session with summary".to_string()),
-            }];
+        let sessions = vec![crate::interactive_ratatui::ui::app_state::SessionInfo {
+            file_path: "/path/to/session1.jsonl".to_string(),
+            session_id: "session-1".to_string(),
+            timestamp: "2024-01-01T12:00:00Z".to_string(),
+            message_count: 10,
+            first_message: "Hello from session 1".to_string(),
+            preview_messages: vec![
+                ("user".to_string(), "Hello from session 1".to_string()),
+                ("assistant".to_string(), "Hi! How can I help?".to_string()),
+            ],
+            summary: Some("Test session with summary".to_string()),
+        }];
+        app.state.session_list.sessions = sessions.clone();
+        app.state.session_list.filtered_sessions = sessions;
 
         // Enable preview
         app.state.session_list.preview_enabled = true;

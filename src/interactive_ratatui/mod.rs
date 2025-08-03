@@ -173,7 +173,12 @@ impl InteractiveSearch {
                     if timer.elapsed() >= Duration::from_millis(delay) {
                         self.scheduled_search_delay = None;
                         self.last_search_timer = None;
-                        self.execute_command(Command::ExecuteSearch).await;
+                        // Check which type of search to execute based on current tab
+                        if self.state.mode == Mode::Search && self.state.search.current_tab == domain::models::SearchTab::SessionList {
+                            self.handle_message(Message::SessionListSearchRequested);
+                        } else {
+                            self.execute_command(Command::ExecuteSearch).await;
+                        }
                     }
                 }
             }
@@ -409,7 +414,14 @@ impl InteractiveSearch {
             Command::ExecuteSessionSearch => {
                 self.execute_session_search().await;
             }
+            Command::ExecuteSessionListSearch => {
+                self.execute_session_list_search().await;
+            }
             Command::ScheduleSearch(delay) => {
+                self.last_search_timer = Some(std::time::Instant::now());
+                self.scheduled_search_delay = Some(delay);
+            }
+            Command::ScheduleSessionListSearch(delay) => {
                 self.last_search_timer = Some(std::time::Instant::now());
                 self.scheduled_search_delay = Some(delay);
             }
@@ -570,6 +582,44 @@ impl InteractiveSearch {
                 self.state.ui.message = Some(format!("Failed to load session list: {e}"));
                 self.state.session_list.is_loading = false;
             }
+        }
+    }
+
+    async fn execute_session_list_search(&mut self) {
+        self.state.session_list.current_search_id += 1;
+        let current_search_id = self.state.session_list.current_search_id;
+        
+        // Get the query and all sessions
+        let query = self.state.session_list.query.clone();
+        let all_sessions = self.state.session_list.sessions.clone();
+        
+        // If query is empty, show all sessions
+        if query.is_empty() {
+            let msg = Message::SessionListSearchCompleted(all_sessions);
+            self.handle_message(msg);
+            return;
+        }
+        
+        // Perform async filtering
+        let filtered_sessions = blocking::unblock(move || {
+            let query_lower = query.to_lowercase();
+            all_sessions
+                .into_iter()
+                .filter(|session| {
+                    // Search in session_id, first_message, and summary
+                    session.session_id.to_lowercase().contains(&query_lower)
+                        || session.first_message.to_lowercase().contains(&query_lower)
+                        || session.summary.as_ref()
+                            .map(|s| s.to_lowercase().contains(&query_lower))
+                            .unwrap_or(false)
+                })
+                .collect::<Vec<_>>()
+        }).await;
+        
+        // Only update if this is still the current search
+        if self.state.session_list.current_search_id == current_search_id {
+            let msg = Message::SessionListSearchCompleted(filtered_sessions);
+            self.handle_message(msg);
         }
     }
 
