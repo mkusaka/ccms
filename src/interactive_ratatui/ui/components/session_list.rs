@@ -92,7 +92,11 @@ impl Component for SessionList {
             ""
         };
         let session_count = if !self.query.is_empty() {
-            format!(" ({}/{})", self.filtered_sessions.len(), self.sessions.len())
+            format!(
+                " ({}/{})",
+                self.filtered_sessions.len(),
+                self.sessions.len()
+            )
         } else {
             format!(" ({})", self.sessions.len())
         };
