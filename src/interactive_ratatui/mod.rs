@@ -19,7 +19,6 @@ use crate::SearchOptions;
 
 mod application;
 mod constants;
-mod debug;
 pub mod domain;
 pub mod ui;
 
@@ -94,11 +93,6 @@ impl InteractiveSearch {
     }
 
     async fn run_async(&mut self, pattern: &str) -> Result<()> {
-        let _ = crate::interactive_ratatui::debug::clear_debug_log();
-        let _ = crate::interactive_ratatui::debug::write_debug_log(
-            "=== Starting interactive search session ===",
-        );
-
         self.pattern = pattern.to_string();
         let mut terminal = self.setup_terminal()?;
 
@@ -279,10 +273,6 @@ impl InteractiveSearch {
                 };
 
                 if let Some(msg) = message {
-                    let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-                        "Ctrl+T pressed in mode {:?}, sending {:?}",
-                        self.state.mode, msg
-                    ));
                     self.handle_message(msg);
                     return Ok(false);
                 }

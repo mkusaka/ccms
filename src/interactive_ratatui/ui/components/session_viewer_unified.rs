@@ -103,10 +103,6 @@ impl SessionViewerUnified {
     }
 
     pub fn set_preview_enabled(&mut self, enabled: bool) {
-        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-            "SessionViewerUnified::set_preview_enabled: {} -> {}",
-            self.preview_enabled, enabled
-        ));
         self.preview_enabled = enabled;
         self.result_list.set_preview_enabled(enabled);
     }
@@ -137,10 +133,6 @@ impl SessionViewerUnified {
     }
 
     fn render_content(&mut self, f: &mut Frame, area: Rect) {
-        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-            "SessionViewerUnified::render_content: area = {area:?}"
-        ));
-
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -192,11 +184,6 @@ impl SessionViewerUnified {
         }
 
         // Split the content area if preview is enabled
-        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-            "SessionViewerUnified::render_content: preview_enabled = {}, has_selected_result = {}",
-            self.preview_enabled,
-            self.result_list.selected_result().is_some()
-        ));
         if self.preview_enabled && self.result_list.selected_result().is_some() {
             // Split content area into list and preview
             let content_chunks = Layout::default()
@@ -312,23 +299,13 @@ impl Component for SessionViewerUnified {
                 }
                 KeyCode::Enter => {
                     // Navigate to result detail for selected message (keep search mode active)
-                    let _ = crate::interactive_ratatui::debug::write_debug_log(
-                        "SessionViewerUnified (searching): Enter pressed",
-                    );
-
                     if let Some(result) = self.result_list.selected_result() {
-                        let _ = crate::interactive_ratatui::debug::write_debug_log(
-                            "SessionViewerUnified: Found selected result, sending EnterMessageDetailFromSession",
-                        );
                         Some(Message::EnterMessageDetailFromSession(
                             result.raw_json.clone().unwrap_or_default(),
                             self.file_path.clone().unwrap_or_default(),
                             self.session_id.clone(),
                         ))
                     } else {
-                        let _ = crate::interactive_ratatui::debug::write_debug_log(
-                            "SessionViewerUnified: No selected result",
-                        );
                         None
                     }
                 }
@@ -388,9 +365,6 @@ impl Component for SessionViewerUnified {
                     Some(Message::ToggleSessionOrder)
                 }
                 KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
-                    let _ = crate::interactive_ratatui::debug::write_debug_log(
-                        "SessionViewerUnified (searching): Ctrl+T pressed, sending ToggleSessionPreview",
-                    );
                     Some(Message::ToggleSessionPreview)
                 }
                 // Copy shortcuts during search
@@ -503,9 +477,6 @@ impl Component for SessionViewerUnified {
                     Some(Message::ToggleSessionOrder)
                 }
                 KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
-                    let _ = crate::interactive_ratatui::debug::write_debug_log(
-                        "SessionViewerUnified: Ctrl+T pressed, sending ToggleSessionPreview",
-                    );
                     Some(Message::ToggleSessionPreview)
                 }
                 // Unified copy operations
