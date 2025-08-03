@@ -6,7 +6,7 @@ use anyhow::Result;
 #[cfg(feature = "profiling")]
 use ccms::profiling_enhanced;
 use ccms::{
-    RayonEngine, SearchEngineTrait, SearchOptions, SmolEngine, default_claude_pattern,
+    SearchEngineTrait, SearchOptions, SmolEngine, default_claude_pattern,
     format_search_result, interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
 use chrono::{DateTime, Local, Utc};
@@ -94,10 +94,6 @@ struct Cli {
     /// Generate shell completion script
     #[arg(long = "completion", value_enum)]
     generator: Option<Shell>,
-
-    /// Search engine to use
-    #[arg(long, value_enum, default_value = "smol")]
-    engine: EngineType,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -107,11 +103,6 @@ enum OutputFormat {
     JsonL,
 }
 
-#[derive(Clone, Copy, Debug, ValueEnum)]
-enum EngineType {
-    Smol,
-    Rayon,
-}
 
 fn print_completions<G: Generator>(generator: G, cmd: &mut Command) {
     generate(
@@ -236,26 +227,12 @@ fn main() -> Result<()> {
 
     // Execute search
     if cli.verbose {
-        eprintln!(
-            "Using {} engine",
-            match cli.engine {
-                EngineType::Smol => "Smol",
-                EngineType::Rayon => "Rayon",
-            }
-        );
+        eprintln!("Using Smol engine");
     }
 
-    // Create appropriate engine based on CLI flag
-    let (results, duration, total_count) = match cli.engine {
-        EngineType::Smol => {
-            let engine = SmolEngine::new(options);
-            engine.search(pattern_to_use, query)?
-        }
-        EngineType::Rayon => {
-            let engine = RayonEngine::new(options);
-            engine.search(pattern_to_use, query)?
-        }
-    };
+    // Create engine
+    let engine = SmolEngine::new(options);
+    let (results, duration, total_count) = engine.search(pattern_to_use, query)?;
 
     // Output results
     let stdout = io::stdout();
