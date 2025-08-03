@@ -4,16 +4,14 @@ use crate::search::SmolEngine;
 use crate::search::engine::SearchEngineTrait;
 use crate::{SearchOptions, parse_query};
 use anyhow::Result;
-use std::sync::Arc;
 
 pub struct SearchService {
-    engine: Arc<SmolEngine>,
+    base_options: SearchOptions,
 }
 
 impl SearchService {
     pub fn new(options: SearchOptions) -> Self {
-        let engine = Arc::new(SmolEngine::new(options));
-        Self { engine }
+        Self { base_options: options }
     }
 
     pub fn search(&self, request: SearchRequest) -> Result<SearchResponse> {
@@ -22,6 +20,23 @@ impl SearchService {
             &request.pattern,
             request.role_filter,
             request.order,
+            None, // No session_id filter for general search
+        )?;
+
+        Ok(SearchResponse {
+            id: request.id,
+            results,
+        })
+    }
+
+    // New method for session-specific search
+    pub fn search_session(&self, request: SearchRequest, session_id: String) -> Result<SearchResponse> {
+        let results = self.execute_search(
+            &request.query,
+            &request.pattern,
+            request.role_filter,
+            request.order,
+            Some(session_id),
         )?;
 
         Ok(SearchResponse {
@@ -36,6 +51,7 @@ impl SearchService {
         pattern: &str,
         role_filter: Option<String>,
         order: crate::interactive_ratatui::domain::models::SearchOrder,
+        session_id: Option<String>,
     ) -> Result<Vec<SearchResult>> {
         let query_condition = if query.trim().is_empty() {
             // Empty query means "match all" - use empty AND condition
@@ -44,7 +60,16 @@ impl SearchService {
             parse_query(query)?
         };
 
-        let (results, _, _) = self.engine.search_with_role_filter_and_order(
+        // Create a new options with session_id if provided
+        let mut options = self.base_options.clone();
+        if let Some(sid) = session_id {
+            options.session_id = Some(sid);
+        }
+
+        // Create a new engine with the updated options
+        let engine = SmolEngine::new(options);
+
+        let (results, _, _) = engine.search_with_role_filter_and_order(
             pattern,
             query_condition,
             role_filter,

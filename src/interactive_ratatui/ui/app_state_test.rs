@@ -173,17 +173,16 @@ mod tests {
     #[test]
     fn test_session_query_update() {
         let mut state = create_test_state();
-        state.session.messages = vec![
-            r#"{"type":"user","message":{"role":"user","content":"Hello world"},"uuid":"1","timestamp":"2024-12-25T14:30:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-            r#"{"type":"assistant","message":{"role":"assistant","content":"Goodbye world"},"uuid":"2","timestamp":"2024-12-25T14:31:00Z","sessionId":"session1","parentUuid":"1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-            r#"{"type":"user","message":{"role":"user","content":"Hello again"},"uuid":"3","timestamp":"2024-12-25T14:32:00Z","sessionId":"session1","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#.to_string(),
-        ];
+        state.mode = Mode::SessionViewer;
+        state.session.session_id = Some("session1".to_string());
+        state.session.file_path = Some("test.jsonl".to_string());
 
         let command = state.update(Message::SessionQueryChanged("Hello".to_string()));
 
         assert_eq!(state.session.query, "Hello");
-        assert_eq!(state.session.filtered_indices, vec![0, 2]);
-        assert!(matches!(command, Command::None));
+        // In the new unified architecture, the search is performed by the search service
+        // and results are stored in search_results, not filtered_indices
+        assert!(matches!(command, Command::ExecuteSessionSearch));
     }
 
     #[test]
@@ -242,27 +241,22 @@ mod tests {
     fn test_session_order_sorting() {
         let mut state = create_test_state();
         state.mode = Mode::SessionViewer;
+        state.session.session_id = Some("session1".to_string());
+        state.session.file_path = Some("test.jsonl".to_string());
 
-        // Set up messages with different timestamps
-        state.session.messages = vec![
-            r#"{"type":"user","message":{"content":"Third message"},"timestamp":"2024-01-03T12:00:00Z"}"#.to_string(),
-            r#"{"type":"assistant","message":{"content":"First message"},"timestamp":"2024-01-01T12:00:00Z"}"#.to_string(),
-            r#"{"type":"user","message":{"content":"Second message"},"timestamp":"2024-01-02T12:00:00Z"}"#.to_string(),
-        ];
+        // Default is Ascending
+        assert_eq!(state.session.order, SessionOrder::Ascending);
 
-        // Default is Ascending, so should already be sorted
-        state.update(Message::SessionQueryChanged("".to_string()));
-        assert_eq!(state.session.filtered_indices, vec![1, 2, 0]); // Sorted by timestamp ascending
+        // Toggle to Descending
+        let command = state.update(Message::ToggleSessionOrder);
+        assert_eq!(state.session.order, SessionOrder::Descending);
+        // In the new architecture, changing order triggers a new search
+        assert!(matches!(command, Command::ExecuteSessionSearch));
 
-        // Set to Descending order
-        state.session.order = SessionOrder::Descending;
-        state.update(Message::SessionQueryChanged("".to_string()));
-        assert_eq!(state.session.filtered_indices, vec![0, 2, 1]); // Sorted by timestamp descending
-
-        // Set back to Ascending order
-        state.session.order = SessionOrder::Ascending;
-        state.update(Message::SessionQueryChanged("".to_string()));
-        assert_eq!(state.session.filtered_indices, vec![1, 2, 0]); // Back to ascending
+        // Toggle back to Ascending
+        let command = state.update(Message::ToggleSessionOrder);
+        assert_eq!(state.session.order, SessionOrder::Ascending);
+        assert!(matches!(command, Command::ExecuteSessionSearch));
     }
 
     #[test]
@@ -344,7 +338,7 @@ mod tests {
         ];
         state.session.role_filter = Some("assistant".to_string());
         state.session.order = SessionOrder::Descending;
-        state.update_session_filter();
+        // No longer need to call update_session_filter - filtering is done by search service
 
         // Navigate to ResultDetail from session
         let raw_json = state.session.messages[0].clone();

@@ -22,7 +22,7 @@ pub const PAGE_SIZE: usize = 10;
 
 // Buffer sizes
 /// Buffer size for file reading (32KB)
-pub const FILE_READ_BUFFER_SIZE: usize = 32 * 1024;
+// pub const FILE_READ_BUFFER_SIZE: usize = 32 * 1024; // No longer used - cache service removed
 
 // Help dialog dimensions
 /// Maximum width for help dialog

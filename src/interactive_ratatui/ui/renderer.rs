@@ -3,7 +3,7 @@ use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::components::{
     Component, help_dialog::HelpDialog, is_exit_prompt, message_detail::MessageDetail,
     message_preview::MessagePreview, result_list::ResultList, search_bar::SearchBar,
-    session_viewer::SessionViewer,
+    session_viewer_unified::SessionViewerUnified,
 };
 use ratatui::{
     Frame,
@@ -18,7 +18,7 @@ pub struct Renderer {
     result_list: ResultList,
     message_detail: MessageDetail,
     message_preview: MessagePreview,
-    session_viewer: SessionViewer,
+    session_viewer: SessionViewerUnified,
     help_dialog: HelpDialog,
 }
 
@@ -29,7 +29,7 @@ impl Renderer {
             result_list: ResultList::new(),
             message_detail: MessageDetail::new(),
             message_preview: MessagePreview::new(),
-            session_viewer: SessionViewer::new(),
+            session_viewer: SessionViewerUnified::new(),
             help_dialog: HelpDialog::new(),
         }
     }
@@ -145,11 +145,9 @@ impl Renderer {
     }
 
     fn render_session_mode(&mut self, f: &mut Frame, state: &AppState) {
-        // Update session viewer state
+        // Update session viewer state with search results
         self.session_viewer
-            .set_messages(state.session.messages.clone());
-        self.session_viewer
-            .set_filtered_indices(state.session.filtered_indices.clone());
+            .set_results(state.session.search_results.clone());
         self.session_viewer.set_query(state.session.query.clone());
         self.session_viewer.set_order(state.session.order);
         self.session_viewer
@@ -159,11 +157,9 @@ impl Renderer {
         self.session_viewer.set_message(state.ui.message.clone());
         self.session_viewer
             .set_role_filter(state.session.role_filter.clone());
-        // Restore the selected index and scroll offset
+        // Restore the selected index
         self.session_viewer
             .set_selected_index(state.session.selected_index);
-        self.session_viewer
-            .set_scroll_offset(state.session.scroll_offset);
         self.session_viewer
             .set_truncation_enabled(state.ui.truncation_enabled);
 
@@ -190,7 +186,7 @@ impl Renderer {
         &mut self.message_detail
     }
 
-    pub fn get_session_viewer_mut(&mut self) -> &mut SessionViewer {
+    pub fn get_session_viewer_mut(&mut self) -> &mut SessionViewerUnified {
         &mut self.session_viewer
     }
 
