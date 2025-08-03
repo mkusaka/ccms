@@ -277,7 +277,7 @@ impl InteractiveSearch {
                     Mode::SessionViewer => Some(Message::ToggleSessionPreview),
                     _ => None, // No preview for other modes
                 };
-                
+
                 if let Some(msg) = message {
                     let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
                         "Ctrl+T pressed in mode {:?}, sending {:?}",

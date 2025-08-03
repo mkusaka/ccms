@@ -4,9 +4,8 @@ use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::components::{
     Component, help_dialog::HelpDialog, is_exit_prompt, message_detail::MessageDetail,
     message_preview::MessagePreview, result_list::ResultList, search_bar::SearchBar,
-    session_list::SessionList, session_preview::SessionPreview, 
-    session_viewer_unified::SessionViewerUnified,
-    tab_bar::TabBar,
+    session_list::SessionList, session_preview::SessionPreview,
+    session_viewer_unified::SessionViewerUnified, tab_bar::TabBar,
 };
 use ratatui::{
     Frame,

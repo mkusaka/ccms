@@ -91,9 +91,9 @@ impl Component for ResultList {
         // Split area into title, content (list), and optionally status
         let constraints = if self.show_status_bar {
             vec![
-                Constraint::Length(RESULT_LIST_TITLE_HEIGHT),  // Title
-                Constraint::Min(0),                            // Content (list)
-                Constraint::Length(status_height),             // Status (dynamic height)
+                Constraint::Length(RESULT_LIST_TITLE_HEIGHT), // Title
+                Constraint::Min(0),                           // Content (list)
+                Constraint::Length(status_height),            // Status (dynamic height)
             ]
         } else {
             vec![
