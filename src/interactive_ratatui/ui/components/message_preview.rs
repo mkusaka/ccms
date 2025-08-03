@@ -20,10 +20,6 @@ impl MessagePreview {
     }
 
     pub fn set_result(&mut self, result: Option<SearchResult>) {
-        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-            "MessagePreview::set_result: has_result = {}",
-            result.is_some()
-        ));
         self.result = result;
     }
 
@@ -44,12 +40,6 @@ impl Default for MessagePreview {
 
 impl Component for MessagePreview {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
-            "MessagePreview::render: area = {:?}, has_result = {}",
-            area,
-            self.result.is_some()
-        ));
-
         let block = Block::default().borders(Borders::ALL).title("Preview");
 
         let inner = block.inner(area);
