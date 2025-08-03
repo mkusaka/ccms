@@ -598,4 +598,77 @@ mod tests {
         assert!(content.contains("Message") && content.contains("of 20"));
         assert!(content.contains("Line 5")); // Should see line 5 after scrolling 5 times
     }
+
+    #[test]
+    fn test_scroll_offset_preserved_on_same_message() {
+        let mut detail = MessageDetail::new();
+        let mut result = create_test_result();
+        // Create a message with many lines to enable scrolling
+        result.text = (0..50)
+            .map(|i| format!("Line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let uuid = result.uuid.clone();
+        detail.set_result(result.clone());
+
+        // Scroll down 10 lines
+        for _ in 0..10 {
+            detail.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        }
+        assert_eq!(detail.scroll_offset, 10);
+
+        // Set the same message again (simulating re-render)
+        detail.set_result(result.clone());
+
+        // Scroll offset should be preserved
+        assert_eq!(detail.scroll_offset, 10);
+        assert_eq!(detail.current_uuid, Some(uuid.clone()));
+    }
+
+    #[test]
+    fn test_scroll_offset_reset_on_different_message() {
+        let mut detail = MessageDetail::new();
+        let mut result1 = create_test_result();
+        result1.text = (0..50)
+            .map(|i| format!("Message 1 Line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        result1.uuid = "message-1-uuid".to_string();
+
+        detail.set_result(result1);
+
+        // Scroll down 10 lines
+        for _ in 0..10 {
+            detail.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty()));
+        }
+        assert_eq!(detail.scroll_offset, 10);
+
+        // Set a different message
+        let mut result2 = create_test_result();
+        result2.text = (0..50)
+            .map(|i| format!("Message 2 Line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        result2.uuid = "message-2-uuid".to_string();
+
+        detail.set_result(result2);
+
+        // Scroll offset should be reset to 0
+        assert_eq!(detail.scroll_offset, 0);
+        assert_eq!(detail.current_uuid, Some("message-2-uuid".to_string()));
+    }
+
+    #[test]
+    fn test_clear_resets_current_uuid() {
+        let mut detail = MessageDetail::new();
+        let result = create_test_result();
+        let uuid = result.uuid.clone();
+
+        detail.set_result(result);
+        assert_eq!(detail.current_uuid, Some(uuid));
+
+        detail.clear();
+        assert!(detail.current_uuid.is_none());
+        assert_eq!(detail.scroll_offset, 0);
+    }
 }

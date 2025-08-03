@@ -19,6 +19,7 @@ pub struct MessageDetail {
     pub(super) result: Option<SearchResult>,
     pub(super) scroll_offset: usize,
     pub(super) message: Option<String>,
+    pub(super) current_uuid: Option<String>,
 }
 
 impl MessageDetail {
@@ -27,17 +28,26 @@ impl MessageDetail {
             result: None,
             scroll_offset: 0,
             message: None,
+            current_uuid: None,
         }
     }
 
     pub fn set_result(&mut self, result: SearchResult) {
+        // Only reset scroll if it's a different message
+        let should_reset_scroll = self.current_uuid.as_ref() != Some(&result.uuid);
+
+        if should_reset_scroll {
+            self.scroll_offset = 0;
+            self.current_uuid = Some(result.uuid.clone());
+        }
+
         self.result = Some(result);
-        self.scroll_offset = 0;
     }
 
     pub fn clear(&mut self) {
         self.result = None;
         self.scroll_offset = 0;
+        self.current_uuid = None;
     }
 
     pub fn set_message(&mut self, message: Option<String>) {
