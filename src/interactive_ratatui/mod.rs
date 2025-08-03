@@ -5,11 +5,15 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
+use signal_hook::{
+    consts::signal::{SIGCONT, SIGTSTP},
+    iterator::Signals,
+    low_level::raise,
+};
 use smol::channel::{Receiver, Sender};
 use std::io::{self, Stdout};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use signal_hook::{consts::signal::{SIGCONT, SIGTSTP}, iterator::Signals, low_level::raise};
 
 use crate::SearchOptions;
 
@@ -205,7 +209,7 @@ impl InteractiveSearch {
                     }
                 }
             }
-            
+
             // Small delay to prevent busy waiting
             smol::Timer::after(Duration::from_millis(10)).await;
         }
@@ -220,10 +224,10 @@ impl InteractiveSearch {
             // Cleanup terminal before suspending
             disable_raw_mode()?;
             execute!(io::stdout(), LeaveAlternateScreen)?;
-            
+
             // Raise SIGTSTP to actually suspend the process
             raise(SIGTSTP)?;
-            
+
             // Process will be suspended here and resumed on SIGCONT
             // The SIGCONT handler in run_app will re-initialize the terminal
             return Ok(false);
@@ -463,7 +467,8 @@ impl InteractiveSearch {
                         smol::block_on(signal_tx.send(Event::Signal(sig))).ok();
                     }
                 }
-            }).await
+            })
+            .await
         });
         tasks.push(signal_task);
 
