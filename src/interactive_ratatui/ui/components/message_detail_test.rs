@@ -619,7 +619,7 @@ mod tests {
 
         // Set the same message again (simulating re-render)
         detail.set_result(result.clone());
-        
+
         // Scroll offset should be preserved
         assert_eq!(detail.scroll_offset, 10);
         assert_eq!(detail.current_uuid, Some(uuid.clone()));
@@ -634,7 +634,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         result1.uuid = "message-1-uuid".to_string();
-        
+
         detail.set_result(result1);
 
         // Scroll down 10 lines
@@ -650,9 +650,9 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         result2.uuid = "message-2-uuid".to_string();
-        
+
         detail.set_result(result2);
-        
+
         // Scroll offset should be reset to 0
         assert_eq!(detail.scroll_offset, 0);
         assert_eq!(detail.current_uuid, Some("message-2-uuid".to_string()));
@@ -663,10 +663,10 @@ mod tests {
         let mut detail = MessageDetail::new();
         let result = create_test_result();
         let uuid = result.uuid.clone();
-        
+
         detail.set_result(result);
         assert_eq!(detail.current_uuid, Some(uuid));
-        
+
         detail.clear();
         assert!(detail.current_uuid.is_none());
         assert_eq!(detail.scroll_offset, 0);
