@@ -106,7 +106,6 @@ impl SmolEngine {
 
         // Channel for collecting results
         let (sender, receiver) = channel::unbounded();
-        let max_results = self.options.max_results.unwrap_or(50);
 
         // Process files concurrently using multi-threaded executor
         let search_start = std::time::Instant::now();
@@ -169,7 +168,11 @@ impl SmolEngine {
         }
 
         let total_count = all_results.len();
-        all_results.truncate(max_results);
+        
+        // Only truncate if max_results is specified
+        if let Some(limit) = self.options.max_results {
+            all_results.truncate(limit);
+        }
 
         let elapsed = start_time.elapsed();
 

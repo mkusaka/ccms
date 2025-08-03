@@ -62,10 +62,20 @@ impl SearchService {
 
         // Create a new options with session_id if provided
         let mut options = self.base_options.clone();
+        
+        // Debug log
+        let _ = crate::interactive_ratatui::debug::write_debug_log(
+            &format!("execute_search: base_options.max_results = {:?}, session_id = {:?}", 
+                self.base_options.max_results, session_id)
+        );
+        
         if let Some(sid) = session_id {
             options.session_id = Some(sid);
             // For session viewer, show all messages without limit
             options.max_results = None;
+            let _ = crate::interactive_ratatui::debug::write_debug_log(
+                "execute_search: Setting max_results to None for session viewer"
+            );
         }
 
         // Create a new engine with the updated options
@@ -77,6 +87,10 @@ impl SearchService {
             role_filter,
             order,
         )?;
+
+        let _ = crate::interactive_ratatui::debug::write_debug_log(
+            &format!("execute_search: Returned {} results", results.len())
+        );
 
         // Results are already sorted by the engine based on the order
         Ok(results)

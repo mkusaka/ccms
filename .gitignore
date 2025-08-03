@@ -38,4 +38,6 @@ cobertura.xml
 # Local environment files
 .env
 .env.local
-EOF < /dev/null
+
+# Debug logs
+debug.log
