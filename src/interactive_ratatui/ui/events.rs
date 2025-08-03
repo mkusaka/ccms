@@ -72,8 +72,6 @@ pub enum Message {
     SessionListHalfPageDown,
     ToggleSessionListPreview,
     EnterSessionViewerFromList(String), // file_path
-    SessionListQueryChanged(String),    // New: query text
-    SessionListSearchCompleted,         // New: search completed
 
     // Clipboard
     CopyToClipboard(CopyContent),
