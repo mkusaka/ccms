@@ -178,11 +178,6 @@ impl SessionViewerUnified {
             };
 
             let total_count = self.result_list.items_count();
-            let selected_index = if total_count > 0 {
-                self.result_list.get_selected_index() + 1
-            } else {
-                0
-            };
 
             let info_text = if total_count == 0 {
                 format!(
@@ -192,9 +187,7 @@ impl SessionViewerUnified {
                 )
             } else {
                 format!(
-                    "Total: {} messages | Position: {}/{}{}{} | Press '/' to search",
-                    total_count,
-                    selected_index,
+                    "Total: {} messages{}{} | Press '/' to search",
                     total_count,
                     order_part,
                     role_part
