@@ -59,17 +59,6 @@ pub fn expand_tilde(path: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
-/// Normalize a project path to Claude's directory naming convention
-/// Claude replaces '/', '_', and '.' with '-' in project directory names
-pub fn normalize_claude_project_path(path: &str) -> String {
-    if let Some(stripped) = path.strip_prefix('/') {
-        format!("-{stripped}")
-    } else {
-        path.to_string()
-    }
-    .replace(['/', '_', '.'], "-")
-}
-
 pub fn default_claude_pattern() -> String {
     "~/.claude/projects/**/*.jsonl".to_string()
 }
@@ -118,44 +107,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_normalize_claude_project_path() {
-        // Test absolute path normalization
-        assert_eq!(
-            normalize_claude_project_path("/Users/test/project"),
-            "-Users-test-project"
-        );
-        
-        // Test path with underscores
-        assert_eq!(
-            normalize_claude_project_path("/home/user/my_project"),
-            "-home-user-my-project"
-        );
-        
-        // Test path with dots
-        assert_eq!(
-            normalize_claude_project_path("/Users/test/github.com/user/repo"),
-            "-Users-test-github-com-user-repo"
-        );
-        
-        // Test path with mixed characters
-        assert_eq!(
-            normalize_claude_project_path("/tmp/test.project/sub_dir"),
-            "-tmp-test-project-sub-dir"
-        );
-        
-        // Test complex path like worktree
-        assert_eq!(
-            normalize_claude_project_path("/Users/masatomokusaka/src/github.com/mkusaka/ccms/.git/tmp_worktrees/20250803_060228_sessionsearch-2"),
-            "-Users-masatomokusaka-src-github-com-mkusaka-ccms--git-tmp-worktrees-20250803-060228-sessionsearch-2"
-        );
-        
-        // Test relative path (without leading slash)
-        assert_eq!(
-            normalize_claude_project_path("home/user/project"),
-            "home-user-project"
-        );
-    }
 
     #[test]
     fn test_file_discovery() -> Result<()> {

@@ -2,7 +2,8 @@ use crate::interactive_ratatui::domain::models::{SearchRequest, SearchResponse};
 use crate::query::condition::{QueryCondition, SearchResult};
 use crate::search::SmolEngine;
 use crate::search::engine::SearchEngineTrait;
-use crate::search::file_discovery::{discover_claude_files, normalize_claude_project_path};
+use crate::search::file_discovery::discover_claude_files;
+use crate::utils::path_encoding::encode_project_path;
 use crate::{SearchOptions, parse_query};
 use anyhow::Result;
 use std::sync::Arc;
@@ -68,9 +69,9 @@ impl SearchService {
         let files = if let Some(ref project_path) = self.options.project_path {
             // When project_path is specified, look for Claude sessions for that project
             // Convert the project path to Claude's project directory format
-            let normalized_path = normalize_claude_project_path(project_path);
+            let encoded_path = encode_project_path(project_path);
             
-            let claude_project_dir = format!("~/.claude/projects/{normalized_path}/**/*.jsonl");
+            let claude_project_dir = format!("~/.claude/projects/{encoded_path}/**/*.jsonl");
             
             discover_claude_files(Some(&claude_project_dir))?
         } else {
