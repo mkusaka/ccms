@@ -5,7 +5,7 @@ pub enum Command {
     None,
     ExecuteSearch,
     ExecuteSessionSearch, // Execute search with session_id filter
-    ScheduleSearch(u64), // delay in milliseconds
+    ScheduleSearch(u64),  // delay in milliseconds
     LoadSession(String),
     CopyToClipboard(CopyContent),
     ShowMessage(String),

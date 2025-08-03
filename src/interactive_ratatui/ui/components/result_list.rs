@@ -88,11 +88,11 @@ impl Component for ResultList {
             ]
         } else {
             vec![
-                Constraint::Length(RESULT_LIST_TITLE_HEIGHT),  // Title
-                Constraint::Min(0),                            // Content (list)
+                Constraint::Length(RESULT_LIST_TITLE_HEIGHT), // Title
+                Constraint::Min(0),                           // Content (list)
             ]
         };
-        
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints(constraints)

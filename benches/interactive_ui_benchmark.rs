@@ -1,7 +1,8 @@
 use ccms::interactive_ratatui::ui::{
     app_state::AppState,
     components::{
-        Component, result_list::ResultList, search_bar::SearchBar, session_viewer_unified::SessionViewerUnified,
+        Component, result_list::ResultList, search_bar::SearchBar,
+        session_viewer_unified::SessionViewerUnified,
     },
     events::Message,
     renderer::Renderer,
@@ -477,9 +478,11 @@ fn create_test_session_results(count: usize) -> Vec<SearchResult> {
                     };
                     ("user", content)
                 }
-                SessionMessage::Assistant { .. } => ("assistant", format!("Assistant response {i}")),
+                SessionMessage::Assistant { .. } => {
+                    ("assistant", format!("Assistant response {i}"))
+                }
                 SessionMessage::System { .. } => ("system", format!("System message {i}")),
-                SessionMessage::Summary { .. } => ("summary", format!("Summary {i}"))
+                SessionMessage::Summary { .. } => ("summary", format!("Summary {i}")),
             };
 
             let raw_json = serde_json::to_string(&msg).unwrap_or_default();
@@ -497,7 +500,7 @@ fn create_test_session_results(count: usize) -> Vec<SearchResult> {
                 message_type: "message".to_string(),
                 query: QueryCondition::Literal {
                     pattern: "test".to_string(),
-                    case_sensitive: false
+                    case_sensitive: false,
                 },
                 cwd: "/test".to_string(),
                 raw_json: Some(raw_json),

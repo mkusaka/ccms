@@ -25,13 +25,13 @@ mod integration_tests;
 // #[cfg(test)]
 // mod session_view_integration_test; // No longer used - using unified session viewer
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod session_preview_test;
+#[cfg(test)]
+mod tests;
 
 use self::application::search_service::SearchService;
 use self::constants::*;
-use self::domain::models::{Mode, SearchRequest, SearchResponse, SearchOrder, SessionOrder};
+use self::domain::models::{Mode, SearchOrder, SearchRequest, SearchResponse, SessionOrder};
 use self::ui::{
     app_state::AppState, commands::Command, components::Component, events::Message,
     renderer::Renderer,
@@ -80,8 +80,10 @@ impl InteractiveSearch {
 
     async fn run_async(&mut self, pattern: &str) -> Result<()> {
         let _ = crate::interactive_ratatui::debug::clear_debug_log();
-        let _ = crate::interactive_ratatui::debug::write_debug_log("=== Starting interactive search session ===");
-        
+        let _ = crate::interactive_ratatui::debug::write_debug_log(
+            "=== Starting interactive search session ===",
+        );
+
         self.pattern = pattern.to_string();
         let mut terminal = self.setup_terminal()?;
 
@@ -212,9 +214,10 @@ impl InteractiveSearch {
                     Mode::SessionViewer => Message::ToggleSessionPreview,
                     _ => return Ok(false), // No preview for other modes
                 };
-                let _ = crate::interactive_ratatui::debug::write_debug_log(
-                    &format!("Ctrl+T pressed in mode {:?}, sending {:?}", self.state.mode, message)
-                );
+                let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+                    "Ctrl+T pressed in mode {:?}, sending {:?}",
+                    self.state.mode, message
+                ));
                 self.handle_message(message);
                 return Ok(false);
             }
@@ -390,8 +393,11 @@ impl InteractiveSearch {
                     SessionOrder::Descending => SearchOrder::Descending,
                 },
             };
-            
-            match self.search_service.search_session(request, session_id.clone()) {
+
+            match self
+                .search_service
+                .search_session(request, session_id.clone())
+            {
                 Ok(response) => {
                     self.state.session.search_results = response.results;
                     // Clear old messages - will be removed later after full migration
@@ -421,8 +427,11 @@ impl InteractiveSearch {
                         SessionOrder::Descending => SearchOrder::Descending,
                     },
                 };
-                
-                match self.search_service.search_session(request, session_id.clone()) {
+
+                match self
+                    .search_service
+                    .search_session(request, session_id.clone())
+                {
                     Ok(response) => {
                         self.state.session.search_results = response.results;
                         // Clear old messages - will be removed later after full migration

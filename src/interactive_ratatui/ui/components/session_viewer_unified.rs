@@ -1,10 +1,10 @@
 use crate::interactive_ratatui::domain::models::SessionOrder;
 use crate::interactive_ratatui::ui::components::{
     Component, is_exit_prompt,
+    message_preview::MessagePreview,
     result_list::ResultList,
     text_input::TextInput,
     view_layout::{ColorScheme, ViewLayout},
-    message_preview::MessagePreview,
 };
 use crate::interactive_ratatui::ui::events::{CopyContent, Message};
 use crate::query::condition::SearchResult;
@@ -103,9 +103,10 @@ impl SessionViewerUnified {
     }
 
     pub fn set_preview_enabled(&mut self, enabled: bool) {
-        let _ = crate::interactive_ratatui::debug::write_debug_log(
-            &format!("SessionViewerUnified::set_preview_enabled: {} -> {}", self.preview_enabled, enabled)
-        );
+        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+            "SessionViewerUnified::set_preview_enabled: {} -> {}",
+            self.preview_enabled, enabled
+        ));
         self.preview_enabled = enabled;
         self.result_list.set_preview_enabled(enabled);
     }
@@ -118,12 +119,12 @@ impl SessionViewerUnified {
     pub fn stop_search(&mut self) {
         self.is_searching = false;
     }
-    
+
     #[cfg(test)]
     pub fn is_preview_enabled(&self) -> bool {
         self.preview_enabled
     }
-    
+
     pub fn get_result_list(&self) -> &ResultList {
         &self.result_list
     }
@@ -136,10 +137,10 @@ impl SessionViewerUnified {
     }
 
     fn render_content(&mut self, f: &mut Frame, area: Rect) {
-        let _ = crate::interactive_ratatui::debug::write_debug_log(
-            &format!("SessionViewerUnified::render_content: area = {area:?}")
-        );
-        
+        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+            "SessionViewerUnified::render_content: area = {area:?}"
+        ));
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -180,9 +181,7 @@ impl SessionViewerUnified {
             let total_count = self.result_list.items_count();
 
             let info_text = if total_count == 0 {
-                format!(
-                    "No messages{order_part}{role_part} | Press '/' to search"
-                )
+                format!("No messages{order_part}{role_part} | Press '/' to search")
             } else {
                 format!(
                     "Total: {total_count} messages{order_part}{role_part} | Press '/' to search"
@@ -193,11 +192,11 @@ impl SessionViewerUnified {
         }
 
         // Split the content area if preview is enabled
-        let _ = crate::interactive_ratatui::debug::write_debug_log(
-            &format!("SessionViewerUnified::render_content: preview_enabled = {}, has_selected_result = {}", 
-                self.preview_enabled, 
-                self.result_list.selected_result().is_some())
-        );
+        let _ = crate::interactive_ratatui::debug::write_debug_log(&format!(
+            "SessionViewerUnified::render_content: preview_enabled = {}, has_selected_result = {}",
+            self.preview_enabled,
+            self.result_list.selected_result().is_some()
+        ));
         if self.preview_enabled && self.result_list.selected_result().is_some() {
             // Split content area into list and preview
             let content_chunks = Layout::default()
@@ -314,12 +313,12 @@ impl Component for SessionViewerUnified {
                 KeyCode::Enter => {
                     // Navigate to result detail for selected message (keep search mode active)
                     let _ = crate::interactive_ratatui::debug::write_debug_log(
-                        "SessionViewerUnified (searching): Enter pressed"
+                        "SessionViewerUnified (searching): Enter pressed",
                     );
-                    
+
                     if let Some(result) = self.result_list.selected_result() {
                         let _ = crate::interactive_ratatui::debug::write_debug_log(
-                            "SessionViewerUnified: Found selected result, sending EnterMessageDetailFromSession"
+                            "SessionViewerUnified: Found selected result, sending EnterMessageDetailFromSession",
                         );
                         Some(Message::EnterMessageDetailFromSession(
                             result.raw_json.clone().unwrap_or_default(),
@@ -328,7 +327,7 @@ impl Component for SessionViewerUnified {
                         ))
                     } else {
                         let _ = crate::interactive_ratatui::debug::write_debug_log(
-                            "SessionViewerUnified: No selected result"
+                            "SessionViewerUnified: No selected result",
                         );
                         None
                     }
@@ -390,7 +389,7 @@ impl Component for SessionViewerUnified {
                 }
                 KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
                     let _ = crate::interactive_ratatui::debug::write_debug_log(
-                        "SessionViewerUnified (searching): Ctrl+T pressed, sending ToggleSessionPreview"
+                        "SessionViewerUnified (searching): Ctrl+T pressed, sending ToggleSessionPreview",
                     );
                     Some(Message::ToggleSessionPreview)
                 }
@@ -403,25 +402,22 @@ impl Component for SessionViewerUnified {
                 KeyCode::Char('C') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                     self.result_list.selected_result().map(|result| {
                         Message::CopyToClipboard(CopyContent::JsonData(
-                            result.raw_json.clone().unwrap_or_default()
+                            result.raw_json.clone().unwrap_or_default(),
                         ))
                     })
                 }
-                KeyCode::Char('i') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    self.session_id
-                        .clone()
-                        .map(|id| Message::CopyToClipboard(CopyContent::SessionId(id)))
-                }
-                KeyCode::Char('p') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    self.cwd
-                        .clone()
-                        .map(|path| Message::CopyToClipboard(CopyContent::ProjectPath(path)))
-                }
-                KeyCode::Char('f') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    self.file_path
-                        .clone()
-                        .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path)))
-                }
+                KeyCode::Char('i') if !key.modifiers.contains(KeyModifiers::CONTROL) => self
+                    .session_id
+                    .clone()
+                    .map(|id| Message::CopyToClipboard(CopyContent::SessionId(id))),
+                KeyCode::Char('p') if !key.modifiers.contains(KeyModifiers::CONTROL) => self
+                    .cwd
+                    .clone()
+                    .map(|path| Message::CopyToClipboard(CopyContent::ProjectPath(path))),
+                KeyCode::Char('f') if !key.modifiers.contains(KeyModifiers::CONTROL) => self
+                    .file_path
+                    .clone()
+                    .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path))),
                 _ => {
                     let changed = self.text_input.handle_key(key);
                     if changed {
@@ -508,7 +504,7 @@ impl Component for SessionViewerUnified {
                 }
                 KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
                     let _ = crate::interactive_ratatui::debug::write_debug_log(
-                        "SessionViewerUnified: Ctrl+T pressed, sending ToggleSessionPreview"
+                        "SessionViewerUnified: Ctrl+T pressed, sending ToggleSessionPreview",
                     );
                     Some(Message::ToggleSessionPreview)
                 }
@@ -518,7 +514,7 @@ impl Component for SessionViewerUnified {
                 }),
                 KeyCode::Char('C') => self.result_list.selected_result().map(|result| {
                     Message::CopyToClipboard(CopyContent::JsonData(
-                        result.raw_json.clone().unwrap_or_default()
+                        result.raw_json.clone().unwrap_or_default(),
                     ))
                 }),
                 KeyCode::Char('i') => self

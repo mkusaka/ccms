@@ -122,7 +122,7 @@ impl SearchEngineTrait for RayonEngine {
         }
 
         let total_count = all_results.len();
-        
+
         // Only truncate if max_results is specified
         if let Some(limit) = self.options.max_results {
             all_results.truncate(limit);
