@@ -52,9 +52,6 @@ pub const MAX_NAVIGATION_HISTORY: usize = 50;
 /// Height of the details header section (role, time, file, project, UUID, session)
 pub const MESSAGE_DETAIL_HEADER_HEIGHT: u16 = 8;
 
-/// Height of the shortcuts bar in message detail view
-pub const MESSAGE_DETAIL_SHORTCUTS_HEIGHT: u16 = 2;
-
 /// Height of the status bar in message detail view
 pub const MESSAGE_DETAIL_STATUS_HEIGHT: u16 = 1;
 
@@ -65,9 +62,6 @@ pub const EXIT_PROMPT_HEIGHT: u16 = 1;
 // Result list layout constants
 /// Height of the title area in result list
 pub const RESULT_LIST_TITLE_HEIGHT: u16 = 2;
-
-/// Height of the status bar in result list
-pub const RESULT_LIST_STATUS_HEIGHT: u16 = 2;
 
 // List viewer default values
 /// Default viewport height for list viewer
