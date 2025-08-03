@@ -1155,14 +1155,16 @@ mod tests {
                 summary: None,
             },
         ];
-        
+
         // Mark loading as complete since we manually set the sessions
         app.state.session_list.is_loading = false;
 
         // Force a render to sync the renderer with the state
         let backend = TestBackend::new(120, 30);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| app.renderer.render(f, &app.state)).unwrap();
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
 
         // Initially preview should be enabled by default
         assert!(
@@ -1173,10 +1175,12 @@ mod tests {
         // Toggle preview with Ctrl+T
         let result = app.handle_input(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL));
         assert!(result.is_ok(), "handle_input should succeed");
-        
+
         // Sync renderer again after input
-        terminal.draw(|f| app.renderer.render(f, &app.state)).unwrap();
-        
+        terminal
+            .draw(|f| app.renderer.render(f, &app.state))
+            .unwrap();
+
         assert!(
             !app.state.session_list.preview_enabled,
             "Preview should be disabled after Ctrl+T"

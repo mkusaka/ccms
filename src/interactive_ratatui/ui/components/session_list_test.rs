@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::interactive_ratatui::ui::app_state::SessionInfo;
-    use crate::interactive_ratatui::ui::components::session_list::SessionList;
     use crate::interactive_ratatui::ui::components::Component;
+    use crate::interactive_ratatui::ui::components::session_list::SessionList;
     use crate::interactive_ratatui::ui::events::Message;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use ratatui::Terminal;
@@ -19,7 +19,10 @@ mod tests {
                 first_message: "Hello from session 1".to_string(),
                 preview_messages: vec![
                     ("user".to_string(), "Hello from session 1".to_string()),
-                    ("assistant".to_string(), "Hi! How can I help you?".to_string()),
+                    (
+                        "assistant".to_string(),
+                        "Hi! How can I help you?".to_string(),
+                    ),
                 ],
                 summary: Some("Discussion about session 1".to_string()),
             },
@@ -31,7 +34,10 @@ mod tests {
                 first_message: "Hello from session 2".to_string(),
                 preview_messages: vec![
                     ("user".to_string(), "Hello from session 2".to_string()),
-                    ("assistant".to_string(), "Hello! Ready to assist.".to_string()),
+                    (
+                        "assistant".to_string(),
+                        "Hello! Ready to assist.".to_string(),
+                    ),
                 ],
                 summary: None,
             },

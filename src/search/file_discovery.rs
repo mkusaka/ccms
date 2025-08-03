@@ -107,7 +107,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_file_discovery() -> Result<()> {
         let temp_dir = tempdir()?;

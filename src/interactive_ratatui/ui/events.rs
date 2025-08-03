@@ -1,5 +1,5 @@
-use crate::query::condition::SearchResult;
 use crate::interactive_ratatui::application::search_service::SessionData;
+use crate::query::condition::SearchResult;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CopyContent {

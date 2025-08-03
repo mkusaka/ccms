@@ -26,7 +26,7 @@ impl SessionList {
             selected_index: 0,
             scroll_offset: 0,
             is_loading: false,
-            preview_enabled: true,  // Default to true for better UX
+            preview_enabled: true, // Default to true for better UX
         }
     }
 

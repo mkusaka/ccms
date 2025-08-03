@@ -208,7 +208,9 @@ impl InteractiveSearch {
             }
             KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 // Only handle global preview toggle when not in SessionList tab
-                if self.state.mode == Mode::Search && self.state.search.current_tab != domain::models::SearchTab::SessionList {
+                if self.state.mode == Mode::Search
+                    && self.state.search.current_tab != domain::models::SearchTab::SessionList
+                {
                     self.handle_message(Message::TogglePreview);
                     return Ok(false);
                 }

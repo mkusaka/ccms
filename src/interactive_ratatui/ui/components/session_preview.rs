@@ -98,20 +98,18 @@ impl Component for SessionPreview {
                         .fg(Color::Gray)
                         .add_modifier(Modifier::BOLD),
                 )]));
-                
+
                 for (role, content) in &session.preview_messages {
                     let role_color = match role.as_str() {
                         "user" => Color::Green,
                         "assistant" => Color::Blue,
                         _ => Color::Gray,
                     };
-                    
+
                     lines.push(Line::from(vec![
                         Span::styled(
                             format!("{role}: "),
-                            Style::default()
-                                .fg(role_color)
-                                .add_modifier(Modifier::BOLD),
+                            Style::default().fg(role_color).add_modifier(Modifier::BOLD),
                         ),
                         Span::styled(content, Style::default().fg(Color::White)),
                     ]));

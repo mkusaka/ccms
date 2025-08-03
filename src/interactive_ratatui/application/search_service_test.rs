@@ -159,10 +159,10 @@ mod tests {
             project_path: Some("/fake/test/project".to_string()),
             ..Default::default()
         };
-        
+
         let service = SearchService::new(options);
         let result = service.get_all_sessions();
-        
+
         assert!(result.is_ok());
         let sessions = result.unwrap();
         assert_eq!(sessions.len(), 0);
@@ -177,10 +177,10 @@ mod tests {
             project_path: Some("/test/project/path".to_string()),
             ..Default::default()
         };
-        
+
         let service = SearchService::new(options);
         let result = service.get_all_sessions();
-        
+
         // Should succeed even if no files are found
         assert!(result.is_ok());
         let sessions = result.unwrap();
@@ -195,10 +195,10 @@ mod tests {
             project_path: Some("/Users/test_user/my_project".to_string()),
             ..Default::default()
         };
-        
+
         let service = SearchService::new(options);
         let result = service.get_all_sessions();
-        
+
         assert!(result.is_ok());
         // Will be empty in test environment but proves the function doesn't crash
         let sessions = result.unwrap();
@@ -212,10 +212,10 @@ mod tests {
             project_path: Some("/home/user/my_test_project".to_string()),
             ..Default::default()
         };
-        
+
         let service = SearchService::new(options);
         let result = service.get_all_sessions();
-        
+
         assert!(result.is_ok());
         let sessions = result.unwrap();
         assert_eq!(sessions.len(), 0);
@@ -229,13 +229,13 @@ mod tests {
             "/home/user/my-project",
             "/opt/apps/test_app",
         ];
-        
+
         for test_path in test_paths {
             let options = SearchOptions {
                 project_path: Some(test_path.to_string()),
                 ..Default::default()
             };
-            
+
             let service = SearchService::new(options);
             // This should not panic and handle the path normalization correctly
             let result = service.get_all_sessions();

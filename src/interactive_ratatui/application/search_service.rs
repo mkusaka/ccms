@@ -9,7 +9,15 @@ use anyhow::Result;
 use std::sync::Arc;
 
 // Type alias for session data: (file_path, session_id, timestamp, message_count, first_message, preview_messages, summary)
-pub type SessionData = (String, String, String, usize, String, Vec<(String, String)>, Option<String>);
+pub type SessionData = (
+    String,
+    String,
+    String,
+    usize,
+    String,
+    Vec<(String, String)>,
+    Option<String>,
+);
 
 pub struct SearchService {
     engine: Arc<SmolEngine>,
@@ -70,9 +78,9 @@ impl SearchService {
             // When project_path is specified, look for Claude sessions for that project
             // Convert the project path to Claude's project directory format
             let encoded_path = encode_project_path(project_path);
-            
+
             let claude_project_dir = format!("~/.claude/projects/{encoded_path}/**/*.jsonl");
-            
+
             discover_claude_files(Some(&claude_project_dir))?
         } else {
             // Use default pattern to find all sessions
@@ -83,7 +91,6 @@ impl SearchService {
         for path in files {
             // Read first line to get session info
             if let Ok(content) = std::fs::read_to_string(&path) {
-                
                 let mut session_id = String::new();
                 let mut timestamp = String::new();
                 let mut message_count = 0;
@@ -95,7 +102,7 @@ impl SearchService {
                 for line in content.lines() {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
                         message_count += 1;
-                        
+
                         // First message - get session info
                         if message_count == 1 {
                             if let Some(id) = json.get("sessionId").and_then(|v| v.as_str()) {
@@ -105,13 +112,13 @@ impl SearchService {
                                 timestamp = ts.to_string();
                             }
                         }
-                        
+
                         // Process all messages for preview
                         if let Some(msg_type) = json.get("type").and_then(|v| v.as_str()) {
                             match msg_type {
                                 "user" | "assistant" => {
                                     let mut content = String::new();
-                                    
+
                                     // Extract content
                                     if let Some(msg_content) = json
                                         .get("message")
@@ -140,27 +147,37 @@ impl SearchService {
                                             }
                                         }
                                     }
-                                    
+
                                     // Set first message if not already set
-                                    if first_message.is_empty() && msg_type == "user" && !content.is_empty() {
+                                    if first_message.is_empty()
+                                        && msg_type == "user"
+                                        && !content.is_empty()
+                                    {
                                         first_message = content.clone();
                                     }
-                                    
+
                                     // Collect preview messages
-                                    if preview_messages.len() < MAX_PREVIEW_MESSAGES && !content.is_empty() {
+                                    if preview_messages.len() < MAX_PREVIEW_MESSAGES
+                                        && !content.is_empty()
+                                    {
                                         preview_messages.push((msg_type.to_string(), content));
                                     }
                                 }
                                 "summary" => {
-                                    if let Some(summary) = json.get("summary").and_then(|s| s.as_str()) {
-                                        summary_message = Some(summary
-                                            .chars()
-                                            .take(200)
-                                            .collect::<String>()
-                                            .replace('\n', " "));
-                                        
+                                    if let Some(summary) =
+                                        json.get("summary").and_then(|s| s.as_str())
+                                    {
+                                        summary_message = Some(
+                                            summary
+                                                .chars()
+                                                .take(200)
+                                                .collect::<String>()
+                                                .replace('\n', " "),
+                                        );
+
                                         if first_message.is_empty() {
-                                            first_message = summary_message.clone().unwrap_or_default();
+                                            first_message =
+                                                summary_message.clone().unwrap_or_default();
                                         }
                                     }
                                 }
