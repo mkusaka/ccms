@@ -55,8 +55,7 @@ mod tests {
         assert!(content.contains("test-session"));
         assert!(
             content.contains("Messages: 5") || content.contains("5 messages"),
-            "Content: {}",
-            content
+            "Content: {content}"
         );
 
         // Should contain messages
@@ -117,8 +116,7 @@ mod tests {
         // The matching message should appear in the limited space
         assert!(
             content.contains("Final message with test"),
-            "Content: {}",
-            content
+            "Content: {content}"
         );
     }
 
