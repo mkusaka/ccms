@@ -104,7 +104,6 @@ mod tests {
         assert_eq!(cached_file.messages[1].get_type(), "system");
         assert_eq!(cached_file.messages[2].get_type(), "user");
         assert_eq!(cached_file.messages[3].get_type(), "assistant");
-
     }
 
     #[test]

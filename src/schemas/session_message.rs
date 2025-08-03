@@ -555,7 +555,6 @@ impl SessionMessage {
         }
     }
 
-
     pub fn get_searchable_text(&self) -> String {
         let mut parts = vec![self.get_content_text()];
 
