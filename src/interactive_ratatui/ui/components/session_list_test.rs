@@ -15,8 +15,16 @@ mod tests {
             message_count: 5,
             first_message: message.to_string(),
             preview_messages: vec![
-                ("user".to_string(), message.to_string()),
-                ("assistant".to_string(), format!("Response to {message}")),
+                (
+                    "user".to_string(),
+                    message.to_string(),
+                    "2024-01-01T00:00:00Z".to_string(),
+                ),
+                (
+                    "assistant".to_string(),
+                    format!("Response to {message}"),
+                    "2024-01-01T00:00:01Z".to_string(),
+                ),
             ],
             summary: Some(format!("Summary about {message}")),
         }

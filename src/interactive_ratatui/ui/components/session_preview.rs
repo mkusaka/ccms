@@ -113,23 +113,23 @@ impl Component for SessionPreview {
 
                 if !self.query.is_empty() {
                     let query_lower = self.query.to_lowercase();
-                    for (role, content) in &session.preview_messages {
+                    for (role, content, timestamp) in &session.preview_messages {
                         if content.to_lowercase().contains(&query_lower) {
-                            matching_messages.push((role, content, true));
+                            matching_messages.push((role, content, timestamp, true));
                         } else {
-                            non_matching_messages.push((role, content, false));
+                            non_matching_messages.push((role, content, timestamp, false));
                         }
                     }
                 } else {
                     // No query, all messages are non-matching
-                    for (role, content) in &session.preview_messages {
-                        non_matching_messages.push((role, content, false));
+                    for (role, content, timestamp) in &session.preview_messages {
+                        non_matching_messages.push((role, content, timestamp, false));
                     }
                 }
 
                 // Display matching messages first
                 let matching_count = matching_messages.len();
-                for (role, content, is_match) in matching_messages {
+                for (role, content, timestamp, is_match) in matching_messages {
                     let role_color = match role.as_str() {
                         "user" => Color::Green,
                         "assistant" => Color::Blue,
@@ -144,7 +144,19 @@ impl Component for SessionPreview {
                         Style::default().fg(Color::White)
                     };
 
+                    // Format timestamp
+                    let formatted_time =
+                        if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+                            parsed.format("%H:%M:%S").to_string()
+                        } else {
+                            timestamp.chars().take(8).collect::<String>()
+                        };
+
                     lines.push(Line::from(vec![
+                        Span::styled(
+                            format!("[{formatted_time}] "),
+                            Style::default().fg(Color::DarkGray),
+                        ),
                         Span::styled(
                             format!("{role}: "),
                             Style::default().fg(role_color).add_modifier(Modifier::BOLD),
@@ -155,14 +167,28 @@ impl Component for SessionPreview {
 
                 // Then display remaining messages (up to limit)
                 let remaining_space = 5 - matching_count;
-                for (role, content, _) in non_matching_messages.into_iter().take(remaining_space) {
+                for (role, content, timestamp, _) in
+                    non_matching_messages.into_iter().take(remaining_space)
+                {
                     let role_color = match role.as_str() {
                         "user" => Color::Green,
                         "assistant" => Color::Blue,
                         _ => Color::Gray,
                     };
 
+                    // Format timestamp
+                    let formatted_time =
+                        if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+                            parsed.format("%H:%M:%S").to_string()
+                        } else {
+                            timestamp.chars().take(8).collect::<String>()
+                        };
+
                     lines.push(Line::from(vec![
+                        Span::styled(
+                            format!("[{formatted_time}] "),
+                            Style::default().fg(Color::DarkGray),
+                        ),
                         Span::styled(
                             format!("{role}: "),
                             Style::default().fg(role_color).add_modifier(Modifier::BOLD),
