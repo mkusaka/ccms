@@ -124,7 +124,8 @@ impl SearchService {
             };
 
             let encoded_path = encode_project_path(&absolute_path);
-            let claude_project_dir = format!("~/.claude/projects/{encoded_path}*/**/*.jsonl");
+            // Use wildcard to include related projects
+            let claude_project_dir = format!("~/.claude/projects/{encoded_path}*/*.jsonl");
 
             discover_claude_files(Some(&claude_project_dir))?
         } else {
