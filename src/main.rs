@@ -272,7 +272,11 @@ fn main() -> Result<()> {
 
     // Create search options
     let options = SearchOptions {
-        max_results: Some(cli.max_results),
+        max_results: if cli.stats {
+            None // Don't limit results when calculating statistics
+        } else {
+            Some(cli.max_results)
+        },
         role: cli.role,
         session_id: cli.session_id,
         message_id: None,
