@@ -250,7 +250,7 @@ ccms --full-text "query"
 # Show raw JSON of matched messages
 ccms --raw "query"
 
-# JSON output
+# JSON output with detailed statistics
 ccms -f json "query" > results.json
 
 # JSONL output (one JSON per line)
@@ -259,6 +259,30 @@ ccms -f jsonl "query" > results.jsonl
 # Verbose output with debug info
 ccms -v "query"
 ```
+
+#### JSON Output Format
+
+The JSON output format provides rich metadata about search results:
+
+```bash
+# Get detailed JSON output with session and file statistics
+ccms -f json "error" --project "/" -n 100
+
+# Extract summary information
+ccms -f json "query" | jq '.summary'
+
+# List all unique sessions with message counts
+ccms -f json "query" | jq -r '.sessions[] | "\(.session_id): \(.message_count) messages"'
+
+# List all unique files with message counts
+ccms -f json "query" | jq -r '.files[] | "\(.message_count) messages: \(.path)"'
+```
+
+JSON output structure includes:
+- `results`: Array of search results with full message details
+- `summary`: Search statistics including duration, total/returned counts, unique sessions/files
+- `sessions`: List of unique sessions with message counts
+- `files`: List of unique files with message counts and associated session IDs
 
 ## CLI Options
 
