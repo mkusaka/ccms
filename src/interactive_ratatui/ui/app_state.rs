@@ -74,6 +74,7 @@ pub struct UiState {
     pub detail_scroll_offset: usize,
     pub selected_result: Option<SearchResult>,
     pub truncation_enabled: bool,
+    pub mode_before_help: Option<Mode>,
 }
 
 impl Default for AppState {
@@ -128,6 +129,7 @@ impl AppState {
                 detail_scroll_offset: 0,
                 selected_result: None,
                 truncation_enabled: true,
+                mode_before_help: None,
             },
         }
     }
@@ -257,6 +259,9 @@ impl AppState {
                     self.navigation_history.push(initial_state);
                 }
 
+                // Save the current mode before switching to Help
+                self.ui.mode_before_help = Some(self.mode);
+
                 let command = self.set_mode(Mode::Help);
 
                 // Save the new state after transitioning
@@ -266,6 +271,9 @@ impl AppState {
                 command
             }
             Message::CloseHelp => {
+                // Clear the mode_before_help since we're leaving Help mode
+                self.ui.mode_before_help = None;
+
                 // Go back in navigation history
                 if let Some(previous_state) = self.navigation_history.go_back() {
                     return self.restore_navigation_state(&previous_state);
@@ -759,6 +767,7 @@ impl AppState {
                 detail_scroll_offset: self.ui.detail_scroll_offset,
                 selected_result: self.ui.selected_result.clone(),
                 truncation_enabled: self.ui.truncation_enabled,
+                mode_before_help: self.ui.mode_before_help,
             },
         }
     }
@@ -794,6 +803,7 @@ impl AppState {
         self.ui.detail_scroll_offset = state.ui_state.detail_scroll_offset;
         self.ui.selected_result = state.ui_state.selected_result.clone();
         self.ui.truncation_enabled = state.ui_state.truncation_enabled;
+        self.ui.mode_before_help = state.ui_state.mode_before_help;
 
         // Execute mode-specific initialization
         self.initialize_mode()

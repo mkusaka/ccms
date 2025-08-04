@@ -23,6 +23,8 @@ pub mod domain;
 pub mod ui;
 
 #[cfg(test)]
+mod help_mode_rendering_test;
+#[cfg(test)]
 mod help_navigation_test;
 #[cfg(test)]
 mod integration_tests;

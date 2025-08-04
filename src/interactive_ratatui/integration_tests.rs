@@ -442,6 +442,7 @@ mod tests {
                 detail_scroll_offset: 0,
                 selected_result: None,
                 truncation_enabled: true,
+                mode_before_help: None,
             },
         };
 
@@ -481,6 +482,7 @@ mod tests {
                 detail_scroll_offset: 0,
                 selected_result: None,
                 truncation_enabled: true,
+                mode_before_help: None,
             },
         };
         history.push(result_detail_state);

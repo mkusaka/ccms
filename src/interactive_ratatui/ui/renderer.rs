@@ -248,8 +248,12 @@ impl Renderer {
     }
 
     fn render_help_mode(&mut self, f: &mut Frame, state: &AppState) {
-        // First render the search mode underneath
-        self.render_search_mode(f, state);
+        // Render the appropriate mode underneath based on which mode we came from
+        match state.ui.mode_before_help {
+            Some(Mode::MessageDetail) => self.render_detail_mode(f, state),
+            Some(Mode::SessionViewer) => self.render_session_mode(f, state),
+            _ => self.render_search_mode(f, state), // Default to search mode
+        }
 
         // Then render the help dialog on top
         self.help_dialog.render(f, f.area());
