@@ -15,6 +15,7 @@ pub struct SessionList {
     sessions: Vec<SessionInfo>,
     filtered_sessions: Vec<SessionInfo>,
     query: String,
+    text_input: super::text_input::TextInput,
     selected_index: usize,
     scroll_offset: usize,
     is_loading: bool,
@@ -28,6 +29,7 @@ impl SessionList {
             sessions: Vec::new(),
             filtered_sessions: Vec::new(),
             query: String::new(),
+            text_input: super::text_input::TextInput::new(),
             selected_index: 0,
             scroll_offset: 0,
             is_loading: false,
@@ -49,7 +51,8 @@ impl SessionList {
     }
 
     pub fn set_query(&mut self, query: String) {
-        self.query = query;
+        self.query = query.clone();
+        self.text_input.set_text(query);
     }
 
     pub fn set_selected_index(&mut self, index: usize) {
@@ -103,7 +106,8 @@ impl Component for SessionList {
         let search_block = Block::default()
             .borders(Borders::ALL)
             .title(format!("Search Sessions{search_status}{session_count}"));
-        let search_text = Paragraph::new(self.query.as_str())
+        let input_spans = self.text_input.render_cursor_spans();
+        let search_text = Paragraph::new(Line::from(input_spans))
             .style(Style::default().fg(Color::White))
             .block(search_block);
         f.render_widget(search_text, chunks[0]);
@@ -198,55 +202,56 @@ impl Component for SessionList {
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
         use crossterm::event::KeyModifiers;
 
+        // Handle special navigation keys first
         match key.code {
-            // Text input for search
-            KeyCode::Char(c)
-                if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT =>
-            {
-                self.query.push(c);
-                Some(Message::SessionListQueryChanged(self.query.clone()))
-            }
-            KeyCode::Backspace => {
-                self.query.pop();
-                Some(Message::SessionListQueryChanged(self.query.clone()))
-            }
-            KeyCode::Up => Some(Message::SessionListScrollUp),
-            KeyCode::Down => Some(Message::SessionListScrollDown),
-            KeyCode::PageUp => Some(Message::SessionListPageUp),
-            KeyCode::PageDown => Some(Message::SessionListPageDown),
+            KeyCode::Up => return Some(Message::SessionListScrollUp),
+            KeyCode::Down => return Some(Message::SessionListScrollDown),
+            KeyCode::PageUp => return Some(Message::SessionListPageUp),
+            KeyCode::PageDown => return Some(Message::SessionListPageDown),
             // Half-page scrolling
             KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
-                Some(Message::SessionListHalfPageUp)
+                return Some(Message::SessionListHalfPageUp);
             }
             KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
-                Some(Message::SessionListHalfPageDown)
+                return Some(Message::SessionListHalfPageDown);
             }
             KeyCode::Enter => {
                 if !self.filtered_sessions.is_empty() {
-                    self.filtered_sessions
+                    return self
+                        .filtered_sessions
                         .get(self.selected_index)
                         .map(|session| {
                             Message::EnterSessionViewerFromList(session.file_path.clone())
-                        })
+                        });
                 } else {
-                    None
+                    return None;
                 }
             }
             KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
                 if !self.filtered_sessions.is_empty() {
-                    self.filtered_sessions
+                    return self
+                        .filtered_sessions
                         .get(self.selected_index)
                         .map(|session| {
                             Message::EnterSessionViewerFromList(session.file_path.clone())
-                        })
+                        });
                 } else {
-                    None
+                    return None;
                 }
             }
             KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
-                Some(Message::ToggleSessionListPreview)
+                return Some(Message::ToggleSessionListPreview);
             }
-            _ => None,
+            _ => {}
+        }
+
+        // Handle text input
+        let changed = self.text_input.handle_key(key);
+        if changed {
+            self.query = self.text_input.text().to_string();
+            Some(Message::SessionListQueryChanged(self.query.clone()))
+        } else {
+            None
         }
     }
 }
