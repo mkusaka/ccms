@@ -7,7 +7,6 @@ pub enum Mode {
     Search,
     MessageDetail,
     SessionViewer,
-    Help,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug, Default)]

@@ -74,6 +74,7 @@ pub struct UiState {
     pub detail_scroll_offset: usize,
     pub selected_result: Option<SearchResult>,
     pub truncation_enabled: bool,
+    pub show_help: bool,
 }
 
 impl Default for AppState {
@@ -128,6 +129,7 @@ impl AppState {
                 detail_scroll_offset: 0,
                 selected_result: None,
                 truncation_enabled: true,
+                show_help: false,
             },
         }
     }
@@ -251,28 +253,11 @@ impl AppState {
                 Command::None
             }
             Message::ShowHelp => {
-                // If this is our first navigation, save the initial state
-                if self.navigation_history.is_empty() {
-                    let initial_state = self.create_navigation_state();
-                    self.navigation_history.push(initial_state);
-                }
-
-                let command = self.set_mode(Mode::Help);
-
-                // Save the new state after transitioning
-                let new_state = self.create_navigation_state();
-                self.navigation_history.push(new_state);
-
-                command
+                self.ui.show_help = true;
+                Command::None
             }
             Message::CloseHelp => {
-                // Go back in navigation history
-                if let Some(previous_state) = self.navigation_history.go_back() {
-                    return self.restore_navigation_state(&previous_state);
-                } else {
-                    // No history, go to Search
-                    self.mode = Mode::Search;
-                }
+                self.ui.show_help = false;
                 Command::None
             }
             Message::ToggleRoleFilter => {
@@ -759,6 +744,7 @@ impl AppState {
                 detail_scroll_offset: self.ui.detail_scroll_offset,
                 selected_result: self.ui.selected_result.clone(),
                 truncation_enabled: self.ui.truncation_enabled,
+                show_help: self.ui.show_help,
             },
         }
     }
@@ -794,6 +780,7 @@ impl AppState {
         self.ui.detail_scroll_offset = state.ui_state.detail_scroll_offset;
         self.ui.selected_result = state.ui_state.selected_result.clone();
         self.ui.truncation_enabled = state.ui_state.truncation_enabled;
+        self.ui.show_help = state.ui_state.show_help;
 
         // Execute mode-specific initialization
         self.initialize_mode()
@@ -826,15 +813,11 @@ impl AppState {
                 // No special initialization needed
                 Command::None
             }
-            Mode::Help => {
-                // Help is a stateless dialog
-                // No initialization needed
-                Command::None
-            }
         }
     }
 
     // Set mode with initialization (for direct transitions)
+    #[allow(dead_code)]
     fn set_mode(&mut self, mode: Mode) -> Command {
         self.mode = mode;
         self.initialize_mode()

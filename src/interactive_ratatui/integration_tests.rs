@@ -69,8 +69,8 @@ mod tests {
         let buffer = terminal.backend().buffer();
         assert!(buffer_contains(buffer, "Search"));
 
-        // Test help mode rendering
-        app.set_mode(Mode::Help);
+        // Test help overlay rendering
+        app.state.ui.show_help = true;
         terminal
             .draw(|f| app.renderer.render(f, &app.state))
             .unwrap();
@@ -442,6 +442,7 @@ mod tests {
                 detail_scroll_offset: 0,
                 selected_result: None,
                 truncation_enabled: true,
+                show_help: false,
             },
         };
 
@@ -481,6 +482,7 @@ mod tests {
                 detail_scroll_offset: 0,
                 selected_result: None,
                 truncation_enabled: true,
+                show_help: false,
             },
         };
         history.push(result_detail_state);
@@ -1038,12 +1040,7 @@ mod tests {
     /// Test Ctrl+C works in all modes
     #[test]
     fn test_ctrl_c_in_all_modes() {
-        let modes = vec![
-            Mode::Search,
-            Mode::MessageDetail,
-            Mode::SessionViewer,
-            Mode::Help,
-        ];
+        let modes = vec![Mode::Search, Mode::MessageDetail, Mode::SessionViewer];
 
         for mode in modes {
             let mut app = InteractiveSearch::new(SearchOptions::default());

@@ -113,10 +113,12 @@ mod tests {
 
         // Show help
         let _command = state.update(Message::ShowHelp);
-        assert_eq!(state.mode, Mode::Help);
+        assert!(state.ui.show_help);
+        assert_eq!(state.mode, Mode::Search); // Mode should not change
 
         // Close help
         let _command = state.update(Message::CloseHelp);
+        assert!(!state.ui.show_help);
         assert_eq!(state.mode, Mode::Search);
     }
 

@@ -43,11 +43,16 @@ impl Renderer {
     }
 
     pub fn render(&mut self, f: &mut Frame, state: &AppState) {
+        // First render the current mode
         match state.mode {
             Mode::Search => self.render_search_mode(f, state),
             Mode::MessageDetail => self.render_detail_mode(f, state),
             Mode::SessionViewer => self.render_session_mode(f, state),
-            Mode::Help => self.render_help_mode(f, state),
+        }
+
+        // Then render help dialog on top if show_help is true
+        if state.ui.show_help {
+            self.help_dialog.render(f, f.area());
         }
     }
 
@@ -245,14 +250,6 @@ impl Renderer {
             .set_truncation_enabled(state.ui.truncation_enabled);
 
         self.session_viewer.render(f, f.area());
-    }
-
-    fn render_help_mode(&mut self, f: &mut Frame, state: &AppState) {
-        // First render the search mode underneath
-        self.render_search_mode(f, state);
-
-        // Then render the help dialog on top
-        self.help_dialog.render(f, f.area());
     }
 
     pub fn get_search_bar_mut(&mut self) -> &mut SearchBar {

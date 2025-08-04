@@ -23,7 +23,7 @@ pub mod domain;
 pub mod ui;
 
 #[cfg(test)]
-mod help_navigation_test;
+mod help_overlay_test;
 #[cfg(test)]
 mod integration_tests;
 // #[cfg(test)]
@@ -225,7 +225,7 @@ impl InteractiveSearch {
     fn handle_input(&mut self, key: KeyEvent) -> Result<bool> {
         use crossterm::event::KeyModifiers;
 
-        // Handle Ctrl+Z for background suspend
+        // Handle Ctrl+Z for background suspend (always available)
         if key.code == KeyCode::Char('z') && key.modifiers.contains(KeyModifiers::CONTROL) {
             // Cleanup terminal before suspending
             disable_raw_mode()?;
@@ -239,7 +239,7 @@ impl InteractiveSearch {
             return Ok(false);
         }
 
-        // Global Ctrl+C handling for exit
+        // Global Ctrl+C handling for exit (always available)
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             if let Some(last_press) = self.last_ctrl_c_press {
                 // Check if second press is within 1 second
@@ -262,9 +262,18 @@ impl InteractiveSearch {
             self.last_ctrl_c_press = None;
         }
 
-        // Global keys
+        // If help is showing, handle help dialog input ONLY (except for system controls above)
+        if self.state.ui.show_help {
+            if let Some(msg) = self.renderer.get_help_dialog_mut().handle_key(key) {
+                self.handle_message(msg);
+            }
+            // Block all other input when help is showing
+            return Ok(false);
+        }
+
+        // Global keys (only when help is not showing)
         match key.code {
-            KeyCode::Char('?') if self.state.mode != Mode::Help => {
+            KeyCode::Char('?') if !self.state.ui.show_help => {
                 self.handle_message(Message::ShowHelp);
                 return Ok(false);
             }
@@ -306,7 +315,6 @@ impl InteractiveSearch {
             Mode::Search => self.handle_search_mode_input(key),
             Mode::MessageDetail => self.renderer.get_message_detail_mut().handle_key(key),
             Mode::SessionViewer => self.renderer.get_session_viewer_mut().handle_key(key),
-            Mode::Help => self.renderer.get_help_dialog_mut().handle_key(key),
         };
 
         if let Some(msg) = message {

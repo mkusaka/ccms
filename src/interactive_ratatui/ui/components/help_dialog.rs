@@ -1,7 +1,7 @@
 use crate::interactive_ratatui::constants::*;
 use crate::interactive_ratatui::ui::components::Component;
 use crate::interactive_ratatui::ui::events::Message;
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -197,8 +197,13 @@ impl Component for HelpDialog {
         f.render_widget(help, dialog_area);
     }
 
-    fn handle_key(&mut self, _key: KeyEvent) -> Option<Message> {
-        // Any key closes the help dialog
-        Some(Message::CloseHelp)
+    fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
+        match key.code {
+            KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q') | KeyCode::Char('?') => {
+                Some(Message::CloseHelp)
+            }
+            // Ignore all other keys when help is open
+            _ => None,
+        }
     }
 }
