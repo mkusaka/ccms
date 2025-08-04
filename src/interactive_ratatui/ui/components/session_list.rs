@@ -81,14 +81,23 @@ impl Component for SessionList {
     fn render(&mut self, f: &mut Frame, area: Rect) {
         const TITLE_HEIGHT: u16 = 2;
 
+        // Calculate the actual height needed for the status bar
+        let status_text = if self.preview_enabled {
+            "Shift+Tab: Switch tabs | ↑/↓: Navigate | Ctrl+U/D: Half page | Enter: Open session | Ctrl+S: View session | Ctrl+T: Hide preview | Esc: Exit | ?: Help"
+        } else {
+            "Shift+Tab: Switch tabs | ↑/↓: Navigate | Ctrl+U/D: Half page | Enter: Open session | Ctrl+S: View session | Ctrl+T: Show preview | Esc: Exit | ?: Help"
+        };
+        let status_paragraph = Paragraph::new(status_text).wrap(Wrap { trim: true });
+        let status_height = (status_paragraph.line_count(area.width) as u16).clamp(1, 3);
+
         // Split area into search bar, title, sessions list and status bar
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),            // Search bar
-                Constraint::Length(TITLE_HEIGHT), // Title
-                Constraint::Min(0),               // Sessions list
-                Constraint::Length(2),            // Status bar
+                Constraint::Length(3),             // Search bar
+                Constraint::Length(TITLE_HEIGHT),  // Title
+                Constraint::Min(0),                // Sessions list
+                Constraint::Length(status_height), // Status bar (dynamic height)
             ])
             .split(area);
 
@@ -199,11 +208,6 @@ impl Component for SessionList {
         }
 
         // Render status bar
-        let status_text = if self.preview_enabled {
-            "Shift+Tab: Switch tabs | ↑/↓: Navigate | Enter: Open session | Ctrl+S: View session | Ctrl+T: Hide preview | Esc: Exit | ?: Help"
-        } else {
-            "Shift+Tab: Switch tabs | ↑/↓: Navigate | Enter: Open session | Ctrl+S: View session | Ctrl+T: Show preview | Esc: Exit | ?: Help"
-        };
         let status_bar = Paragraph::new(status_text)
             .style(Style::default().fg(Color::DarkGray))
             .alignment(ratatui::layout::Alignment::Center)
