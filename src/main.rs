@@ -6,9 +6,9 @@ use anyhow::Result;
 #[cfg(feature = "profiling")]
 use ccms::profiling_enhanced;
 use ccms::{
-    RayonEngine, SearchEngineTrait, SearchOptions, SearchResult, SmolEngine,
-    default_claude_pattern, format_search_result, interactive_ratatui::InteractiveSearch,
-    parse_query, profiling,
+    QueryCondition, RayonEngine, SearchEngineTrait, SearchOptions, SearchResult, SmolEngine,
+    Statistics, default_claude_pattern, format_search_result,
+    interactive_ratatui::InteractiveSearch, parse_query, profiling,
 };
 use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
@@ -104,6 +104,10 @@ struct Cli {
     /// Search engine to use
     #[arg(long, value_enum, default_value = "smol")]
     engine: EngineType,
+
+    /// Show only statistics
+    #[arg(long)]
+    stats: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -227,8 +231,10 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Interactive mode when no query provided or query is empty
-    if cli.query.is_none() || cli.query.as_ref().map(|s| s.is_empty()).unwrap_or(false) {
+    // Interactive mode when no query provided or query is empty (but not when --stats is used)
+    if !cli.stats
+        && (cli.query.is_none() || cli.query.as_ref().map(|s| s.is_empty()).unwrap_or(false))
+    {
         let options = SearchOptions {
             max_results: Some(cli.max_results), // Use the CLI value directly
             role: cli.role,
@@ -244,22 +250,34 @@ fn main() -> Result<()> {
         return interactive.run(pattern);
     }
 
-    // Regular search mode - query is provided
-    let query_str = cli.query.unwrap();
+    // Regular search mode - query is provided (or empty string for --stats)
+    let query_str = cli.query.unwrap_or_else(String::new);
 
-    // Parse the query
-    let query = match parse_query(&query_str) {
-        Ok(q) => q,
-        Err(e) => {
-            eprintln!("Error parsing query: {e}");
-            eprintln!("Use --help-query for query syntax help");
-            std::process::exit(1);
+    // Parse the query (empty query for --stats means match all)
+    let query = if cli.stats && query_str.is_empty() {
+        // Empty query for stats: match everything
+        QueryCondition::Literal {
+            pattern: String::new(),
+            case_sensitive: false,
+        }
+    } else {
+        match parse_query(&query_str) {
+            Ok(q) => q,
+            Err(e) => {
+                eprintln!("Error parsing query: {e}");
+                eprintln!("Use --help-query for query syntax help");
+                std::process::exit(1);
+            }
         }
     };
 
     // Create search options
     let options = SearchOptions {
-        max_results: Some(cli.max_results),
+        max_results: if cli.stats {
+            None // Don't limit results when calculating statistics
+        } else {
+            Some(cli.max_results)
+        },
         role: cli.role,
         session_id: cli.session_id,
         message_id: None,
@@ -305,6 +323,22 @@ fn main() -> Result<()> {
             engine.search(pattern_to_use, query)?
         }
     };
+
+    // If stats flag is set, collect and display statistics
+    if cli.stats {
+        let stats = collect_statistics(&results);
+        println!("{}", ccms::stats::format_statistics(&stats, !cli.no_color));
+
+        eprintln!("\n⏱️  Search completed in {}ms", duration.as_millis());
+        if total_count > results.len() {
+            eprintln!(
+                "(Showing stats for {} of {} total results)",
+                results.len(),
+                total_count
+            );
+        }
+        return Ok(());
+    }
 
     // Output results
     let stdout = io::stdout();
@@ -539,6 +573,23 @@ fn print_message_details(result: &SearchResult, use_color: bool) {
     }
 }
 
+fn collect_statistics(results: &[SearchResult]) -> Statistics {
+    let mut stats = Statistics::new();
+
+    for result in results {
+        stats.add_message(
+            &result.role,
+            &result.session_id,
+            &result.file,
+            &result.timestamp,
+            &result.cwd,
+            &result.message_type,
+        );
+    }
+
+    stats
+}
+
 fn print_query_help() {
     println!(
         r#"Claude Search Query Syntax Help
@@ -573,7 +624,8 @@ TIPS:
   - Unquoted literals cannot contain spaces or special characters
   - Use quotes for exact phrases with spaces
   - Regular expressions must be enclosed in forward slashes
-  - AND has higher precedence than OR"#
+  - AND has higher precedence than OR
+  - Use --stats flag to see only statistics without message content"#
     );
 }
 
@@ -603,6 +655,76 @@ mod tests {
         // Test invalid input
         let result = parse_since_time("invalid time");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_collect_statistics() {
+        use ccms::query::QueryCondition;
+
+        let results = vec![
+            SearchResult {
+                file: "file1.jsonl".to_string(),
+                uuid: "uuid1".to_string(),
+                timestamp: "2024-01-01T00:00:00Z".to_string(),
+                session_id: "session1".to_string(),
+                role: "user".to_string(),
+                text: "test message 1".to_string(),
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: "test".to_string(),
+                    case_sensitive: false,
+                },
+                cwd: "/project1".to_string(),
+                raw_json: None,
+            },
+            SearchResult {
+                file: "file1.jsonl".to_string(),
+                uuid: "uuid2".to_string(),
+                timestamp: "2024-01-01T01:00:00Z".to_string(),
+                session_id: "session1".to_string(),
+                role: "assistant".to_string(),
+                text: "test response 1".to_string(),
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: "test".to_string(),
+                    case_sensitive: false,
+                },
+                cwd: "/project1".to_string(),
+                raw_json: None,
+            },
+            SearchResult {
+                file: "file2.jsonl".to_string(),
+                uuid: "uuid3".to_string(),
+                timestamp: "2024-01-02T00:00:00Z".to_string(),
+                session_id: "session2".to_string(),
+                role: "user".to_string(),
+                text: "test message 2".to_string(),
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: "test".to_string(),
+                    case_sensitive: false,
+                },
+                cwd: "/project2".to_string(),
+                raw_json: None,
+            },
+        ];
+
+        let stats = collect_statistics(&results);
+
+        assert_eq!(stats.total_messages, 3);
+        assert_eq!(stats.session_count, 2);
+        assert_eq!(stats.file_count, 2);
+        assert_eq!(stats.project_count, 2);
+        assert_eq!(stats.role_counts.get("user"), Some(&2));
+        assert_eq!(stats.role_counts.get("assistant"), Some(&1));
+        assert_eq!(stats.message_type_counts.get("message"), Some(&3));
+
+        if let Some((earliest, latest)) = &stats.timestamp_range {
+            assert_eq!(earliest, "2024-01-01T00:00:00Z");
+            assert_eq!(latest, "2024-01-02T00:00:00Z");
+        } else {
+            panic!("Expected timestamp range to be set");
+        }
     }
 
     #[test]
