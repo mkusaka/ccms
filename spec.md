@@ -570,3 +570,68 @@ Recent enhancements include:
 - Search result highlighting in Session Viewer
 - Automatic text wrapping for long file paths in Message Detail and Session Viewer
 - Unified exit mechanism (Ctrl+C twice) - ESC no longer exits from search screen
+
+## JSON Output Format Specification
+
+The JSON output format (`-f json`) provides structured data with comprehensive metadata about search results.
+
+### JSON Structure
+
+```json
+{
+  "results": [...],
+  "summary": {...},
+  "files": [...],
+  "sessions": [...]
+}
+```
+
+### Field Descriptions
+
+#### `results` (Array)
+An array of search result objects, each containing:
+- `uuid`: Unique message identifier
+- `timestamp`: ISO 8601 timestamp
+- `session_id`: Session UUID
+- `role`: Message role (user, assistant, system, summary)
+- `text`: Message content (may be truncated unless `--full-text` is used)
+- `message_type`: Type of message
+- `file`: Full path to the JSONL file
+- `cwd`: Working directory when the message was created
+- `query`: The query condition that matched this result
+- `raw_json`: Optional raw JSON (included when `--raw` is used)
+
+#### `summary` (Object)
+Search statistics:
+- `duration_ms`: Search execution time in milliseconds
+- `total_count`: Total number of matches found
+- `returned_count`: Number of results returned (limited by `-n`)
+- `unique_sessions`: Number of unique session IDs in results
+- `unique_files`: Number of unique JSONL files in results
+
+#### `files` (Array)
+List of unique files containing matches:
+- `path`: Full path to the JSONL file
+- `message_count`: Number of messages from this file in the results
+- `session_id`: The session ID associated with this file
+
+#### `sessions` (Array)
+List of unique sessions containing matches:
+- `session_id`: Session UUID
+- `message_count`: Number of messages from this session in the results
+
+### Example Usage
+
+```bash
+# Get JSON output
+ccms -f json "error" > results.json
+
+# Extract session IDs
+ccms -f json "query" | jq -r '.sessions[].session_id'
+
+# Get file statistics
+ccms -f json "query" | jq '.summary'
+
+# List files with message counts
+ccms -f json "query" | jq -r '.files[] | "\(.message_count) messages: \(.path)"'
+```

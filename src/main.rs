@@ -14,6 +14,7 @@ use chrono::{DateTime, Local, Utc};
 use clap::{Command, CommandFactory, Parser, ValueEnum};
 use clap_complete::{Generator, Shell, generate};
 use parse_datetime::parse_datetime_at_date;
+use std::collections::HashMap;
 use std::io::{self, Write};
 
 #[derive(Parser)]
@@ -343,11 +344,52 @@ fn main() -> Result<()> {
             }
         }
         OutputFormat::Json => {
+            // 統計情報を収集
+            let mut session_counts: HashMap<String, usize> = HashMap::new();
+            let mut file_counts: HashMap<String, usize> = HashMap::new();
+
+            for result in &results {
+                *session_counts.entry(result.session_id.clone()).or_insert(0) += 1;
+                *file_counts.entry(result.file.clone()).or_insert(0) += 1;
+            }
+
+            // ファイルごとの詳細情報を作成
+            let files_detail: Vec<_> = file_counts
+                .iter()
+                .map(|(file, count)| {
+                    serde_json::json!({
+                        "path": file,
+                        "message_count": count,
+                        "session_id": results.iter()
+                            .find(|r| &r.file == file)
+                            .map(|r| &r.session_id)
+                            .unwrap_or(&String::new())
+                    })
+                })
+                .collect();
+
+            // セッションごとの詳細情報を作成
+            let sessions_detail: Vec<_> = session_counts
+                .iter()
+                .map(|(session_id, count)| {
+                    serde_json::json!({
+                        "session_id": session_id,
+                        "message_count": count
+                    })
+                })
+                .collect();
+
             let output = serde_json::json!({
                 "results": results,
-                "duration_ms": duration.as_millis(),
-                "total_count": total_count,
-                "returned_count": results.len()
+                "summary": {
+                    "duration_ms": duration.as_millis(),
+                    "total_count": total_count,
+                    "returned_count": results.len(),
+                    "unique_sessions": session_counts.len(),
+                    "unique_files": file_counts.len()
+                },
+                "files": files_detail,
+                "sessions": sessions_detail
             });
             serde_json::to_writer_pretty(&mut handle, &output)?;
             writeln!(&mut handle)?;
