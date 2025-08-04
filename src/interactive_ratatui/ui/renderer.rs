@@ -147,7 +147,7 @@ impl Renderer {
             SearchTab::SessionList => {
                 // Update session list state
                 self.session_list
-                    .set_sessions(state.session_list.filtered_sessions.clone());
+                    .set_sessions(state.session_list.sessions.clone());
                 self.session_list
                     .set_filtered_sessions(state.session_list.filtered_sessions.clone());
                 self.session_list

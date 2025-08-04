@@ -1,5 +1,6 @@
 use crate::interactive_ratatui::ui::app_state::SessionInfo;
 use crate::interactive_ratatui::ui::components::Component;
+use crate::interactive_ratatui::ui::components::view_layout::ColorScheme;
 use crate::interactive_ratatui::ui::events::Message;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
@@ -75,13 +76,16 @@ impl SessionList {
 
 impl Component for SessionList {
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        // Split area into search bar, sessions list and status bar
+        const TITLE_HEIGHT: u16 = 2;
+
+        // Split area into search bar, title, sessions list and status bar
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Search bar
-                Constraint::Min(0),    // Sessions list
-                Constraint::Length(2), // Status bar
+                Constraint::Length(3),            // Search bar
+                Constraint::Length(TITLE_HEIGHT), // Title
+                Constraint::Min(0),               // Sessions list
+                Constraint::Length(2),            // Status bar
             ])
             .split(area);
 
@@ -102,24 +106,34 @@ impl Component for SessionList {
         };
         let search_block = Block::default()
             .borders(Borders::ALL)
-            .title(format!("Search Sessions{search_status}{session_count}"));
+            .title(format!("Search{search_status}{session_count}"));
         let search_text = Paragraph::new(self.query.as_str())
-            .style(Style::default().fg(Color::White))
+            .style(Style::default().fg(ColorScheme::SECONDARY))
             .block(search_block);
         f.render_widget(search_text, chunks[0]);
+
+        // Render title (matching result_list.rs style)
+        let title_lines = vec![Line::from(vec![Span::styled(
+            "Search Sessions",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )])];
+        let title = Paragraph::new(title_lines).block(Block::default().borders(Borders::BOTTOM));
+        f.render_widget(title, chunks[1]);
 
         let block = Block::default().borders(Borders::ALL).title("Sessions");
 
         if self.is_loading {
             let loading = List::new(vec![ListItem::new("Loading...")]).block(block);
-            f.render_widget(loading, chunks[1]);
+            f.render_widget(loading, chunks[2]);
         } else if self.filtered_sessions.is_empty() && !self.query.is_empty() {
             let empty =
                 List::new(vec![ListItem::new("No sessions match your search")]).block(block);
-            f.render_widget(empty, chunks[1]);
+            f.render_widget(empty, chunks[2]);
         } else if self.filtered_sessions.is_empty() {
             let empty = List::new(vec![ListItem::new("No sessions found")]).block(block);
-            f.render_widget(empty, chunks[1]);
+            f.render_widget(empty, chunks[2]);
         } else {
             let items: Vec<ListItem> = self
                 .filtered_sessions
@@ -160,7 +174,7 @@ impl Component for SessionList {
                 })
                 .collect();
 
-            let visible_height = chunks[1].height.saturating_sub(2) as usize; // -2 for borders
+            let visible_height = chunks[2].height.saturating_sub(2) as usize; // -2 for borders
 
             // Adjust scroll offset to keep selected item visible
             if self.selected_index < self.scroll_offset {
@@ -179,7 +193,7 @@ impl Component for SessionList {
                 .block(block)
                 .style(Style::default().fg(Color::White));
 
-            f.render_widget(list, chunks[1]);
+            f.render_widget(list, chunks[2]);
         }
 
         // Render status bar
@@ -192,7 +206,7 @@ impl Component for SessionList {
             .style(Style::default().fg(Color::DarkGray))
             .alignment(ratatui::layout::Alignment::Center)
             .wrap(Wrap { trim: true });
-        f.render_widget(status_bar, chunks[2]);
+        f.render_widget(status_bar, chunks[3]);
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {

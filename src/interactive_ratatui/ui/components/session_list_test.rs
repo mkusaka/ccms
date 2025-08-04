@@ -128,7 +128,8 @@ mod tests {
         let buffer = terminal.backend().buffer();
         let content = buffer_to_string(buffer);
 
-        assert!(content.contains("Search Sessions [searching...]"));
+        assert!(content.contains("Search Sessions"));
+        assert!(content.contains("Search [searching...]"));
         assert!(content.contains("test query"));
     }
 
