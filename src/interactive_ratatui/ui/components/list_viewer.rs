@@ -250,17 +250,18 @@ impl<T: ListItem> ListViewer<T> {
 
             while end < self.filtered_indices.len() && current_height < available_height as usize {
                 if let Some(&item_idx) = self.filtered_indices.get(end)
-                    && let Some(item) = self.items.get(item_idx) {
-                        let lines = item.create_full_lines(available_text_width, &self.query);
-                        let item_height = lines.len();
+                    && let Some(item) = self.items.get(item_idx)
+                {
+                    let lines = item.create_full_lines(available_text_width, &self.query);
+                    let item_height = lines.len();
 
-                        if current_height + item_height <= available_height as usize {
-                            current_height += item_height;
-                            end += 1;
-                        } else {
-                            break;
-                        }
+                    if current_height + item_height <= available_height as usize {
+                        current_height += item_height;
+                        end += 1;
+                    } else {
+                        break;
                     }
+                }
             }
 
             (start, end)

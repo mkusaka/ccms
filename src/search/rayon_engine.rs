@@ -165,22 +165,24 @@ impl RayonEngine {
 
         // Apply time filters
         if let Some(ref after) = self.options.after
-            && let Ok(after_dt) = DateTime::parse_from_rfc3339(after) {
-                results.retain(|r| {
-                    DateTime::parse_from_rfc3339(&r.timestamp)
-                        .map(|dt| dt >= after_dt)
-                        .unwrap_or(false)
-                });
-            }
+            && let Ok(after_dt) = DateTime::parse_from_rfc3339(after)
+        {
+            results.retain(|r| {
+                DateTime::parse_from_rfc3339(&r.timestamp)
+                    .map(|dt| dt >= after_dt)
+                    .unwrap_or(false)
+            });
+        }
 
         if let Some(ref before) = self.options.before
-            && let Ok(before_dt) = DateTime::parse_from_rfc3339(before) {
-                results.retain(|r| {
-                    DateTime::parse_from_rfc3339(&r.timestamp)
-                        .map(|dt| dt <= before_dt)
-                        .unwrap_or(false)
-                });
-            }
+            && let Ok(before_dt) = DateTime::parse_from_rfc3339(before)
+        {
+            results.retain(|r| {
+                DateTime::parse_from_rfc3339(&r.timestamp)
+                    .map(|dt| dt <= before_dt)
+                    .unwrap_or(false)
+            });
+        }
 
         Ok(())
     }
@@ -294,69 +296,69 @@ pub(super) fn search_file(
 
                 // Apply query condition
                 if let Ok(matches) = query.evaluate(&text)
-                    && matches {
-                        // Apply inline filters
-                        if let Some(role) = &options.role {
-                            // For summary messages, only match if explicitly filtering for "summary"
-                            if message.get_type() == "summary" {
-                                if role != "summary" {
-                                    continue;
-                                }
-                            } else if message.get_type() != role {
+                    && matches
+                {
+                    // Apply inline filters
+                    if let Some(role) = &options.role {
+                        // For summary messages, only match if explicitly filtering for "summary"
+                        if message.get_type() == "summary" {
+                            if role != "summary" {
                                 continue;
                             }
+                        } else if message.get_type() != role {
+                            continue;
                         }
-
-                        if let Some(session_id) = &options.session_id
-                            && message.get_session_id() != Some(session_id) {
-                                continue;
-                            }
-
-                        // Check project_path filter (matches against file path)
-                        if let Some(project_path) = &options.project_path {
-                            let file_path_str = file_path.to_string_lossy();
-                            if !path_encoding::file_belongs_to_project(&file_path_str, project_path)
-                            {
-                                continue;
-                            }
-                        }
-
-                        // Create result
-                        let timestamp = if message.get_type() == "summary" {
-                            // Use first non-summary timestamp or file ctime
-                            first_timestamp
-                                .as_ref()
-                                .or(latest_timestamp.as_ref())
-                                .cloned()
-                                .unwrap_or_else(|| file_ctime.clone())
-                        } else {
-                            message
-                                .get_timestamp()
-                                .map(|s| s.to_string())
-                                .unwrap_or_else(|| file_ctime.clone())
-                        };
-
-                        // For SessionViewer and message details, we need raw_json
-                        let raw_json =
-                            if options.session_id.is_some() || options.message_id.is_some() {
-                                // Convert line_buffer to String for raw_json
-                                Some(String::from_utf8_lossy(&line_buffer).to_string())
-                            } else {
-                                None
-                            };
-                        results.push(SearchResult {
-                            timestamp,
-                            role: message.get_type().to_string(),
-                            text,
-                            file: file_path.display().to_string(),
-                            uuid: message.get_uuid().unwrap_or("").to_string(),
-                            session_id: message.get_session_id().unwrap_or("").to_string(),
-                            query: query.clone(),
-                            cwd: message.get_cwd().unwrap_or("").to_string(),
-                            message_type: message.get_type().to_string(),
-                            raw_json,
-                        });
                     }
+
+                    if let Some(session_id) = &options.session_id
+                        && message.get_session_id() != Some(session_id)
+                    {
+                        continue;
+                    }
+
+                    // Check project_path filter (matches against file path)
+                    if let Some(project_path) = &options.project_path {
+                        let file_path_str = file_path.to_string_lossy();
+                        if !path_encoding::file_belongs_to_project(&file_path_str, project_path) {
+                            continue;
+                        }
+                    }
+
+                    // Create result
+                    let timestamp = if message.get_type() == "summary" {
+                        // Use first non-summary timestamp or file ctime
+                        first_timestamp
+                            .as_ref()
+                            .or(latest_timestamp.as_ref())
+                            .cloned()
+                            .unwrap_or_else(|| file_ctime.clone())
+                    } else {
+                        message
+                            .get_timestamp()
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| file_ctime.clone())
+                    };
+
+                    // For SessionViewer and message details, we need raw_json
+                    let raw_json = if options.session_id.is_some() || options.message_id.is_some() {
+                        // Convert line_buffer to String for raw_json
+                        Some(String::from_utf8_lossy(&line_buffer).to_string())
+                    } else {
+                        None
+                    };
+                    results.push(SearchResult {
+                        timestamp,
+                        role: message.get_type().to_string(),
+                        text,
+                        file: file_path.display().to_string(),
+                        uuid: message.get_uuid().unwrap_or("").to_string(),
+                        session_id: message.get_session_id().unwrap_or("").to_string(),
+                        query: query.clone(),
+                        cwd: message.get_cwd().unwrap_or("").to_string(),
+                        message_type: message.get_type().to_string(),
+                        raw_json,
+                    });
+                }
             }
             Err(e) => {
                 if options.verbose {

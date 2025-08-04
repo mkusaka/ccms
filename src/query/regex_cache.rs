@@ -18,9 +18,10 @@ pub fn get_or_compile_regex(pattern: &str, flags: &str) -> Result<Regex, regex::
 
     // Try to get from cache first
     if let Ok(mut cache) = get_cache().try_lock()
-        && let Some(regex) = cache.get(&cache_key) {
-            return Ok(regex.clone());
-        }
+        && let Some(regex) = cache.get(&cache_key)
+    {
+        return Ok(regex.clone());
+    }
 
     // Compile regex
     let mut regex_builder = regex::RegexBuilder::new(pattern);

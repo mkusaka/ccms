@@ -156,11 +156,13 @@ impl MessageDetail {
                     }
 
                     // If we're not at the end, try to break at a word boundary
-                    if end_idx < remaining.len() && end_idx > 0
+                    if end_idx < remaining.len()
+                        && end_idx > 0
                         && let Some(space_pos) = remaining[..end_idx].rfind(' ')
-                            && space_pos > available_width / 2 {
-                                end_idx = space_pos + 1; // Include the space
-                            }
+                        && space_pos > available_width / 2
+                    {
+                        end_idx = space_pos + 1; // Include the space
+                    }
 
                     message_lines.push(Line::from(&remaining[..end_idx]));
                     remaining = &remaining[end_idx..];
@@ -265,9 +267,10 @@ impl Component for MessageDetail {
             KeyCode::Down => {
                 // Only scroll if there's content to scroll
                 if let Some(result) = &self.result
-                    && !result.text.is_empty() {
-                        self.scroll_offset += 1;
-                    }
+                    && !result.text.is_empty()
+                {
+                    self.scroll_offset += 1;
+                }
                 None
             }
             KeyCode::PageUp => {
@@ -277,9 +280,10 @@ impl Component for MessageDetail {
             KeyCode::PageDown => {
                 // Only scroll if there's content to scroll
                 if let Some(result) = &self.result
-                    && !result.text.is_empty() {
-                        self.scroll_offset += PAGE_SIZE;
-                    }
+                    && !result.text.is_empty()
+                {
+                    self.scroll_offset += PAGE_SIZE;
+                }
                 None
             }
             KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
@@ -289,9 +293,10 @@ impl Component for MessageDetail {
             KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
                 // Only scroll if there's content to scroll
                 if let Some(result) = &self.result
-                    && !result.text.is_empty() {
-                        self.scroll_offset += PAGE_SIZE;
-                    }
+                    && !result.text.is_empty()
+                {
+                    self.scroll_offset += PAGE_SIZE;
+                }
                 None
             }
             KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {

@@ -213,22 +213,24 @@ impl SmolEngine {
 
         // Apply time filters
         if let Some(ref after) = self.options.after
-            && let Ok(after_dt) = DateTime::parse_from_rfc3339(after) {
-                results.retain(|r| {
-                    DateTime::parse_from_rfc3339(&r.timestamp)
-                        .map(|dt| dt >= after_dt)
-                        .unwrap_or(false)
-                });
-            }
+            && let Ok(after_dt) = DateTime::parse_from_rfc3339(after)
+        {
+            results.retain(|r| {
+                DateTime::parse_from_rfc3339(&r.timestamp)
+                    .map(|dt| dt >= after_dt)
+                    .unwrap_or(false)
+            });
+        }
 
         if let Some(ref before) = self.options.before
-            && let Ok(before_dt) = DateTime::parse_from_rfc3339(before) {
-                results.retain(|r| {
-                    DateTime::parse_from_rfc3339(&r.timestamp)
-                        .map(|dt| dt <= before_dt)
-                        .unwrap_or(false)
-                });
-            }
+            && let Ok(before_dt) = DateTime::parse_from_rfc3339(before)
+        {
+            results.retain(|r| {
+                DateTime::parse_from_rfc3339(&r.timestamp)
+                    .map(|dt| dt <= before_dt)
+                    .unwrap_or(false)
+            });
+        }
 
         Ok(())
     }

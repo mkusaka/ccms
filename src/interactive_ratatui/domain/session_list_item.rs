@@ -98,10 +98,10 @@ impl SessionListItem {
                                                 item.get("name").and_then(|n| n.as_str())
                                                 && let Some(id) =
                                                     item.get("id").and_then(|i| i.as_str())
-                                                {
-                                                    content_parts
-                                                        .push(format!("[Tool Use: {name} ({id})]"));
-                                                }
+                                            {
+                                                content_parts
+                                                    .push(format!("[Tool Use: {name} ({id})]"));
+                                            }
                                         }
                                         "tool_result" => {
                                             if let Some(tool_use_id) =

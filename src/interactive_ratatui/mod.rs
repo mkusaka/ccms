@@ -154,34 +154,36 @@ impl InteractiveSearch {
             // Check for search results
             if let Some(receiver) = &self.search_receiver
                 && let Ok(response) = receiver.try_recv()
-                    && response.id == self.state.search.current_search_id {
-                        let msg = Message::SearchCompleted(response.results);
-                        self.handle_message(msg);
-                    }
+                && response.id == self.state.search.current_search_id
+            {
+                let msg = Message::SearchCompleted(response.results);
+                self.handle_message(msg);
+            }
 
             // Check for scheduled search
             if let Some(delay) = self.scheduled_search_delay
                 && let Some(timer) = self.last_search_timer
-                    && timer.elapsed() >= Duration::from_millis(delay) {
-                        self.scheduled_search_delay = None;
-                        self.last_search_timer = None;
-                        // Check which type of search to execute based on current tab
-                        if self.state.mode == Mode::Search
-                            && self.state.search.current_tab
-                                == domain::models::SearchTab::SessionList
-                        {
-                            self.handle_message(Message::SessionListSearchRequested);
-                        } else {
-                            self.execute_command(Command::ExecuteSearch).await;
-                        }
-                    }
+                && timer.elapsed() >= Duration::from_millis(delay)
+            {
+                self.scheduled_search_delay = None;
+                self.last_search_timer = None;
+                // Check which type of search to execute based on current tab
+                if self.state.mode == Mode::Search
+                    && self.state.search.current_tab == domain::models::SearchTab::SessionList
+                {
+                    self.handle_message(Message::SessionListSearchRequested);
+                } else {
+                    self.execute_command(Command::ExecuteSearch).await;
+                }
+            }
 
             // Check for scheduled message clear
             if let Some(timer) = self.message_timer
-                && timer.elapsed() >= Duration::from_millis(self.message_clear_delay) {
-                    self.message_timer = None;
-                    self.execute_command(Command::ClearMessage).await;
-                }
+                && timer.elapsed() >= Duration::from_millis(self.message_clear_delay)
+            {
+                self.message_timer = None;
+                self.execute_command(Command::ClearMessage).await;
+            }
 
             // Check for events (key presses or signals)
             if let Some(event_receiver) = &self.event_receiver {
@@ -513,34 +515,35 @@ impl InteractiveSearch {
     async fn execute_session_search(&mut self) {
         // Execute search with session_id filter
         if let Some(session_id) = &self.state.session.session_id
-            && let Some(file_path) = &self.state.session.file_path {
-                let request = SearchRequest {
-                    id: self.state.search.current_search_id,
-                    query: self.state.session.query.clone(),
-                    pattern: file_path.clone(),
-                    role_filter: self.state.session.role_filter.clone(),
-                    order: match self.state.session.order {
-                        SessionOrder::Ascending => SearchOrder::Ascending,
-                        SessionOrder::Descending => SearchOrder::Descending,
-                    },
-                };
+            && let Some(file_path) = &self.state.session.file_path
+        {
+            let request = SearchRequest {
+                id: self.state.search.current_search_id,
+                query: self.state.session.query.clone(),
+                pattern: file_path.clone(),
+                role_filter: self.state.session.role_filter.clone(),
+                order: match self.state.session.order {
+                    SessionOrder::Ascending => SearchOrder::Ascending,
+                    SessionOrder::Descending => SearchOrder::Descending,
+                },
+            };
 
-                match self
-                    .search_service
-                    .search_session(request, session_id.clone())
-                {
-                    Ok(response) => {
-                        self.state.session.search_results = response.results;
-                        // Clear old messages - will be removed later after full migration
-                        self.state.session.messages = vec![];
-                        self.state.session.filtered_indices = vec![];
-                        self.state.ui.message = None;
-                    }
-                    Err(e) => {
-                        self.state.ui.message = Some(format!("Failed to search session: {e}"));
-                    }
+            match self
+                .search_service
+                .search_session(request, session_id.clone())
+            {
+                Ok(response) => {
+                    self.state.session.search_results = response.results;
+                    // Clear old messages - will be removed later after full migration
+                    self.state.session.messages = vec![];
+                    self.state.session.filtered_indices = vec![];
+                    self.state.ui.message = None;
+                }
+                Err(e) => {
+                    self.state.ui.message = Some(format!("Failed to search session: {e}"));
                 }
             }
+        }
     }
 
     async fn load_session_list(&mut self) {
@@ -612,9 +615,10 @@ impl InteractiveSearch {
             loop {
                 // Check for key events every 50ms
                 if poll(Duration::from_millis(EVENT_POLL_INTERVAL_MS)).unwrap_or(false)
-                    && let Ok(crossterm::event::Event::Key(key)) = event::read() {
-                        let _ = key_tx.send(Event::Key(key)).await;
-                    }
+                    && let Ok(crossterm::event::Event::Key(key)) = event::read()
+                {
+                    let _ = key_tx.send(Event::Key(key)).await;
+                }
                 smol::Timer::after(Duration::from_millis(10)).await;
             }
         });
