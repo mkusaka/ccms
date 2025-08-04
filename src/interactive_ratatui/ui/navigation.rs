@@ -45,7 +45,7 @@ pub struct UiStateSnapshot {
     pub detail_scroll_offset: usize,
     pub selected_result: Option<SearchResult>,
     pub truncation_enabled: bool,
-    pub mode_before_help: Option<Mode>,
+    pub show_help: bool,
 }
 
 /// Manages navigation history with back/forward capabilities

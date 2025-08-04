@@ -69,8 +69,8 @@ mod tests {
         let buffer = terminal.backend().buffer();
         assert!(buffer_contains(buffer, "Search"));
 
-        // Test help mode rendering
-        app.set_mode(Mode::Help);
+        // Test help overlay rendering
+        app.state.ui.show_help = true;
         terminal
             .draw(|f| app.renderer.render(f, &app.state))
             .unwrap();

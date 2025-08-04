@@ -266,7 +266,7 @@ impl InteractiveSearch {
 
         // Global keys
         match key.code {
-            KeyCode::Char('?') if self.state.mode != Mode::Help => {
+            KeyCode::Char('?') if !self.state.ui.show_help => {
                 self.handle_message(Message::ShowHelp);
                 return Ok(false);
             }
@@ -303,12 +303,19 @@ impl InteractiveSearch {
             _ => {}
         }
 
+        // If help is showing, handle help dialog input first
+        if self.state.ui.show_help {
+            if let Some(msg) = self.renderer.get_help_dialog_mut().handle_key(key) {
+                self.handle_message(msg);
+                return Ok(false);
+            }
+        }
+
         // Mode-specific input handling
         let message = match self.state.mode {
             Mode::Search => self.handle_search_mode_input(key),
             Mode::MessageDetail => self.renderer.get_message_detail_mut().handle_key(key),
             Mode::SessionViewer => self.renderer.get_session_viewer_mut().handle_key(key),
-            Mode::Help => self.renderer.get_help_dialog_mut().handle_key(key),
         };
 
         if let Some(msg) = message {
