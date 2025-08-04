@@ -216,7 +216,7 @@ mod tests {
                 detail_scroll_offset: 0,
                 selected_result: None,
                 truncation_enabled: true,
-                mode_before_help: None,
+                show_help: false,
             },
         }
     }
@@ -292,7 +292,7 @@ mod tests {
         let state1 = create_test_state(Mode::Search);
         let state2 = create_test_state(Mode::MessageDetail);
         let state3 = create_test_state(Mode::SessionViewer);
-        let state4 = create_test_state(Mode::Help);
+        let state4 = create_test_state(Mode::Search);
 
         history.push(state1.clone());
         history.push(state2.clone());

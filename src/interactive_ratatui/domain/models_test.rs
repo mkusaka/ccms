@@ -5,7 +5,7 @@ mod tests {
     #[test]
     fn test_mode_equality() {
         assert_eq!(Mode::Search, Mode::Search);
-        assert_ne!(Mode::Search, Mode::Help);
+        assert_ne!(Mode::Search, Mode::MessageDetail);
         assert_ne!(Mode::MessageDetail, Mode::SessionViewer);
     }
 
@@ -90,9 +90,9 @@ mod tests {
         let debug_str = format!("{mode:?}");
         assert!(debug_str.contains("Search"));
 
-        let mode = Mode::Help;
+        let mode = Mode::MessageDetail;
         let debug_str = format!("{mode:?}");
-        assert!(debug_str.contains("Help"));
+        assert!(debug_str.contains("MessageDetail"));
     }
 
     #[test]
