@@ -116,4 +116,37 @@ mod tests {
         // The help dialog should be rendered on top
         // (Actual content verification would require parsing the buffer)
     }
+
+    #[test]
+    fn test_help_overlay_state_management() {
+        let mut state = AppState::new();
+
+        // Test that help overlay state is properly managed
+        assert!(!state.ui.show_help);
+
+        // Open help overlay
+        state.update(Message::ShowHelp);
+        assert!(state.ui.show_help);
+        assert_eq!(state.mode, Mode::Search); // Mode should not change
+
+        // Close help overlay
+        state.update(Message::CloseHelp);
+        assert!(!state.ui.show_help);
+        assert_eq!(state.mode, Mode::Search); // Mode should remain the same
+
+        // Test from different modes
+        state.mode = Mode::MessageDetail;
+        state.update(Message::ShowHelp);
+        assert!(state.ui.show_help);
+        assert_eq!(state.mode, Mode::MessageDetail);
+
+        state.update(Message::CloseHelp);
+        assert!(!state.ui.show_help);
+        assert_eq!(state.mode, Mode::MessageDetail);
+    }
+
+    // Note: Input blocking is implemented at the handle_input level in mod.rs,
+    // not at the AppState::update level, so we cannot test it here.
+    // The handle_input method checks show_help and returns early, preventing
+    // other input from being processed.
 }

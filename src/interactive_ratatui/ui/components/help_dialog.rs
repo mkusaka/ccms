@@ -202,19 +202,8 @@ impl Component for HelpDialog {
             KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q') | KeyCode::Char('?') => {
                 Some(Message::CloseHelp)
             }
-            // Ignore navigation keys
-            KeyCode::Up
-            | KeyCode::Down
-            | KeyCode::Left
-            | KeyCode::Right
-            | KeyCode::PageUp
-            | KeyCode::PageDown
-            | KeyCode::Home
-            | KeyCode::End => {
-                None // Don't close on navigation keys
-            }
-            // For now, other keys close the dialog (like space, etc.)
-            _ => Some(Message::CloseHelp),
+            // Ignore all other keys when help is open
+            _ => None,
         }
     }
 }
