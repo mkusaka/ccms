@@ -21,6 +21,7 @@ pub struct SessionList {
     scroll_offset: usize,
     is_loading: bool,
     is_searching: bool,
+    is_typing: bool,
     preview_enabled: bool,
 }
 
@@ -35,6 +36,7 @@ impl SessionList {
             scroll_offset: 0,
             is_loading: false,
             is_searching: false,
+            is_typing: false,
             preview_enabled: true, // Default to true for better UX
         }
     }
@@ -66,6 +68,10 @@ impl SessionList {
 
     pub fn set_is_searching(&mut self, is_searching: bool) {
         self.is_searching = is_searching;
+    }
+
+    pub fn set_is_typing(&mut self, is_typing: bool) {
+        self.is_typing = is_typing;
     }
 
     pub fn set_preview_enabled(&mut self, enabled: bool) {
@@ -102,7 +108,9 @@ impl Component for SessionList {
             .split(area);
 
         // Render search bar
-        let search_status = if self.is_searching {
+        let search_status = if self.is_typing {
+            " [typing...]"
+        } else if self.is_searching {
             " [searching...]"
         } else {
             ""

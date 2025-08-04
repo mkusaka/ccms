@@ -599,20 +599,35 @@ impl InteractiveSearch {
             return;
         }
 
-        // Perform async filtering
+        // Get the search service
+        let search_service = self.search_service.clone();
+
+        // Perform async filtering using full-text search with parallel processing
         let filtered_sessions = blocking::unblock(move || {
-            let query_lower = query.to_lowercase();
+            use rayon::prelude::*;
+
             all_sessions
-                .into_iter()
+                .into_par_iter() // Use parallel iterator
                 .filter(|session| {
-                    // Search in session_id, first_message, and summary
-                    session.session_id.to_lowercase().contains(&query_lower)
-                        || session.first_message.to_lowercase().contains(&query_lower)
-                        || session
-                            .summary
-                            .as_ref()
-                            .map(|s| s.to_lowercase().contains(&query_lower))
-                            .unwrap_or(false)
+                    // Create search request for this specific session
+                    // Use the session's file path as the pattern to search only in that file
+                    let request = SearchRequest {
+                        id: 0,
+                        query: query.clone(),
+                        pattern: session.file_path.clone(),
+                        role_filter: None,
+                        order: crate::interactive_ratatui::domain::models::SearchOrder::Descending,
+                    };
+
+                    // Search within this specific session
+                    if let Ok(response) =
+                        search_service.search_session(request, session.session_id.clone())
+                    {
+                        // If any messages match, include this session
+                        !response.results.is_empty()
+                    } else {
+                        false
+                    }
                 })
                 .collect::<Vec<_>>()
         })

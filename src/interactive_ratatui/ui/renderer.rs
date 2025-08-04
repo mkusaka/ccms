@@ -164,11 +164,9 @@ impl Renderer {
                 self.session_list
                     .set_is_searching(state.session_list.is_searching);
                 self.session_list
+                    .set_is_typing(state.session_list.is_typing);
+                self.session_list
                     .set_preview_enabled(state.session_list.preview_enabled);
-                self.session_list
-                    .set_query(state.session_list.query.clone());
-                self.session_list
-                    .set_is_searching(state.session_list.is_searching);
 
                 // For SessionList tab, combine the search bar area and content area
                 // This uses chunks[1] (search bar area) and chunks[2] (content area)

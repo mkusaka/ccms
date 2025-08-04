@@ -91,10 +91,51 @@ impl Component for SessionPreview {
                         .fg(Color::Magenta)
                         .add_modifier(Modifier::BOLD),
                 )]));
-                lines.push(Line::from(vec![Span::styled(
-                    summary,
-                    Style::default().fg(Color::White),
-                )]));
+
+                // Highlight matching parts in summary
+                let mut summary_spans = vec![];
+                if !self.query.is_empty() {
+                    let query_lower = self.query.to_lowercase();
+                    let summary_lower = summary.to_lowercase();
+                    let mut last_end = 0;
+
+                    // Find all occurrences of the query in the summary
+                    while let Some(start) = summary_lower[last_end..].find(&query_lower) {
+                        let absolute_start = last_end + start;
+                        let absolute_end = absolute_start + query_lower.len();
+
+                        // Add text before match
+                        if absolute_start > last_end {
+                            summary_spans.push(Span::styled(
+                                &summary[last_end..absolute_start],
+                                Style::default().fg(Color::White),
+                            ));
+                        }
+
+                        // Add matched text with highlight
+                        summary_spans.push(Span::styled(
+                            &summary[absolute_start..absolute_end],
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ));
+
+                        last_end = absolute_end;
+                    }
+
+                    // Add remaining text after last match
+                    if last_end < summary.len() {
+                        summary_spans.push(Span::styled(
+                            &summary[last_end..],
+                            Style::default().fg(Color::White),
+                        ));
+                    }
+                } else {
+                    // No query, just display summary normally
+                    summary_spans.push(Span::styled(summary, Style::default().fg(Color::White)));
+                }
+
+                lines.push(Line::from(summary_spans));
                 lines.push(Line::from(""));
             }
 
@@ -113,56 +154,119 @@ impl Component for SessionPreview {
 
                 if !self.query.is_empty() {
                     let query_lower = self.query.to_lowercase();
-                    for (role, content) in &session.preview_messages {
+                    for (role, content, timestamp) in &session.preview_messages {
                         if content.to_lowercase().contains(&query_lower) {
-                            matching_messages.push((role, content, true));
+                            matching_messages.push((role, content, timestamp, true));
                         } else {
-                            non_matching_messages.push((role, content, false));
+                            non_matching_messages.push((role, content, timestamp, false));
                         }
                     }
                 } else {
                     // No query, all messages are non-matching
-                    for (role, content) in &session.preview_messages {
-                        non_matching_messages.push((role, content, false));
+                    for (role, content, timestamp) in &session.preview_messages {
+                        non_matching_messages.push((role, content, timestamp, false));
                     }
                 }
 
                 // Display matching messages first
                 let matching_count = matching_messages.len();
-                for (role, content, is_match) in matching_messages {
+                for (role, content, timestamp, is_match) in matching_messages {
                     let role_color = match role.as_str() {
                         "user" => Color::Green,
                         "assistant" => Color::Blue,
                         _ => Color::Gray,
                     };
 
-                    let content_style = if is_match {
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default().fg(Color::White)
-                    };
+                    // Format timestamp
+                    let formatted_time =
+                        if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+                            parsed.format("%H:%M:%S").to_string()
+                        } else {
+                            timestamp.chars().take(8).collect::<String>()
+                        };
 
-                    lines.push(Line::from(vec![
+                    // Build spans for content with highlighting
+                    let mut content_spans = vec![
+                        Span::styled(
+                            format!("[{formatted_time}] "),
+                            Style::default().fg(Color::DarkGray),
+                        ),
                         Span::styled(
                             format!("{role}: "),
                             Style::default().fg(role_color).add_modifier(Modifier::BOLD),
                         ),
-                        Span::styled(content, content_style),
-                    ]));
+                    ];
+
+                    // If there's a match, highlight matching parts
+                    if is_match && !self.query.is_empty() {
+                        let query_lower = self.query.to_lowercase();
+                        let content_lower = content.to_lowercase();
+                        let mut last_end = 0;
+
+                        // Find all occurrences of the query in the content
+                        while let Some(start) = content_lower[last_end..].find(&query_lower) {
+                            let absolute_start = last_end + start;
+                            let absolute_end = absolute_start + query_lower.len();
+
+                            // Add text before match
+                            if absolute_start > last_end {
+                                content_spans.push(Span::styled(
+                                    &content[last_end..absolute_start],
+                                    Style::default().fg(Color::White),
+                                ));
+                            }
+
+                            // Add matched text with highlight
+                            content_spans.push(Span::styled(
+                                &content[absolute_start..absolute_end],
+                                Style::default()
+                                    .fg(Color::Yellow)
+                                    .add_modifier(Modifier::BOLD),
+                            ));
+
+                            last_end = absolute_end;
+                        }
+
+                        // Add remaining text after last match
+                        if last_end < content.len() {
+                            content_spans.push(Span::styled(
+                                &content[last_end..],
+                                Style::default().fg(Color::White),
+                            ));
+                        }
+                    } else {
+                        // No match or no query, just display content normally
+                        content_spans
+                            .push(Span::styled(content, Style::default().fg(Color::White)));
+                    }
+
+                    lines.push(Line::from(content_spans));
                 }
 
                 // Then display remaining messages (up to limit)
                 let remaining_space = 5 - matching_count;
-                for (role, content, _) in non_matching_messages.into_iter().take(remaining_space) {
+                for (role, content, timestamp, _) in
+                    non_matching_messages.into_iter().take(remaining_space)
+                {
                     let role_color = match role.as_str() {
                         "user" => Color::Green,
                         "assistant" => Color::Blue,
                         _ => Color::Gray,
                     };
 
+                    // Format timestamp
+                    let formatted_time =
+                        if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+                            parsed.format("%H:%M:%S").to_string()
+                        } else {
+                            timestamp.chars().take(8).collect::<String>()
+                        };
+
                     lines.push(Line::from(vec![
+                        Span::styled(
+                            format!("[{formatted_time}] "),
+                            Style::default().fg(Color::DarkGray),
+                        ),
                         Span::styled(
                             format!("{role}: "),
                             Style::default().fg(role_color).add_modifier(Modifier::BOLD),

@@ -14,20 +14,31 @@ mod tests {
             message_count: 5,
             first_message: "First message".to_string(),
             preview_messages: vec![
-                ("user".to_string(), "This is a test message".to_string()),
+                (
+                    "user".to_string(),
+                    "This is a test message".to_string(),
+                    "2024-01-01T00:00:00Z".to_string(),
+                ),
                 (
                     "assistant".to_string(),
                     "Response about testing".to_string(),
+                    "2024-01-01T00:00:01Z".to_string(),
                 ),
                 (
                     "user".to_string(),
                     "Another message without match".to_string(),
+                    "2024-01-01T00:00:02Z".to_string(),
                 ),
                 (
                     "assistant".to_string(),
                     "More test content here".to_string(),
+                    "2024-01-01T00:00:03Z".to_string(),
                 ),
-                ("user".to_string(), "Final message with test".to_string()),
+                (
+                    "user".to_string(),
+                    "Final message with test".to_string(),
+                    "2024-01-01T00:00:04Z".to_string(),
+                ),
             ],
             summary: Some("Summary about testing".to_string()),
         }
@@ -149,9 +160,11 @@ mod tests {
     fn test_session_preview_case_insensitive_highlight() {
         let mut session_info = create_test_session_info_with_messages();
         // Add message with different case
-        session_info
-            .preview_messages
-            .push(("user".to_string(), "TEST in uppercase".to_string()));
+        session_info.preview_messages.push((
+            "user".to_string(),
+            "TEST in uppercase".to_string(),
+            "2024-01-01T00:00:05Z".to_string(),
+        ));
 
         let mut preview = SessionPreview::new();
         preview.set_session(Some(session_info));

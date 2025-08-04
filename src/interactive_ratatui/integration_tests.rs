@@ -1284,8 +1284,16 @@ mod tests {
             message_count: 10,
             first_message: "Hello from session 1".to_string(),
             preview_messages: vec![
-                ("user".to_string(), "Hello from session 1".to_string()),
-                ("assistant".to_string(), "Hi! How can I help?".to_string()),
+                (
+                    "user".to_string(),
+                    "Hello from session 1".to_string(),
+                    "2024-01-01T12:00:00Z".to_string(),
+                ),
+                (
+                    "assistant".to_string(),
+                    "Hi! How can I help?".to_string(),
+                    "2024-01-01T12:00:01Z".to_string(),
+                ),
             ],
             summary: Some("Test session with summary".to_string()),
         }];

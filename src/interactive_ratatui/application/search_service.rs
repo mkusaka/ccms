@@ -13,7 +13,7 @@ pub type SessionData = (
     String,
     usize,
     String,
-    Vec<(String, String)>,
+    Vec<(String, String, String)>, // (role, content, timestamp)
     Option<String>,
 );
 
@@ -143,7 +143,7 @@ impl SearchService {
                 let mut timestamp = String::new();
                 let mut message_count = 0;
                 let mut first_message = String::new();
-                let mut preview_messages: Vec<(String, String)> = Vec::new();
+                let mut preview_messages: Vec<(String, String, String)> = Vec::new();
                 let mut summary_message: Option<String> = None;
                 const MAX_PREVIEW_MESSAGES: usize = 5;
 
@@ -205,7 +205,17 @@ impl SearchService {
                                     if preview_messages.len() < MAX_PREVIEW_MESSAGES
                                         && !content.is_empty()
                                     {
-                                        preview_messages.push((msg_type.to_string(), content));
+                                        // Extract timestamp for this message
+                                        let msg_timestamp = json
+                                            .get("timestamp")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or_default()
+                                            .to_string();
+                                        preview_messages.push((
+                                            msg_type.to_string(),
+                                            content,
+                                            msg_timestamp,
+                                        ));
                                     }
                                 }
                                 "summary" => {
