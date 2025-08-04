@@ -103,7 +103,7 @@ impl TextInput {
     }
 
     /// Render the text with cursor as styled spans
-    pub fn render_cursor_spans(&self) -> Vec<Span> {
+    pub fn render_cursor_spans(&self) -> Vec<Span<'_>> {
         if self.text.is_empty() {
             // Show cursor on empty space
             vec![Span::styled(

@@ -17,10 +17,10 @@ pub fn get_or_compile_regex(pattern: &str, flags: &str) -> Result<Regex, regex::
     let cache_key = format!("{pattern}\0{flags}");
 
     // Try to get from cache first
-    if let Ok(mut cache) = get_cache().try_lock() {
-        if let Some(regex) = cache.get(&cache_key) {
-            return Ok(regex.clone());
-        }
+    if let Ok(mut cache) = get_cache().try_lock()
+        && let Some(regex) = cache.get(&cache_key)
+    {
+        return Ok(regex.clone());
     }
 
     // Compile regex

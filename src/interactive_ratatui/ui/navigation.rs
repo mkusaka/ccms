@@ -173,10 +173,10 @@ impl NavigationHistory {
 
     /// Update the current state without changing position
     pub fn update_current(&mut self, state: NavigationState) {
-        if let Some(idx) = self.current_index {
-            if let Some(current) = self.history.get_mut(idx) {
-                *current = state;
-            }
+        if let Some(idx) = self.current_index
+            && let Some(current) = self.history.get_mut(idx)
+        {
+            *current = state;
         }
     }
 }

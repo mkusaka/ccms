@@ -108,12 +108,12 @@ impl Component for MessagePreview {
                         }
 
                         // Try to break at word boundary
-                        if end_idx < remaining.len() && end_idx > 0 {
-                            if let Some(space_pos) = remaining[..end_idx].rfind(' ') {
-                                if space_pos > content_width / 2 {
-                                    end_idx = space_pos + 1;
-                                }
-                            }
+                        if end_idx < remaining.len()
+                            && end_idx > 0
+                            && let Some(space_pos) = remaining[..end_idx].rfind(' ')
+                            && space_pos > content_width / 2
+                        {
+                            end_idx = space_pos + 1;
                         }
 
                         display_lines.push(Line::from(&remaining[..end_idx]));
