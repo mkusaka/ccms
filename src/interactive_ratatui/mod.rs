@@ -323,7 +323,13 @@ impl InteractiveSearch {
         } else if self.state.search.current_tab == SearchTab::SessionList {
             // In session list tab, handle specific keys
             match key.code {
-                KeyCode::Tab => return Some(Message::SwitchToSearchTab),
+                // Use Shift+Tab to toggle between tabs
+                KeyCode::BackTab => {
+                    // Let tab bar handle Shift+Tab for consistency
+                    if let Some(msg) = self.renderer.get_tab_bar_mut().handle_key(key) {
+                        return Some(msg);
+                    }
+                }
                 KeyCode::Esc => {
                     // Let tab bar handle Esc to close the tab
                     if let Some(msg) = self.renderer.get_tab_bar_mut().handle_key(key) {
