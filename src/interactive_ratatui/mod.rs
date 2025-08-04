@@ -152,19 +152,17 @@ impl InteractiveSearch {
             })?;
 
             // Check for search results
-            if let Some(receiver) = &self.search_receiver {
-                if let Ok(response) = receiver.try_recv() {
-                    if response.id == self.state.search.current_search_id {
+            if let Some(receiver) = &self.search_receiver
+                && let Ok(response) = receiver.try_recv()
+                    && response.id == self.state.search.current_search_id {
                         let msg = Message::SearchCompleted(response.results);
                         self.handle_message(msg);
                     }
-                }
-            }
 
             // Check for scheduled search
-            if let Some(delay) = self.scheduled_search_delay {
-                if let Some(timer) = self.last_search_timer {
-                    if timer.elapsed() >= Duration::from_millis(delay) {
+            if let Some(delay) = self.scheduled_search_delay
+                && let Some(timer) = self.last_search_timer
+                    && timer.elapsed() >= Duration::from_millis(delay) {
                         self.scheduled_search_delay = None;
                         self.last_search_timer = None;
                         // Check which type of search to execute based on current tab
@@ -177,16 +175,13 @@ impl InteractiveSearch {
                             self.execute_command(Command::ExecuteSearch).await;
                         }
                     }
-                }
-            }
 
             // Check for scheduled message clear
-            if let Some(timer) = self.message_timer {
-                if timer.elapsed() >= Duration::from_millis(self.message_clear_delay) {
+            if let Some(timer) = self.message_timer
+                && timer.elapsed() >= Duration::from_millis(self.message_clear_delay) {
                     self.message_timer = None;
                     self.execute_command(Command::ClearMessage).await;
                 }
-            }
 
             // Check for events (key presses or signals)
             if let Some(event_receiver) = &self.event_receiver {
@@ -517,8 +512,8 @@ impl InteractiveSearch {
 
     async fn execute_session_search(&mut self) {
         // Execute search with session_id filter
-        if let Some(session_id) = &self.state.session.session_id {
-            if let Some(file_path) = &self.state.session.file_path {
+        if let Some(session_id) = &self.state.session.session_id
+            && let Some(file_path) = &self.state.session.file_path {
                 let request = SearchRequest {
                     id: self.state.search.current_search_id,
                     query: self.state.session.query.clone(),
@@ -546,7 +541,6 @@ impl InteractiveSearch {
                     }
                 }
             }
-        }
     }
 
     async fn load_session_list(&mut self) {
@@ -617,11 +611,10 @@ impl InteractiveSearch {
         let key_task = smol::spawn(async move {
             loop {
                 // Check for key events every 50ms
-                if poll(Duration::from_millis(EVENT_POLL_INTERVAL_MS)).unwrap_or(false) {
-                    if let Ok(crossterm::event::Event::Key(key)) = event::read() {
+                if poll(Duration::from_millis(EVENT_POLL_INTERVAL_MS)).unwrap_or(false)
+                    && let Ok(crossterm::event::Event::Key(key)) = event::read() {
                         let _ = key_tx.send(Event::Key(key)).await;
                     }
-                }
                 smol::Timer::after(Duration::from_millis(10)).await;
             }
         });

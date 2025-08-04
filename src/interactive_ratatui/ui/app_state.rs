@@ -713,11 +713,10 @@ impl AppState {
                         .update_current(self.create_navigation_state());
                 }
 
-                if self.navigation_history.can_go_forward() {
-                    if let Some(next_state) = self.navigation_history.go_forward() {
+                if self.navigation_history.can_go_forward()
+                    && let Some(next_state) = self.navigation_history.go_forward() {
                         return self.restore_navigation_state(&next_state);
                     }
-                }
                 Command::None
             }
             Message::CopyToClipboard(content) => Command::CopyToClipboard(content),
@@ -864,11 +863,10 @@ impl AppState {
                     }
 
                     // Check summary
-                    if let Some(summary) = &session.summary {
-                        if summary.to_lowercase().contains(&query_lower) {
+                    if let Some(summary) = &session.summary
+                        && summary.to_lowercase().contains(&query_lower) {
                             return true;
                         }
-                    }
 
                     // Check preview messages
                     for (_, content) in &session.preview_messages {

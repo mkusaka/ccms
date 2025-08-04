@@ -179,9 +179,8 @@ impl SearchService {
                                         .get("message")
                                         .and_then(|m| m.get("content"))
                                         .and_then(|c| c.as_array())
-                                    {
-                                        if let Some(first_item) = content_array.first() {
-                                            if let Some(text) =
+                                        && let Some(first_item) = content_array.first()
+                                            && let Some(text) =
                                                 first_item.get("text").and_then(|t| t.as_str())
                                             {
                                                 content = text
@@ -190,8 +189,6 @@ impl SearchService {
                                                     .collect::<String>()
                                                     .replace('\n', " ");
                                             }
-                                        }
-                                    }
 
                                     // Set first message if not already set
                                     if first_message.is_empty()

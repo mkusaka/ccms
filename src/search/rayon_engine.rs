@@ -164,25 +164,23 @@ impl RayonEngine {
         }
 
         // Apply time filters
-        if let Some(ref after) = self.options.after {
-            if let Ok(after_dt) = DateTime::parse_from_rfc3339(after) {
+        if let Some(ref after) = self.options.after
+            && let Ok(after_dt) = DateTime::parse_from_rfc3339(after) {
                 results.retain(|r| {
                     DateTime::parse_from_rfc3339(&r.timestamp)
                         .map(|dt| dt >= after_dt)
                         .unwrap_or(false)
                 });
             }
-        }
 
-        if let Some(ref before) = self.options.before {
-            if let Ok(before_dt) = DateTime::parse_from_rfc3339(before) {
+        if let Some(ref before) = self.options.before
+            && let Ok(before_dt) = DateTime::parse_from_rfc3339(before) {
                 results.retain(|r| {
                     DateTime::parse_from_rfc3339(&r.timestamp)
                         .map(|dt| dt <= before_dt)
                         .unwrap_or(false)
                 });
             }
-        }
 
         Ok(())
     }
@@ -295,8 +293,8 @@ pub(super) fn search_file(
                 let text = message.get_searchable_text();
 
                 // Apply query condition
-                if let Ok(matches) = query.evaluate(&text) {
-                    if matches {
+                if let Ok(matches) = query.evaluate(&text)
+                    && matches {
                         // Apply inline filters
                         if let Some(role) = &options.role {
                             // For summary messages, only match if explicitly filtering for "summary"
@@ -309,11 +307,10 @@ pub(super) fn search_file(
                             }
                         }
 
-                        if let Some(session_id) = &options.session_id {
-                            if message.get_session_id() != Some(session_id) {
+                        if let Some(session_id) = &options.session_id
+                            && message.get_session_id() != Some(session_id) {
                                 continue;
                             }
-                        }
 
                         // Check project_path filter (matches against file path)
                         if let Some(project_path) = &options.project_path {
@@ -360,7 +357,6 @@ pub(super) fn search_file(
                             raw_json,
                         });
                     }
-                }
             }
             Err(e) => {
                 if options.verbose {

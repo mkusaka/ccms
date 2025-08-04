@@ -249,8 +249,8 @@ impl<T: ListItem> ListViewer<T> {
             let available_text_width = row_layout[3].width as usize;
 
             while end < self.filtered_indices.len() && current_height < available_height as usize {
-                if let Some(&item_idx) = self.filtered_indices.get(end) {
-                    if let Some(item) = self.items.get(item_idx) {
+                if let Some(&item_idx) = self.filtered_indices.get(end)
+                    && let Some(item) = self.items.get(item_idx) {
                         let lines = item.create_full_lines(available_text_width, &self.query);
                         let item_height = lines.len();
 
@@ -261,7 +261,6 @@ impl<T: ListItem> ListViewer<T> {
                             break;
                         }
                     }
-                }
             }
 
             (start, end)

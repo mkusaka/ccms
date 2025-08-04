@@ -39,11 +39,10 @@ impl SessionFilter {
             .enumerate()
             .filter(|(_, item)| {
                 // Apply role filter first
-                if let Some(role) = role_filter {
-                    if item.role.fast_to_lowercase() != role.fast_to_lowercase() {
+                if let Some(role) = role_filter
+                    && item.role.fast_to_lowercase() != role.fast_to_lowercase() {
                         return false;
                     }
-                }
 
                 // Then apply text filter
                 if query.is_empty() {
