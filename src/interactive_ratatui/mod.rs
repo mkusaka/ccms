@@ -156,8 +156,14 @@ impl InteractiveSearch {
                 && let Ok(response) = receiver.try_recv()
                 && response.id == self.state.search.current_search_id
             {
-                let msg = Message::SearchCompleted(response.results);
-                self.handle_message(msg);
+                // Check if there's an error in the response
+                if let Some(error) = response.error {
+                    self.state.ui.message = Some(error);
+                    self.state.search.is_searching = false;
+                } else {
+                    let msg = Message::SearchCompleted(response.results);
+                    self.handle_message(msg);
+                }
             }
 
             // Check for scheduled search
@@ -674,11 +680,11 @@ impl InteractiveSearch {
                         let _ = response_tx.send(response).await;
                     }
                     Err(e) => {
-                        eprintln!("Search error: {e}");
                         let _ = response_tx
                             .send(SearchResponse {
                                 id: request.id,
                                 results: Vec::new(),
+                                error: Some(format!("Search error: {e}")),
                             })
                             .await;
                     }
