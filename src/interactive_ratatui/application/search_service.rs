@@ -40,6 +40,7 @@ impl SearchService {
         Ok(SearchResponse {
             id: request.id,
             results,
+            error: None,
         })
     }
 
@@ -60,6 +61,7 @@ impl SearchService {
         Ok(SearchResponse {
             id: request.id,
             results,
+            error: None,
         })
     }
 
