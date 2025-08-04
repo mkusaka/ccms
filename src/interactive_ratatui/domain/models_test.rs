@@ -75,6 +75,7 @@ mod tests {
         let response = SearchResponse {
             id: 42,
             results: results.clone(),
+            error: None,
         };
 
         assert_eq!(response.id, 42);

@@ -108,6 +108,16 @@ fn parenthesized_expression(input: &str) -> IResult<&str, QueryCondition> {
 fn regex_expression(input: &str) -> IResult<&str, QueryCondition> {
     let (input, _) = char('/')(input)?;
     let (input, pattern) = regex_pattern(input)?;
+
+    // Check if we have a closing slash
+    if pattern.is_empty() && !input.starts_with('/') {
+        // This is just a single slash, not a valid regex
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::TakeWhile1,
+        )));
+    }
+
     let (input, _) = char('/')(input)?;
     let (input, flags) = regex_flags(input)?;
 
@@ -241,7 +251,7 @@ fn unquoted_literal(input: &str) -> IResult<&str, QueryCondition> {
 }
 
 fn is_unquoted_char(c: char) -> bool {
-    !matches!(c, ' ' | '\t' | '\n' | '\r' | '(' | ')' | '"' | '\'' | '/')
+    !matches!(c, ' ' | '\t' | '\n' | '\r' | '(' | ')' | '"' | '\'')
 }
 
 #[cfg(test)]
@@ -476,9 +486,16 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_regex_syntax() {
-        let result = parse_query("/unclosed");
-        assert!(result.is_err());
+    fn test_invalid_regex_syntax() -> Result<()> {
+        // Now /unclosed is treated as a literal, not an invalid regex
+        let result = parse_query("/unclosed")?;
+        match result {
+            QueryCondition::Literal { pattern, .. } => {
+                assert_eq!(pattern, "/unclosed");
+            }
+            _ => panic!("Expected literal"),
+        }
+        Ok(())
     }
 
     #[test]
@@ -589,6 +606,70 @@ mod tests {
                 }
             }
             _ => panic!("Expected AND"),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_single_slash() -> Result<()> {
+        // Single slash should be treated as literal
+        let result = parse_query("/")?;
+        match result {
+            QueryCondition::Literal { pattern, .. } => {
+                assert_eq!(pattern, "/");
+            }
+            _ => panic!("Expected literal"),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_slash_in_quoted_string() -> Result<()> {
+        let result = parse_query("\"/\"")?;
+        match result {
+            QueryCondition::Literal { pattern, .. } => {
+                assert_eq!(pattern, "/");
+            }
+            _ => panic!("Expected literal"),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_slash_in_unquoted_literal() -> Result<()> {
+        // Slash in the middle of unquoted literal should work
+        let result = parse_query("asdfasd/asdfasdf")?;
+        match result {
+            QueryCondition::Literal { pattern, .. } => {
+                assert_eq!(pattern, "asdfasd/asdfasdf");
+            }
+            _ => panic!("Expected literal"),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_multiple_slashes_in_literal() -> Result<()> {
+        let result = parse_query("path/to/file")?;
+        match result {
+            QueryCondition::Literal { pattern, .. } => {
+                assert_eq!(pattern, "path/to/file");
+            }
+            _ => panic!("Expected literal"),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_regex_still_works() -> Result<()> {
+        // Make sure actual regex patterns still work
+        let result = parse_query("/test/i")?;
+        match result {
+            QueryCondition::Regex { pattern, flags } => {
+                assert_eq!(pattern, "test");
+                assert_eq!(flags, "i");
+            }
+            _ => panic!("Expected regex"),
         }
         Ok(())
     }

@@ -48,4 +48,5 @@ pub struct SearchRequest {
 pub struct SearchResponse {
     pub id: u64,
     pub results: Vec<SearchResult>,
+    pub error: Option<String>,
 }
