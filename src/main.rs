@@ -344,7 +344,7 @@ fn main() -> Result<()> {
             }
         }
         OutputFormat::Json => {
-            // 統計情報を収集
+            // Collect statistics
             let mut session_counts: HashMap<String, usize> = HashMap::new();
             let mut file_counts: HashMap<String, usize> = HashMap::new();
 
@@ -353,7 +353,7 @@ fn main() -> Result<()> {
                 *file_counts.entry(result.file.clone()).or_insert(0) += 1;
             }
 
-            // ファイルごとの詳細情報を作成
+            // Create detailed file information
             let files_detail: Vec<_> = file_counts
                 .iter()
                 .map(|(file, count)| {
@@ -368,7 +368,7 @@ fn main() -> Result<()> {
                 })
                 .collect();
 
-            // セッションごとの詳細情報を作成
+            // Create detailed session information
             let sessions_detail: Vec<_> = session_counts
                 .iter()
                 .map(|(session_id, count)| {
