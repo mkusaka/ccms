@@ -380,6 +380,8 @@ impl InteractiveSearch {
             | KeyCode::Home
             | KeyCode::End
             | KeyCode::Enter => self.renderer.get_result_list_mut().handle_key(key),
+            // Handle Left/Right keys for cursor movement in search bar
+            KeyCode::Left | KeyCode::Right => self.renderer.get_search_bar_mut().handle_key(key),
             // Ctrl+P/N navigation - try search bar first, then result list
             KeyCode::Char('p') | KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
                 self.renderer
