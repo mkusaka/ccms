@@ -36,7 +36,10 @@ impl SearchBar {
     }
 
     pub fn set_query(&mut self, query: String) {
-        self.text_input.set_text(query);
+        // Only update if the query actually changed to preserve cursor position
+        if self.text_input.text() != query {
+            self.text_input.set_text(query);
+        }
     }
 
     pub fn set_searching(&mut self, is_searching: bool) {
