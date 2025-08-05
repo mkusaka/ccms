@@ -8,14 +8,18 @@ The interactive mode provides a terminal-based user interface for searching Clau
 
 ## User Interface Layout
 
-### Initial Screen
+### Initial Screen with Tab Bar
 
 ```
+[Search] | Session List                    
+──────────────────────────────────────────────────────────────────────────────
 Interactive Claude Search
 Type to search, ↑/↓ to navigate, Enter to select, Tab for role filter, Ctrl+R to reload, Ctrl+C (2x) to exit
 
 Search: [cursor]
 ```
+
+**Tab Navigation**: Press `Shift+Tab` to switch between Search and Session List tabs.
 
 ### Search Results Display
 
@@ -45,6 +49,34 @@ When a role filter is active:
 Search [role]: [query]
 ```
 
+### Session List View
+
+When the Session List tab is active:
+
+```
+Search | [Session List]                    
+──────────────────────────────────────────────────────────────────────────────
+Session List - 123 sessions
+Type to search sessions, ↑/↓ to navigate, Enter to view messages
+
+Search: [query]
+
+> 1. Session abc123... (45 messages) - 2024-01-15 10:30:45 - First: "How can I..."
+  2. Session def456... (23 messages) - 2024-01-15 09:15:20 - First: "I need help..."
+  3. Session ghi789... (67 messages) - 2024-01-14 18:45:00 - First: "Can you explain..."
+  ...
+
+Showing 1-10 of 123 sessions
+```
+
+**Session List Features**:
+- **Real-time Search**: Type to search through all sessions by content, timestamp, or session ID
+- **Session Info**: Shows message count, last modified timestamp, and first message preview
+- **Full Message Search**: Searches through all messages in all sessions, not just first messages
+- **Highlighted Matches**: Search matches are highlighted in yellow in the preview text
+- **Keyboard Navigation**: Use arrow keys to navigate, Enter to view session messages
+- **Preview Toggle**: Press `p` to toggle the first message preview on/off
+
 ## Key Bindings
 
 ### Main Search Interface
@@ -65,10 +97,26 @@ Search [role]: [query]
 | PageDown | Scroll down by visible height |
 | ? | Show help screen |
 | Tab | Cycle through role filters: None → user → assistant → system → summary → None |
+| Shift+Tab | Switch between Search and Session List tabs |
 | Ctrl+R | Clear cache and reload all files |
 | Ctrl+T | Toggle message truncation (Truncated/Full Text) |
 | Alt+← | Navigate back through history |
 | Alt+→ | Navigate forward through history |
+| Ctrl+C (2x) | Exit interactive mode (press twice within 1 second) |
+
+### Session List Interface
+
+| Key | Action |
+|-----|--------|
+| Any character | Append to search query and execute session search |
+| Backspace | Remove last character from query and re-search |
+| ↑ (Arrow Up) | Move selection up |
+| ↓ (Arrow Down) | Move selection down |
+| Enter | Open selected session in Session Viewer |
+| p | Toggle first message preview display |
+| Shift+Tab | Switch back to Search tab |
+| ? | Show help screen |
+| Ctrl+R | Clear cache and reload all sessions |
 | Ctrl+C (2x) | Exit interactive mode (press twice within 1 second) |
 
 ### Full Result View
@@ -635,3 +683,60 @@ ccms -f json "query" | jq '.summary'
 # List files with message counts
 ccms -f json "query" | jq -r '.files[] | "\(.message_count) messages: \(.path)"'
 ```
+
+## Statistics Mode
+
+The `--stats` flag provides comprehensive statistics about search results without displaying message content.
+
+### Usage
+
+```bash
+# Show stats for all messages
+ccms --stats ""
+
+# Show stats for messages containing "error"
+ccms --stats "error"
+
+# Show stats with filters
+ccms --stats --role user "question"
+ccms --stats --project /path/to/project "bug"
+ccms --stats --since "1 week ago" "feature"
+```
+
+### Statistics Output
+
+The statistics display includes:
+
+```
+Statistics
+════════════════════════════════════════════════════════════
+
+Total Messages: 1,234
+Sessions: 45
+Files: 45
+Projects: 3
+
+Messages by Role:
+  user       : 567 (45.95%)
+  assistant  : 456 (36.95%)
+  system     : 123 (9.97%)
+  summary    : 88 (7.13%)
+
+Message Types:
+  message    : 1200 (97.24%)
+  tool_use   : 34 (2.76%)
+
+Time Range:
+  Earliest: 2024-01-01 00:00:00
+  Latest  : 2024-12-31 23:59:59
+
+⏱️  Search completed in 123ms
+```
+
+### Key Features
+
+- **No Result Limit**: When using `--stats`, the `max_results` limit is removed to ensure accurate statistics
+- **All Filters Apply**: Works with all existing filters (role, session, project, time)
+- **Performance**: Shows search execution time
+- **Comprehensive Counts**: Tracks messages, sessions, files, projects, roles, and message types
+- **Time Range**: Displays the earliest and latest message timestamps in the results

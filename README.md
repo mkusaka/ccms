@@ -10,9 +10,11 @@ High-performance CLI for searching Claude session JSONL files with an interactiv
 - 🚀 **Blazing Fast**: SIMD-accelerated JSON parsing with parallel file processing
 - 🔍 **Powerful Query Syntax**: Boolean operators (AND/OR/NOT), regex, and quoted literals
 - 🎯 **Smart Filtering**: Filter by role, session ID, timestamp ranges, and project paths
-- 💻 **Interactive Mode**: fzf-like TUI for real-time search and navigation
-- 📊 **Multiple Output Formats**: Text, JSON, or JSONL with customizable formatting
+- 💻 **Interactive Mode**: fzf-like TUI with Search and Session List tabs
+- 📊 **Statistics Mode**: Comprehensive search statistics with `--stats` flag
+- 📋 **Session Browser**: Browse and search all sessions with full-text search
 - 🎨 **Beautiful Output**: Colored terminal output with match highlighting
+- 📄 **Multiple Output Formats**: Text, JSON, or JSONL with customizable formatting
 - 🔧 **Robust Testing**: Comprehensive test suite with cargo-nextest support
 - 🚀 **Shell Completion**: Auto-completion support for bash, zsh, and fish shells
 
@@ -116,6 +118,11 @@ ccms --project "/path/to/project" "TODO"
 
 # Search all projects (bypass default filter)
 ccms --project "/" "TODO"
+
+# Show statistics only (no message content)
+ccms --stats ""                      # Stats for all messages
+ccms --stats "error"                 # Stats for messages containing "error"
+ccms --stats --role user "question"  # Stats with filters
 ```
 
 ### Interactive Mode (TUI)
@@ -148,12 +155,21 @@ ccms -n 100                               # Adjust result limit
 - `Enter` - View full message
 - `Ctrl+S` - Jump directly to session viewer
 - `Tab` - Cycle role filters (all → user → assistant → system → summary)
+- `Shift+Tab` - Switch between Search and Session List tabs
 - `Ctrl+R` - Clear cache and reload files
 - `Ctrl+T` - Toggle message truncation (Truncated/Full Text)
 - `Alt+←` - Navigate back through history
 - `Alt+→` - Navigate forward through history
 - `Ctrl+C (2x)` - Exit (press twice within 1 second)
 - `Esc` - Go back to previous screen (does not exit from search screen)
+
+**Session List Tab:**
+- View all available sessions in a browsable list
+- Real-time search through all messages in all sessions
+- Shows session ID, message count, timestamp, and first message preview
+- `p` - Toggle first message preview on/off
+- `Enter` - Open session in Session Viewer
+- Search highlights matching text in yellow
 
 **Note on Filters in Interactive Mode:**
 - All command-line filters (`--project`, `--since`, `--after`, `--before`, `-s`, etc.) are applied as base filters
@@ -294,6 +310,7 @@ JSON output structure includes:
 - `--no-color` - Disable colored output
 - `--full-text` - Show full message text without truncation
 - `--raw` - Show raw JSON of matched messages
+- `--stats` - Show only statistics without message content
 
 ### Filtering Options
 - `-r, --role <ROLE>` - Filter by message role: `user`, `assistant`, `system`, or `summary`
@@ -350,6 +367,29 @@ error AND /failed.*connection/i
 # Complex nested query
 (("connection failed" OR "timeout") AND error) NOT debug
 ```
+
+### Statistics Mode
+
+The `--stats` flag displays comprehensive statistics about search results:
+
+```bash
+# Statistics for all messages
+ccms --stats ""
+
+# Statistics for error messages
+ccms --stats "error"
+
+# Statistics with filters
+ccms --stats --role assistant --since "1 week ago" "code"
+```
+
+Output includes:
+- Total message count
+- Messages by role with percentages
+- Unique sessions, files, and projects
+- Message type breakdown
+- Time range (earliest to latest)
+- Search execution time
 
 ## Development
 
@@ -441,6 +481,7 @@ ccms/
 │   │   ├── engine.rs              # Core search logic
 │   │   ├── file_discovery.rs
 │   │   └── async_engine.rs
+│   ├── stats.rs                   # Statistics collection and formatting
 │   └── profiling.rs               # Performance profiling
 ├── benches/                       # Benchmarks
 ├── tests/                         # Integration tests
