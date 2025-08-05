@@ -484,4 +484,100 @@ mod tests {
         assert!(msg.is_none());
         assert_eq!(search_bar.get_query(), "hello");
     }
+
+    #[test]
+    fn test_cursor_position_preserved_on_set_query() {
+        // This test ensures that cursor position is preserved when set_query is called
+        // with the same value (simulating render cycles)
+        let mut search_bar = SearchBar::new();
+
+        // Type "hello"
+        search_bar.handle_key(create_key_event(KeyCode::Char('h')));
+        search_bar.handle_key(create_key_event(KeyCode::Char('e')));
+        search_bar.handle_key(create_key_event(KeyCode::Char('l')));
+        search_bar.handle_key(create_key_event(KeyCode::Char('l')));
+        search_bar.handle_key(create_key_event(KeyCode::Char('o')));
+        assert_eq!(search_bar.get_query(), "hello");
+
+        // Move cursor to beginning
+        search_bar.handle_key(create_key_event(KeyCode::Home));
+
+        // Simulate render cycle - set_query with same value
+        search_bar.set_query("hello".to_string());
+
+        // Type 'X' - should appear at beginning if cursor position was preserved
+        let msg = search_bar.handle_key(create_key_event(KeyCode::Char('X')));
+        assert!(msg.is_some());
+        assert_eq!(search_bar.get_query(), "Xhello");
+
+        // Move cursor to position 3 (after "Xhe")
+        search_bar.handle_key(create_key_event(KeyCode::End));
+        search_bar.handle_key(create_key_event(KeyCode::Left));
+        search_bar.handle_key(create_key_event(KeyCode::Left));
+        search_bar.handle_key(create_key_event(KeyCode::Left));
+
+        // Simulate render cycle again
+        search_bar.set_query("Xhello".to_string());
+
+        // Type 'Y' - should appear at position 3
+        let msg = search_bar.handle_key(create_key_event(KeyCode::Char('Y')));
+        assert!(msg.is_some());
+        assert_eq!(search_bar.get_query(), "XheYllo");
+    }
+
+    #[test]
+    fn test_cursor_position_reset_on_different_query() {
+        // This test ensures that cursor position is reset to end when set_query
+        // is called with a different value
+        let mut search_bar = SearchBar::new();
+
+        // Type "test"
+        search_bar.handle_key(create_key_event(KeyCode::Char('t')));
+        search_bar.handle_key(create_key_event(KeyCode::Char('e')));
+        search_bar.handle_key(create_key_event(KeyCode::Char('s')));
+        search_bar.handle_key(create_key_event(KeyCode::Char('t')));
+
+        // Move cursor to beginning
+        search_bar.handle_key(create_key_event(KeyCode::Home));
+
+        // Set a different query - cursor should move to end
+        search_bar.set_query("different".to_string());
+
+        // Type 'X' - should appear at end
+        let msg = search_bar.handle_key(create_key_event(KeyCode::Char('X')));
+        assert!(msg.is_some());
+        assert_eq!(search_bar.get_query(), "differentX");
+    }
+
+    #[test]
+    fn test_arrow_keys_cursor_movement() {
+        // This test specifically tests that arrow keys move the cursor correctly
+        // and that the cursor position is preserved between keystrokes
+        let mut search_bar = SearchBar::new();
+
+        // Type "aaa"
+        search_bar.handle_key(create_key_event(KeyCode::Char('a')));
+        search_bar.handle_key(create_key_event(KeyCode::Char('a')));
+        search_bar.handle_key(create_key_event(KeyCode::Char('a')));
+        assert_eq!(search_bar.get_query(), "aaa");
+
+        // Press left arrow three times
+        search_bar.handle_key(create_key_event(KeyCode::Left));
+        search_bar.handle_key(create_key_event(KeyCode::Left));
+        search_bar.handle_key(create_key_event(KeyCode::Left));
+
+        // Now cursor should be at beginning, type 'X'
+        let msg = search_bar.handle_key(create_key_event(KeyCode::Char('X')));
+        assert!(msg.is_some());
+        assert_eq!(search_bar.get_query(), "Xaaa");
+
+        // Press right arrow twice
+        search_bar.handle_key(create_key_event(KeyCode::Right));
+        search_bar.handle_key(create_key_event(KeyCode::Right));
+
+        // Now cursor should be after "Xaa", type 'Y'
+        let msg = search_bar.handle_key(create_key_event(KeyCode::Char('Y')));
+        assert!(msg.is_some());
+        assert_eq!(search_bar.get_query(), "XaaYa");
+    }
 }
