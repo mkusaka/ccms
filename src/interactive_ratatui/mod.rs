@@ -380,13 +380,19 @@ impl InteractiveSearch {
             | KeyCode::Home
             | KeyCode::End
             | KeyCode::Enter => self.renderer.get_result_list_mut().handle_key(key),
-            // Ctrl+P/N navigation
+            // Ctrl+P/N navigation - try search bar first, then result list
             KeyCode::Char('p') | KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
-                self.renderer.get_result_list_mut().handle_key(key)
+                self.renderer
+                    .get_search_bar_mut()
+                    .handle_key(key)
+                    .or_else(|| self.renderer.get_result_list_mut().handle_key(key))
             }
-            // Handle Ctrl+u/d for half-page scrolling
+            // Handle Ctrl+u/d - try search bar first, then result list for half-page scrolling
             KeyCode::Char('u') | KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
-                self.renderer.get_result_list_mut().handle_key(key)
+                self.renderer
+                    .get_search_bar_mut()
+                    .handle_key(key)
+                    .or_else(|| self.renderer.get_result_list_mut().handle_key(key))
             }
             KeyCode::Esc => {
                 // Try result list first (for closing preview), then fall back to search bar
