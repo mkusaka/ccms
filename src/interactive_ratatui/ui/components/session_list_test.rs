@@ -293,9 +293,9 @@ mod tests {
         session_list.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::empty()));
         session_list.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::empty()));
 
-        // Now cursor should be after "Xa", type 'Y'
+        // Now cursor should be after "Xaa" (position 3), type 'Y'
         let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('Y'), KeyModifiers::empty()));
-        assert!(matches!(msg, Some(Message::SessionListQueryChanged(q)) if q == "XaYa"));
+        assert!(matches!(msg, Some(Message::SessionListQueryChanged(q)) if q == "XaaYa"));
     }
 
     // Helper function to convert buffer to string for testing
