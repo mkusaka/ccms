@@ -16,8 +16,6 @@ use ratatui::{
     text::Line,
     widgets::{Block, Borders, Paragraph},
 };
-use std::fs::OpenOptions;
-use std::io::Write;
 
 pub struct SessionViewerUnified {
     result_list: ResultList,
@@ -302,19 +300,6 @@ impl Component for SessionViewerUnified {
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
-        // Debug logging
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("debug.log")
-        {
-            let _ = writeln!(
-                file,
-                "[SessionViewer] Key pressed: {:?}, is_searching: {}, modifiers: {:?}",
-                key.code, self.is_searching, key.modifiers
-            );
-        }
-
         if self.is_searching {
             match key.code {
                 KeyCode::Esc => {
@@ -399,32 +384,7 @@ impl Component for SessionViewerUnified {
                     None
                 }
                 _ => {
-                    // Debug logging for text input
-                    if let Ok(mut file) = OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open("debug.log")
-                    {
-                        let _ =
-                            writeln!(file, "[SessionViewer] Passing to TextInput: {:?}", key.code);
-                    }
-
                     let changed = self.text_input.handle_key(key);
-
-                    // Debug logging for text change
-                    if let Ok(mut file) = OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open("debug.log")
-                    {
-                        let _ = writeln!(
-                            file,
-                            "[SessionViewer] TextInput changed: {}, text: '{}'",
-                            changed,
-                            self.text_input.text()
-                        );
-                    }
-
                     if changed {
                         Some(Message::SessionQueryChanged(
                             self.text_input.text().to_string(),
