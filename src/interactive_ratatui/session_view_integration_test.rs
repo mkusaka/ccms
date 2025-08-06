@@ -5,23 +5,6 @@ mod tests {
     use crate::query::condition::{QueryCondition, SearchResult};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use ratatui::{Terminal, backend::TestBackend};
-    use std::fs;
-    use std::path::PathBuf;
-    use tempfile::TempDir;
-
-    fn create_test_session_file() -> (TempDir, PathBuf) {
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test_session.jsonl");
-
-        // Test data conforming to ccmeta schema
-        let test_data = r#"{"type":"user","message":{"role":"user","content":"Hello Claude"},"uuid":"user-uuid-1","timestamp":"2024-01-01T00:00:00Z","sessionId":"test-session","parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}
-{"type":"assistant","message":{"id":"msg_01","type":"message","role":"assistant","model":"claude-3-5-sonnet","content":[{"type":"text","text":"Hello! How can I help you today?"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":20}},"uuid":"assistant-uuid-1","timestamp":"2024-01-01T00:00:01Z","sessionId":"test-session","parentUuid":"user-uuid-1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}
-{"type":"user","message":{"role":"user","content":"Show me a file"},"uuid":"user-uuid-2","timestamp":"2024-01-01T00:00:02Z","sessionId":"test-session","parentUuid":"assistant-uuid-1","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}
-{"type":"assistant","message":{"id":"msg_02","type":"message","role":"assistant","model":"claude-3-5-sonnet","content":[{"type":"text","text":"I'll read the file for you."},{"type":"tool_use","id":"tool_1","name":"read_file","input":{"file_path":"test.txt"}}],"stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":15,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":25}},"uuid":"assistant-uuid-2","timestamp":"2024-01-01T00:00:03Z","sessionId":"test-session","parentUuid":"user-uuid-2","isSidechain":false,"userType":"external","cwd":"/test","version":"1.0"}"#;
-
-        fs::write(&file_path, test_data).unwrap();
-        (temp_dir, file_path)
-    }
 
     fn create_test_search_results() -> Vec<SearchResult> {
         vec![
