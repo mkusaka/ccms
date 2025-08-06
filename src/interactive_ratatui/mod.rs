@@ -26,8 +26,6 @@ pub mod ui;
 mod help_overlay_test;
 #[cfg(test)]
 mod integration_tests;
-// #[cfg(test)]
-// mod session_view_integration_test; // No longer used - using unified session viewer
 #[cfg(test)]
 mod session_preview_test;
 #[cfg(test)]

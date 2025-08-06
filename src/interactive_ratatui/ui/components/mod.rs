@@ -28,8 +28,6 @@ mod search_bar_test;
 mod session_list_test;
 #[cfg(test)]
 mod session_preview_test;
-// #[cfg(test)]
-// mod session_viewer_test; // Old tests for the deprecated SessionViewer implementation
 #[cfg(test)]
 mod text_input_test;
 #[cfg(test)]
