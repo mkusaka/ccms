@@ -395,6 +395,7 @@ impl Component for SessionViewer {
                         self.list_viewer.scroll_offset,
                     ))
                 }
+                // Only handle Ctrl+P/N for navigation, let TextInput handle other Ctrl combinations
                 KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
                     self.list_viewer.move_up();
                     Some(Message::SessionNavigated(
@@ -415,12 +416,8 @@ impl Component for SessionViewer {
                 KeyCode::Char('o') if key.modifiers == KeyModifiers::CONTROL => {
                     Some(Message::ToggleSessionOrder)
                 }
-                // Handle cursor movement keys explicitly
-                KeyCode::Left | KeyCode::Right | KeyCode::Home | KeyCode::End => {
-                    self.text_input.handle_key(key);
-                    None
-                }
                 _ => {
+                    // Let TextInput handle all other keys including text editing shortcuts
                     let changed = self.text_input.handle_key(key);
                     if changed {
                         Some(Message::SessionQueryChanged(
