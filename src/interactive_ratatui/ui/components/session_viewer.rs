@@ -516,3 +516,61 @@ impl Component for SessionViewer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::KeyCode;
+
+    #[test]
+    fn test_f_key_input_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        
+        // Test 'f' key input
+        let key = KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty());
+        let result = viewer.handle_key(key);
+        
+        // Should produce SessionQueryChanged message
+        assert!(matches!(result, Some(Message::SessionQueryChanged(query)) if query == "f"));
+        assert_eq!(viewer.text_input.text(), "f");
+        
+        // Test 'o' key input  
+        let key = KeyEvent::new(KeyCode::Char('o'), KeyModifiers::empty());
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::SessionQueryChanged(query)) if query == "fo"));
+        assert_eq!(viewer.text_input.text(), "fo");
+        
+        // Test 'o' key again
+        let key = KeyEvent::new(KeyCode::Char('o'), KeyModifiers::empty());
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::SessionQueryChanged(query)) if query == "foo"));
+        assert_eq!(viewer.text_input.text(), "foo");
+    }
+    
+    #[test]
+    fn test_ctrl_d_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+        
+        // Add some text first
+        let key = KeyEvent::new(KeyCode::Char('f'), KeyModifiers::empty());
+        viewer.handle_key(key);
+        let key = KeyEvent::new(KeyCode::Char('o'), KeyModifiers::empty());
+        viewer.handle_key(key);
+        let key = KeyEvent::new(KeyCode::Char('o'), KeyModifiers::empty());
+        viewer.handle_key(key);
+        
+        // Move cursor to beginning
+        let key = KeyEvent::new(KeyCode::Home, KeyModifiers::empty());
+        viewer.handle_key(key);
+        
+        // Test Ctrl+D to delete character under cursor
+        let key = KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+        
+        // Should produce SessionQueryChanged message with 'f' deleted
+        assert!(matches!(result, Some(Message::SessionQueryChanged(query)) if query == "oo"));
+        assert_eq!(viewer.text_input.text(), "oo");
+    }
+}

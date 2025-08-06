@@ -16,6 +16,8 @@ use ratatui::{
     text::Line,
     widgets::{Block, Borders, Paragraph},
 };
+use std::fs::OpenOptions;
+use std::io::Write;
 
 pub struct SessionViewerUnified {
     result_list: ResultList,
@@ -300,6 +302,19 @@ impl Component for SessionViewerUnified {
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
+        // Debug logging
+        if let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("debug.log")
+        {
+            let _ = writeln!(
+                file,
+                "[SessionViewer] Key pressed: {:?}, is_searching: {}, modifiers: {:?}",
+                key.code, self.is_searching, key.modifiers
+            );
+        }
+
         if self.is_searching {
             match key.code {
                 KeyCode::Esc => {
@@ -377,38 +392,39 @@ impl Component for SessionViewerUnified {
                 KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
                     Some(Message::ToggleSessionPreview)
                 }
-                // Copy shortcuts during search
-                KeyCode::Char('c') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    self.result_list.selected_result().map(|result| {
-                        Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))
-                    })
-                }
-                KeyCode::Char('C') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    self.result_list.selected_result().map(|result| {
-                        Message::CopyToClipboard(CopyContent::JsonData(
-                            result.raw_json.clone().unwrap_or_default(),
-                        ))
-                    })
-                }
-                KeyCode::Char('i') if !key.modifiers.contains(KeyModifiers::CONTROL) => self
-                    .session_id
-                    .clone()
-                    .map(|id| Message::CopyToClipboard(CopyContent::SessionId(id))),
-                KeyCode::Char('p') if !key.modifiers.contains(KeyModifiers::CONTROL) => self
-                    .cwd
-                    .clone()
-                    .map(|path| Message::CopyToClipboard(CopyContent::ProjectPath(path))),
-                KeyCode::Char('f') if !key.modifiers.contains(KeyModifiers::CONTROL) => self
-                    .file_path
-                    .clone()
-                    .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path))),
+                // Remove copy shortcuts during search - they should be text input instead
                 // Handle cursor movement keys explicitly (but Home/End are already handled above for list navigation)
                 KeyCode::Left | KeyCode::Right => {
                     self.text_input.handle_key(key);
                     None
                 }
                 _ => {
+                    // Debug logging for text input
+                    if let Ok(mut file) = OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open("debug.log")
+                    {
+                        let _ =
+                            writeln!(file, "[SessionViewer] Passing to TextInput: {:?}", key.code);
+                    }
+
                     let changed = self.text_input.handle_key(key);
+
+                    // Debug logging for text change
+                    if let Ok(mut file) = OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open("debug.log")
+                    {
+                        let _ = writeln!(
+                            file,
+                            "[SessionViewer] TextInput changed: {}, text: '{}'",
+                            changed,
+                            self.text_input.text()
+                        );
+                    }
+
                     if changed {
                         Some(Message::SessionQueryChanged(
                             self.text_input.text().to_string(),
