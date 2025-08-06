@@ -222,6 +222,82 @@ mod tests {
         assert!(msg.is_none());
     }
 
+    #[test]
+    fn test_cursor_position_preserved_on_set_query() {
+        // This test ensures that cursor position is preserved when set_query is called
+        // with the same value (simulating render cycles)
+        let mut session_list = SessionList::new();
+
+        // Type "hello"
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('h'), KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('l'), KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('l'), KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::empty()));
+
+        // Move cursor to beginning
+        session_list.handle_key(KeyEvent::new(KeyCode::Home, KeyModifiers::empty()));
+
+        // Simulate render cycle - set_query with same value
+        session_list.set_query("hello".to_string());
+
+        // Type 'X' - should appear at beginning if cursor position was preserved
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('X'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionListQueryChanged(q)) if q == "Xhello"));
+    }
+
+    #[test]
+    fn test_cursor_position_reset_on_different_query() {
+        // This test ensures that cursor position is reset to end when set_query
+        // is called with a different value
+        let mut session_list = SessionList::new();
+
+        // Type "test"
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::empty()));
+
+        // Move cursor to beginning
+        session_list.handle_key(KeyEvent::new(KeyCode::Home, KeyModifiers::empty()));
+
+        // Set a different query - cursor should move to end
+        session_list.set_query("different".to_string());
+
+        // Type 'X' - should appear at end
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('X'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionListQueryChanged(q)) if q == "differentX"));
+    }
+
+    #[test]
+    fn test_arrow_keys_cursor_movement() {
+        // This test specifically tests that arrow keys move the cursor correctly
+        // and that the cursor position is preserved between keystrokes
+        let mut session_list = SessionList::new();
+
+        // Type "aaa"
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty()));
+
+        // Press left arrow three times
+        session_list.handle_key(KeyEvent::new(KeyCode::Left, KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Left, KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Left, KeyModifiers::empty()));
+
+        // Now cursor should be at beginning, type 'X'
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('X'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionListQueryChanged(q)) if q == "Xaaa"));
+
+        // Press right arrow twice
+        session_list.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::empty()));
+        session_list.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::empty()));
+
+        // Now cursor should be after "Xaa" (position 3), type 'Y'
+        let msg = session_list.handle_key(KeyEvent::new(KeyCode::Char('Y'), KeyModifiers::empty()));
+        assert!(matches!(msg, Some(Message::SessionListQueryChanged(q)) if q == "XaaYa"));
+    }
+
     // Helper function to convert buffer to string for testing
     fn buffer_to_string(buffer: &Buffer) -> String {
         let mut output = String::new();

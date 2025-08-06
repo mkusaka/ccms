@@ -55,7 +55,10 @@ impl SessionList {
 
     pub fn set_query(&mut self, query: String) {
         self.query = query.clone();
-        self.text_input.set_text(query);
+        // Only update if the query actually changed to preserve cursor position
+        if self.text_input.text() != query {
+            self.text_input.set_text(query);
+        }
     }
 
     pub fn set_selected_index(&mut self, index: usize) {
