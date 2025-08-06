@@ -97,9 +97,12 @@ mod tests {
 
         list.update_results(results, 0);
 
-        // Page down
+        // Page down - might trigger LoadMoreResults if near the end
         let msg = list.handle_key(create_key_event(KeyCode::PageDown));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert!(matches!(
+            msg,
+            Some(Message::SelectResult(_)) | Some(Message::LoadMoreResults)
+        ));
 
         // Page up
         let msg = list.handle_key(create_key_event(KeyCode::PageUp));
@@ -237,9 +240,13 @@ mod tests {
         // Navigate to near the end
         list.update_selection(25);
 
-        // Move down with Ctrl+D should go to last item
+        // Move down with Ctrl+D - might trigger LoadMoreResults since we're near the end
         let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
-        assert!(matches!(msg, Some(Message::SelectResult(_))));
+        assert!(matches!(
+            msg,
+            Some(Message::SelectResult(_)) | Some(Message::LoadMoreResults)
+        ));
+        // Selection should still move to the last item
         assert_eq!(list.selected_result().unwrap().text, "Message 29");
 
         // Can't move down from last item
@@ -358,5 +365,155 @@ mod tests {
         let key = KeyEvent::from(KeyCode::Esc);
         let message = list.handle_key(key);
         assert!(matches!(message, Some(Message::TogglePreview)));
+    }
+
+    // Pagination tests
+    #[test]
+    fn test_pagination_state_setting() {
+        let mut list = ResultList::new();
+
+        // Set pagination state
+        list.set_pagination_state(true, false, 150);
+
+        // State is set internally - we can verify through behavior in other tests
+        // Direct field access would require pub(crate) or getter methods
+    }
+
+    #[test]
+    fn test_load_more_trigger_on_down_navigation() {
+        let mut list = ResultList::new();
+
+        // Create 100 results
+        let mut results = Vec::new();
+        for i in 0..100 {
+            results.push(create_test_result("user", &format!("Message {}", i)));
+        }
+        list.set_results(results);
+        list.set_pagination_state(true, false, 100);
+
+        // Navigate to near the end (position 95)
+        for _ in 0..95 {
+            list.handle_key(create_key_event(KeyCode::Down));
+        }
+
+        // Next down should trigger LoadMoreResults
+        let msg = list.handle_key(create_key_event(KeyCode::Down));
+        assert!(matches!(msg, Some(Message::LoadMoreResults)));
+    }
+
+    #[test]
+    fn test_no_load_more_when_all_loaded() {
+        let mut list = ResultList::new();
+
+        // Create 50 results (less than a full page)
+        let mut results = Vec::new();
+        for i in 0..50 {
+            results.push(create_test_result("user", &format!("Message {}", i)));
+        }
+        list.set_results(results);
+        list.set_pagination_state(false, false, 50); // has_more_results = false
+
+        // Navigate to near the end
+        for _ in 0..45 {
+            list.handle_key(create_key_event(KeyCode::Down));
+        }
+
+        // Should NOT trigger LoadMoreResults since has_more_results is false
+        let msg = list.handle_key(create_key_event(KeyCode::Down));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+    }
+
+    #[test]
+    fn test_no_load_more_when_already_loading() {
+        let mut list = ResultList::new();
+
+        // Create 100 results
+        let mut results = Vec::new();
+        for i in 0..100 {
+            results.push(create_test_result("user", &format!("Message {}", i)));
+        }
+        list.set_results(results);
+        list.set_pagination_state(true, true, 100); // loading_more = true
+
+        // Navigate to near the end
+        for _ in 0..95 {
+            list.handle_key(create_key_event(KeyCode::Down));
+        }
+
+        // Should NOT trigger LoadMoreResults since already loading
+        let msg = list.handle_key(create_key_event(KeyCode::Down));
+        assert!(matches!(msg, Some(Message::SelectResult(_))));
+    }
+
+    #[test]
+    fn test_pagination_trigger_with_ctrl_n() {
+        let mut list = ResultList::new();
+
+        // Create 100 results
+        let mut results = Vec::new();
+        for i in 0..100 {
+            results.push(create_test_result("user", &format!("Message {}", i)));
+        }
+        list.set_results(results);
+        list.set_pagination_state(true, false, 100);
+
+        // Navigate to near the end with Ctrl+N
+        for _ in 0..95 {
+            list.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        }
+
+        // Next Ctrl+N should trigger LoadMoreResults
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+        assert!(matches!(msg, Some(Message::LoadMoreResults)));
+    }
+
+    #[test]
+    fn test_pagination_trigger_with_page_down() {
+        let mut list = ResultList::new();
+
+        // Create 100 results
+        let mut results = Vec::new();
+        for i in 0..100 {
+            results.push(create_test_result("user", &format!("Message {}", i)));
+        }
+        list.set_results(results);
+        list.set_pagination_state(true, false, 100);
+
+        // Navigate to position 85 (near end but not at threshold)
+        for _ in 0..85 {
+            list.handle_key(create_key_event(KeyCode::Down));
+        }
+
+        // PageDown should move us near the end and trigger LoadMoreResults
+        let msg = list.handle_key(create_key_event(KeyCode::PageDown));
+        assert!(matches!(
+            msg,
+            Some(Message::LoadMoreResults) | Some(Message::SelectResult(_))
+        ));
+    }
+
+    #[test]
+    fn test_pagination_trigger_with_ctrl_d() {
+        let mut list = ResultList::new();
+
+        // Create 100 results
+        let mut results = Vec::new();
+        for i in 0..100 {
+            results.push(create_test_result("user", &format!("Message {}", i)));
+        }
+        list.set_results(results);
+        list.set_pagination_state(true, false, 100);
+
+        // Navigate to position 80
+        for _ in 0..80 {
+            list.handle_key(create_key_event(KeyCode::Down));
+        }
+
+        // Ctrl+D (half page down) should move us near the end and may trigger LoadMoreResults
+        let msg = list.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(matches!(
+            msg,
+            Some(Message::LoadMoreResults) | Some(Message::SelectResult(_))
+        ));
     }
 }

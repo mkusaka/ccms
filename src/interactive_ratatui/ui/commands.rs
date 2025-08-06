@@ -10,6 +10,7 @@ pub enum Command {
     ScheduleSessionListSearch(u64), // delay in milliseconds
     LoadSession(String),
     LoadSessionList,
+    LoadMore(usize), // Load more results starting from offset
     CopyToClipboard(CopyContent),
     ShowMessage(String),
     ClearMessage,

@@ -42,6 +42,8 @@ pub struct SearchRequest {
     pub role_filter: Option<String>,
     pub pattern: String,
     pub order: SearchOrder,
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
 }
 
 pub struct SearchResponse {

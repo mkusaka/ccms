@@ -175,7 +175,8 @@ ccms -n 100                               # Adjust result limit
 - All command-line filters (`--project`, `--since`, `--after`, `--before`, `-s`, etc.) are applied as base filters
 - The `-r` flag sets the initial role filter, but you can still cycle through roles with Tab
 - Filters persist throughout the interactive session
-- Results are limited by the `-n` flag (default: 200, but 20x more are loaded for scrolling)
+- Results are loaded incrementally - initially 100 items, then automatically loads more as you scroll
+- Interactive mode ignores the `-n` flag to allow viewing all available results
 
 **Result Actions:**
 - `Enter` - View message details

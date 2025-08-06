@@ -35,6 +35,8 @@ impl SearchService {
             request.role_filter,
             request.order,
             None, // No session_id filter for general search
+            request.limit,
+            request.offset,
         )?;
 
         Ok(SearchResponse {
@@ -56,6 +58,8 @@ impl SearchService {
             request.role_filter,
             request.order,
             Some(session_id),
+            request.limit,
+            request.offset,
         )?;
 
         Ok(SearchResponse {
@@ -65,6 +69,7 @@ impl SearchService {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn execute_search(
         &self,
         query: &str,
@@ -72,6 +77,8 @@ impl SearchService {
         role_filter: Option<String>,
         order: crate::interactive_ratatui::domain::models::SearchOrder,
         session_id: Option<String>,
+        limit: Option<usize>,
+        offset: Option<usize>,
     ) -> Result<Vec<SearchResult>> {
         let query_condition = if query.trim().is_empty() {
             // Empty query means "match all" - use empty AND condition
@@ -87,17 +94,30 @@ impl SearchService {
             options.session_id = Some(sid);
             // For session viewer, show all messages without limit
             options.max_results = None;
+        } else if limit.is_none() {
+            // For regular search without explicit limit, use default
+            // If limit is specified, we'll apply it after getting all results
+            options.max_results = None;
         }
 
         // Create a new engine with the updated options
         let engine = SmolEngine::new(options);
 
-        let (results, _, _) = engine.search_with_role_filter_and_order(
+        let (mut results, _, _) = engine.search_with_role_filter_and_order(
             pattern,
             query_condition,
             role_filter,
             order,
         )?;
+
+        // Apply pagination if specified
+        if let Some(offset_val) = offset {
+            results = results.into_iter().skip(offset_val).collect();
+        }
+
+        if let Some(limit_val) = limit {
+            results = results.into_iter().take(limit_val).collect();
+        }
 
         // Results are already sorted by the engine based on the order
         Ok(results)

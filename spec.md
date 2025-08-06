@@ -365,7 +365,10 @@ Applied before other filters in the search pipeline.
 
 ### Result Display
 
-- Default max_results: 200 (configurable via CLI)
+- Interactive mode uses pagination to handle large result sets
+- Initial load: 100 results
+- Automatic pagination: Loads next 100 results when scrolling near the end (within 10 items)
+- No hard limit in interactive mode (ignores `-n` flag for unlimited viewing)
 - Maximum visible results in list view: dynamically calculated based on terminal height
 - Results list supports scrolling with:
   - ↑/↓: Move selection one item
@@ -373,9 +376,11 @@ Applied before other filters in the search pipeline.
   - End: Jump to last result
   - PageUp: Move up by visible height
   - PageDown: Move down by visible height
-- Total result count displayed
-- Indication when more results exist beyond display limit
-- Indication when max_results limit is reached
+- Status indicators:
+  - "Loading more..." when fetching additional results
+  - "X loaded (more available)" when more results can be loaded
+  - "X total" when all results are loaded
+- Pagination triggers on navigation keys: Down, Ctrl+N, PageDown, Ctrl+D
 
 ### Multibyte Character Handling
 

@@ -236,7 +236,7 @@ fn main() -> Result<()> {
         && (cli.query.is_none() || cli.query.as_ref().map(|s| s.is_empty()).unwrap_or(false))
     {
         let options = SearchOptions {
-            max_results: Some(cli.max_results), // Use the CLI value directly
+            max_results: None, // Interactive mode should not be limited by max_results
             role: cli.role,
             session_id: cli.session_id,
             message_id: None,
