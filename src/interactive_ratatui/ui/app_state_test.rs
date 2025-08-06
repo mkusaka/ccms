@@ -800,7 +800,7 @@ mod tests {
         let mut results = Vec::new();
         for i in 0..100 {
             let mut result = create_test_result();
-            result.text = format!("Message {}", i);
+            result.text = format!("Message {i}");
             results.push(result);
         }
 
@@ -820,7 +820,7 @@ mod tests {
         let mut results = Vec::new();
         for i in 0..50 {
             let mut result = create_test_result();
-            result.text = format!("Message {}", i);
+            result.text = format!("Message {i}");
             results.push(result);
         }
 
@@ -905,7 +905,7 @@ mod tests {
         let mut existing_results = Vec::new();
         for i in 0..100 {
             let mut result = create_test_result();
-            result.text = format!("Message {}", i);
+            result.text = format!("Message {i}");
             existing_results.push(result);
         }
         state.search.results = existing_results;
@@ -914,7 +914,7 @@ mod tests {
         let mut new_results = Vec::new();
         for i in 100..200 {
             let mut result = create_test_result();
-            result.text = format!("Message {}", i);
+            result.text = format!("Message {i}");
             new_results.push(result);
         }
 
@@ -938,7 +938,7 @@ mod tests {
         let mut existing_results = Vec::new();
         for i in 0..100 {
             let mut result = create_test_result();
-            result.text = format!("Message {}", i);
+            result.text = format!("Message {i}");
             existing_results.push(result);
         }
         state.search.results = existing_results;
@@ -947,7 +947,7 @@ mod tests {
         let mut new_results = Vec::new();
         for i in 100..130 {
             let mut result = create_test_result();
-            result.text = format!("Message {}", i);
+            result.text = format!("Message {i}");
             new_results.push(result);
         }
 

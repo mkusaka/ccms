@@ -386,7 +386,7 @@ mod tests {
         // Create 100 results
         let mut results = Vec::new();
         for i in 0..100 {
-            results.push(create_test_result("user", &format!("Message {}", i)));
+            results.push(create_test_result("user", &format!("Message {i}")));
         }
         list.set_results(results);
         list.set_pagination_state(true, false, 100);
@@ -408,7 +408,7 @@ mod tests {
         // Create 50 results (less than a full page)
         let mut results = Vec::new();
         for i in 0..50 {
-            results.push(create_test_result("user", &format!("Message {}", i)));
+            results.push(create_test_result("user", &format!("Message {i}")));
         }
         list.set_results(results);
         list.set_pagination_state(false, false, 50); // has_more_results = false
@@ -430,7 +430,7 @@ mod tests {
         // Create 100 results
         let mut results = Vec::new();
         for i in 0..100 {
-            results.push(create_test_result("user", &format!("Message {}", i)));
+            results.push(create_test_result("user", &format!("Message {i}")));
         }
         list.set_results(results);
         list.set_pagination_state(true, true, 100); // loading_more = true
@@ -452,7 +452,7 @@ mod tests {
         // Create 100 results
         let mut results = Vec::new();
         for i in 0..100 {
-            results.push(create_test_result("user", &format!("Message {}", i)));
+            results.push(create_test_result("user", &format!("Message {i}")));
         }
         list.set_results(results);
         list.set_pagination_state(true, false, 100);
@@ -474,7 +474,7 @@ mod tests {
         // Create 100 results
         let mut results = Vec::new();
         for i in 0..100 {
-            results.push(create_test_result("user", &format!("Message {}", i)));
+            results.push(create_test_result("user", &format!("Message {i}")));
         }
         list.set_results(results);
         list.set_pagination_state(true, false, 100);
@@ -499,7 +499,7 @@ mod tests {
         // Create 100 results
         let mut results = Vec::new();
         for i in 0..100 {
-            results.push(create_test_result("user", &format!("Message {}", i)));
+            results.push(create_test_result("user", &format!("Message {i}")));
         }
         list.set_results(results);
         list.set_pagination_state(true, false, 100);
