@@ -1,8 +1,7 @@
 use ccms::interactive_ratatui::ui::{
     app_state::AppState,
     components::{
-        Component, result_list::ResultList, search_bar::SearchBar,
-        session_viewer_unified::SessionViewerUnified,
+        Component, result_list::ResultList, search_bar::SearchBar, session_viewer::SessionViewer,
     },
     events::Message,
     renderer::Renderer,
@@ -510,7 +509,7 @@ fn benchmark_session_viewer_rendering(c: &mut Criterion) {
 
     // Session viewer rendering (small dataset)
     group.bench_function("render_session_200", |b| {
-        let mut session_viewer = SessionViewerUnified::new();
+        let mut session_viewer = SessionViewer::new();
         let results = create_test_session_results(200);
         session_viewer.set_results(results);
 
@@ -530,7 +529,7 @@ fn benchmark_session_viewer_rendering(c: &mut Criterion) {
 
     // Production-scale session messages (50k entries)
     group.bench_function("render_session_50k", |b| {
-        let mut session_viewer = SessionViewerUnified::new();
+        let mut session_viewer = SessionViewer::new();
         let results = create_test_session_results(50_000);
         session_viewer.set_results(results);
 

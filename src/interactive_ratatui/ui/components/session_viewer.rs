@@ -1,39 +1,34 @@
-use crate::SessionMessage;
 use crate::interactive_ratatui::domain::models::SessionOrder;
-use crate::interactive_ratatui::domain::session_list_item::SessionListItem;
 use crate::interactive_ratatui::ui::components::{
     Component, is_exit_prompt,
-    list_viewer::ListViewer,
+    message_preview::MessagePreview,
+    result_list::ResultList,
     text_input::TextInput,
     view_layout::{ColorScheme, ViewLayout},
 };
 use crate::interactive_ratatui::ui::events::{CopyContent, Message};
+use crate::query::condition::SearchResult;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Text},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    text::Line,
+    widgets::{Block, Borders, Paragraph},
 };
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 pub struct SessionViewer {
-    #[cfg(test)]
-    pub list_viewer: ListViewer<SessionListItem>,
-    #[cfg(not(test))]
-    list_viewer: ListViewer<SessionListItem>,
-    raw_messages: Vec<String>,
+    result_list: ResultList,
+    message_preview: MessagePreview,
     text_input: TextInput,
     order: SessionOrder,
     is_searching: bool,
     file_path: Option<String>,
     cwd: Option<String>,
     session_id: Option<String>,
-    messages_hash: u64,
     message: Option<String>,
     role_filter: Option<String>,
+    preview_enabled: bool,
 }
 
 impl Default for SessionViewer {
@@ -45,59 +40,26 @@ impl Default for SessionViewer {
 impl SessionViewer {
     pub fn new() -> Self {
         Self {
-            list_viewer: ListViewer::new(
-                "Session Messages".to_string(),
-                "No messages in session".to_string(),
-            ),
-            raw_messages: Vec::new(),
+            result_list: ResultList::new().with_status_bar(false),
+            message_preview: MessagePreview::new(),
             text_input: TextInput::new(),
             order: SessionOrder::Ascending,
             is_searching: false,
             file_path: None,
             cwd: None,
             session_id: None,
-            messages_hash: 0,
             message: None,
             role_filter: None,
+            preview_enabled: false,
         }
     }
 
-    pub fn set_messages(&mut self, messages: Vec<String>) {
-        // Calculate hash of new messages to check if they changed
-        let mut hasher = DefaultHasher::new();
-        messages.hash(&mut hasher);
-        let new_hash = hasher.finish();
-
-        // Only update if messages have changed
-        if new_hash != self.messages_hash {
-            self.messages_hash = new_hash;
-            self.raw_messages = messages;
-
-            // Extract cwd from the first message if not yet set
-            if self.cwd.is_none() {
-                for line in &self.raw_messages {
-                    if let Ok(msg) = serde_json::from_str::<SessionMessage>(line) {
-                        if let Some(cwd) = msg.get_cwd() {
-                            self.cwd = Some(cwd.to_string());
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Convert raw messages to SessionListItems
-            let items: Vec<SessionListItem> = self
-                .raw_messages
-                .iter()
-                .filter_map(|line| SessionListItem::from_json_line(line))
-                .collect();
-
-            self.list_viewer.set_items(items);
+    pub fn set_results(&mut self, results: Vec<SearchResult>) {
+        // Extract cwd from the first result if not yet set
+        if self.cwd.is_none() && !results.is_empty() {
+            self.cwd = Some(results[0].cwd.clone());
         }
-    }
-
-    pub fn set_filtered_indices(&mut self, indices: Vec<usize>) {
-        self.list_viewer.set_filtered_indices(indices);
+        self.result_list.set_results(results);
     }
 
     pub fn set_query(&mut self, query: String) {
@@ -108,7 +70,6 @@ impl SessionViewer {
                 self.text_input.set_text(query.clone());
             }
         }
-        self.list_viewer.set_query(query);
     }
 
     pub fn set_order(&mut self, order: SessionOrder) {
@@ -116,9 +77,7 @@ impl SessionViewer {
     }
 
     pub fn set_file_path(&mut self, file_path: Option<String>) {
-        self.file_path = file_path.clone();
-        // Extract project path from file path
-        // cwd will be extracted from messages when loaded
+        self.file_path = file_path;
     }
 
     pub fn set_session_id(&mut self, session_id: Option<String>) {
@@ -126,16 +85,19 @@ impl SessionViewer {
     }
 
     pub fn set_selected_index(&mut self, index: usize) {
-        // Use set_filtered_position since we're dealing with filtered indices
-        self.list_viewer.set_filtered_position(index);
+        self.result_list.set_selected_index(index);
     }
 
-    pub fn set_scroll_offset(&mut self, offset: usize) {
-        self.list_viewer.set_scroll_offset(offset);
+    pub fn get_selected_index(&self) -> usize {
+        self.result_list.get_selected_index()
+    }
+
+    pub fn get_scroll_offset(&self) -> usize {
+        self.result_list.get_scroll_offset()
     }
 
     pub fn set_truncation_enabled(&mut self, enabled: bool) {
-        self.list_viewer.set_truncation_enabled(enabled);
+        self.result_list.set_truncation_enabled(enabled);
     }
 
     pub fn set_message(&mut self, message: Option<String>) {
@@ -146,12 +108,9 @@ impl SessionViewer {
         self.role_filter = role_filter;
     }
 
-    pub fn get_selected_index(&self) -> usize {
-        self.list_viewer.selected_index
-    }
-
-    pub fn get_scroll_offset(&self) -> usize {
-        self.list_viewer.scroll_offset
+    pub fn set_preview_enabled(&mut self, enabled: bool) {
+        self.preview_enabled = enabled;
+        self.result_list.set_preview_enabled(enabled);
     }
 
     pub fn start_search(&mut self) {
@@ -163,19 +122,17 @@ impl SessionViewer {
         self.is_searching = false;
     }
 
-    #[cfg(test)]
-    pub fn set_cursor_position(&mut self, pos: usize) {
-        self.text_input.set_cursor_position(pos);
+    pub fn is_searching(&self) -> bool {
+        self.is_searching
     }
 
     #[cfg(test)]
-    pub fn cursor_position(&self) -> usize {
-        self.text_input.cursor_position()
+    pub fn is_preview_enabled(&self) -> bool {
+        self.preview_enabled
     }
 
-    #[cfg(test)]
-    pub fn query(&self) -> &str {
-        self.text_input.text()
+    pub fn get_result_list(&self) -> &ResultList {
+        &self.result_list
     }
 
     fn format_order(order: &SessionOrder) -> &'static str {
@@ -190,7 +147,7 @@ impl SessionViewer {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(3), // Search bar or info bar
-                Constraint::Min(0),    // Messages
+                Constraint::Min(0),    // Results
             ])
             .split(area);
 
@@ -208,7 +165,7 @@ impl SessionViewer {
 
             let search_bar = Paragraph::new(Line::from(search_text)).block(
                 Block::default()
-                    .title(format!("Search in session ({status_text}) | Tab: Role Filter | Ctrl+O: Sort | Esc to cancel | ↑/↓ or Ctrl+P/N to scroll"))
+                    .title(format!("Search in session ({status_text}) | Tab: Role Filter | Ctrl+O: Sort | Esc to cancel"))
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(ColorScheme::SECONDARY)),
             );
@@ -223,19 +180,41 @@ impl SessionViewer {
                 String::new()
             };
 
-            let info_text = format!(
-                "Messages: {} (filtered: {}){}{} | Press '/' to search",
-                self.list_viewer.items_count(),
-                self.list_viewer.filtered_count(),
-                order_part,
-                role_part
-            );
+            let total_count = self.result_list.items_count();
+
+            let info_text = if total_count == 0 {
+                format!("No messages{order_part}{role_part} | Press '/' to search")
+            } else {
+                format!(
+                    "Total: {total_count} messages{order_part}{role_part} | Press '/' to search"
+                )
+            };
             let info_bar = Paragraph::new(info_text).block(Block::default().borders(Borders::ALL));
             f.render_widget(info_bar, chunks[0]);
         }
 
-        // Render message list using ListViewer
-        self.list_viewer.render(f, chunks[1]);
+        // Split the content area if preview is enabled
+        if self.preview_enabled && self.result_list.selected_result().is_some() {
+            // Split content area into list and preview
+            let content_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(40), // Results list
+                    Constraint::Percentage(60), // Preview
+                ])
+                .split(chunks[1]);
+
+            // Update preview state
+            let selected_result = self.result_list.selected_result().cloned();
+            self.message_preview.set_result(selected_result);
+
+            // Render both components
+            self.result_list.render(f, content_chunks[0]);
+            self.message_preview.render(f, content_chunks[1]);
+        } else {
+            // No preview - use full width for results
+            self.result_list.render(f, chunks[1]);
+        }
     }
 }
 
@@ -257,57 +236,31 @@ impl Component for SessionViewer {
 
         let subtitle = subtitle_parts.join("\n");
 
-        // Calculate status bar height based on terminal width using Ratatui's line wrapping
-        let status_text = "↑/↓ Ctrl+P/N Ctrl+U/D: Navigate | Tab: Filter | Enter: Detail | Ctrl+O: Sort | c/C: Copy text/JSON | i/f/p: Copy IDs/paths | /: Search | Alt+←/→: History | Esc: Back";
-        let status_bar_height = {
-            // Create a temporary paragraph to calculate actual line count
-            let paragraph = Paragraph::new(status_text).wrap(Wrap { trim: true });
-
-            // Calculate the actual number of lines with proper text wrapping
-            let lines_needed = paragraph.line_count(area.width) as u16;
-
-            // Ensure minimum of 1 line, max of 5 lines
-            // SessionViewer has longer status text than other components
-            lines_needed.clamp(1, 5)
-        };
-
         // Check if message is exit prompt
         let is_exit = is_exit_prompt(&self.message);
         let non_exit_message = if is_exit { None } else { self.message.clone() };
 
-        // Layout with message area
-        let chunks = if is_exit {
+        // Layout with message area but WITHOUT status bar (ViewLayout will handle it)
+        let chunks = if is_exit || non_exit_message.is_some() {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Min(0),                    // Main content
-                    Constraint::Length(status_bar_height), // Status bar with dynamic height
-                    Constraint::Length(1),                 // Exit prompt at bottom
-                ])
-                .split(area)
-        } else if non_exit_message.is_some() {
-            Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Min(0),                    // Main content
-                    Constraint::Length(1),                 // Message
-                    Constraint::Length(status_bar_height), // Status bar with dynamic height
+                    Constraint::Min(0),    // Main content
+                    Constraint::Length(1), // Message
                 ])
                 .split(area)
         } else {
             Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Min(0),                    // Main content
-                    Constraint::Length(status_bar_height), // Status bar with dynamic height
-                ])
+                .constraints([Constraint::Min(0)]) // Full area
                 .split(area)
         };
 
         // Render main content with ViewLayout
         let layout = ViewLayout::new("Session Viewer".to_string())
             .with_subtitle(subtitle)
-            .with_status_bar(false); // We'll render our own status bar
+            .with_status_bar(true) // Let ViewLayout handle the status bar
+            .with_status_text("↑/↓ Ctrl+P/N Ctrl+U/D: Navigate | Tab: Filter | Enter: Detail | Ctrl+O: Sort | Ctrl+T: Preview | c/C: Copy text/JSON | i/f/p: Copy IDs/paths | /: Search | Alt+←/→: History | Esc: Back".to_string());
 
         layout.render(f, chunks[0], |f, content_area| {
             self.render_content(f, content_area);
@@ -328,27 +281,13 @@ impl Component for SessionViewer {
             let message_widget = Paragraph::new(msg.clone())
                 .style(style)
                 .alignment(ratatui::layout::Alignment::Center);
-            f.render_widget(message_widget, chunks[1]);
-        }
-
-        // Render status bar
-        let status_idx = if is_exit {
-            1
-        } else if non_exit_message.is_some() {
-            2
-        } else {
-            1
-        };
-        if chunks.len() > status_idx {
-            let status_bar = Paragraph::new(Text::from(status_text))
-                .style(Style::default().fg(Color::DarkGray))
-                .alignment(ratatui::layout::Alignment::Left)
-                .wrap(Wrap { trim: true });
-            f.render_widget(status_bar, chunks[status_idx]);
+            if chunks.len() > 1 {
+                f.render_widget(message_widget, chunks[1]);
+            }
         }
 
         // Render exit prompt at the very bottom if needed
-        if is_exit {
+        if is_exit && chunks.len() > 1 {
             let exit_prompt = Paragraph::new("Press Ctrl+C again to exit")
                 .style(
                     Style::default()
@@ -356,7 +295,7 @@ impl Component for SessionViewer {
                         .add_modifier(Modifier::BOLD),
                 )
                 .alignment(ratatui::layout::Alignment::Center);
-            f.render_widget(exit_prompt, chunks[2]);
+            f.render_widget(exit_prompt, chunks[chunks.len() - 1]);
         }
     }
 
@@ -369,44 +308,64 @@ impl Component for SessionViewer {
                     Some(Message::SessionQueryChanged(String::new()))
                 }
                 KeyCode::Enter => {
-                    self.is_searching = false;
-                    // Navigate to result detail for selected message
-                    self.list_viewer.get_selected_item().and_then(|item| {
-                        self.file_path.as_ref().map(|path| {
-                            Message::EnterMessageDetailFromSession(
-                                item.raw_json.clone(),
-                                path.clone(),
-                                self.session_id.clone(),
-                            )
-                        })
-                    })
+                    // Navigate to result detail for selected message (keep search mode active)
+                    if let Some(result) = self.result_list.selected_result() {
+                        Some(Message::EnterMessageDetailFromSession(
+                            result.raw_json.clone().unwrap_or_default(),
+                            self.file_path.clone().unwrap_or_default(),
+                            self.session_id.clone(),
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 KeyCode::Up => {
-                    self.list_viewer.move_up();
+                    self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
-                        self.list_viewer.selected_index,
-                        self.list_viewer.scroll_offset,
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
                     ))
                 }
                 KeyCode::Down => {
-                    self.list_viewer.move_down();
+                    self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
-                        self.list_viewer.selected_index,
-                        self.list_viewer.scroll_offset,
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
                     ))
                 }
                 KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
-                    self.list_viewer.move_up();
+                    self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
-                        self.list_viewer.selected_index,
-                        self.list_viewer.scroll_offset,
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
                     ))
                 }
                 KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
-                    self.list_viewer.move_down();
+                    self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
-                        self.list_viewer.selected_index,
-                        self.list_viewer.scroll_offset,
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
+                    ))
+                }
+                KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.result_list.handle_key(key);
+                    Some(Message::SessionNavigated(
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
+                    ))
+                }
+                KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                    self.result_list.handle_key(key);
+                    Some(Message::SessionNavigated(
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
+                    ))
+                }
+                KeyCode::PageUp | KeyCode::PageDown | KeyCode::Home | KeyCode::End => {
+                    self.result_list.handle_key(key);
+                    Some(Message::SessionNavigated(
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
                     ))
                 }
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -415,8 +374,12 @@ impl Component for SessionViewer {
                 KeyCode::Char('o') if key.modifiers == KeyModifiers::CONTROL => {
                     Some(Message::ToggleSessionOrder)
                 }
-                // Handle cursor movement keys explicitly
-                KeyCode::Left | KeyCode::Right | KeyCode::Home | KeyCode::End => {
+                KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
+                    Some(Message::ToggleSessionPreview)
+                }
+                // Remove copy shortcuts during search - they should be text input instead
+                // Handle cursor movement keys explicitly (but Home/End are already handled above for list navigation)
+                KeyCode::Left | KeyCode::Right => {
                     self.text_input.handle_key(key);
                     None
                 }
@@ -434,45 +397,64 @@ impl Component for SessionViewer {
         } else {
             match key.code {
                 KeyCode::Up => {
-                    self.list_viewer.move_up();
+                    self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
-                        self.list_viewer.selected_index,
-                        self.list_viewer.scroll_offset,
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
                     ))
                 }
                 KeyCode::Down => {
-                    self.list_viewer.move_down();
+                    self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
-                        self.list_viewer.selected_index,
-                        self.list_viewer.scroll_offset,
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
                     ))
                 }
+                KeyCode::Enter => {
+                    // Navigate to result detail for selected message
+                    if let Some(result) = self.result_list.selected_result() {
+                        Some(Message::EnterMessageDetailFromSession(
+                            result.raw_json.clone().unwrap_or_default(),
+                            self.file_path.clone().unwrap_or_default(),
+                            self.session_id.clone(),
+                        ))
+                    } else {
+                        None
+                    }
+                }
                 KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
-                    self.list_viewer.move_up();
+                    self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
-                        self.list_viewer.selected_index,
-                        self.list_viewer.scroll_offset,
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
                     ))
                 }
                 KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
-                    self.list_viewer.move_down();
+                    self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
-                        self.list_viewer.selected_index,
-                        self.list_viewer.scroll_offset,
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
                     ))
                 }
                 KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
-                    self.list_viewer.half_page_up();
+                    self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
-                        self.list_viewer.selected_index,
-                        self.list_viewer.scroll_offset,
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
                     ))
                 }
                 KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
-                    self.list_viewer.half_page_down();
+                    self.result_list.handle_key(key);
                     Some(Message::SessionNavigated(
-                        self.list_viewer.selected_index,
-                        self.list_viewer.scroll_offset,
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
+                    ))
+                }
+                KeyCode::PageUp | KeyCode::PageDown | KeyCode::Home | KeyCode::End => {
+                    self.result_list.handle_key(key);
+                    Some(Message::SessionNavigated(
+                        self.result_list.get_selected_index(),
+                        self.result_list.get_scroll_offset(),
                     ))
                 }
                 KeyCode::Tab if !key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -485,12 +467,17 @@ impl Component for SessionViewer {
                 KeyCode::Char('o') if key.modifiers == KeyModifiers::CONTROL => {
                     Some(Message::ToggleSessionOrder)
                 }
+                KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
+                    Some(Message::ToggleSessionPreview)
+                }
                 // Unified copy operations
-                KeyCode::Char('c') => self.list_viewer.get_selected_item().map(|item| {
-                    Message::CopyToClipboard(CopyContent::MessageContent(item.content.clone()))
+                KeyCode::Char('c') => self.result_list.selected_result().map(|result| {
+                    Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))
                 }),
-                KeyCode::Char('C') => self.list_viewer.get_selected_item().map(|item| {
-                    Message::CopyToClipboard(CopyContent::JsonData(item.raw_json.clone()))
+                KeyCode::Char('C') => self.result_list.selected_result().map(|result| {
+                    Message::CopyToClipboard(CopyContent::JsonData(
+                        result.raw_json.clone().unwrap_or_default(),
+                    ))
                 }),
                 KeyCode::Char('i') => self
                     .session_id
@@ -504,18 +491,220 @@ impl Component for SessionViewer {
                     .file_path
                     .clone()
                     .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path))),
-                KeyCode::Enter => self.list_viewer.get_selected_item().and_then(|item| {
-                    self.file_path.as_ref().map(|path| {
-                        Message::EnterMessageDetailFromSession(
-                            item.raw_json.clone(),
-                            path.clone(),
-                            self.session_id.clone(),
-                        )
-                    })
-                }),
                 KeyCode::Esc => Some(Message::ExitToSearch),
                 _ => None,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    #[test]
+    fn test_is_searching_state() {
+        let mut viewer = SessionViewer::new();
+
+        // Initially not searching
+        assert!(!viewer.is_searching());
+
+        // Start search with '/' key
+        let key = KeyEvent::new(KeyCode::Char('/'), KeyModifiers::NONE);
+        viewer.handle_key(key);
+        assert!(viewer.is_searching());
+
+        // Stop search with Esc
+        let key = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+        viewer.handle_key(key);
+        assert!(!viewer.is_searching());
+    }
+
+    #[test]
+    fn test_set_query_preserves_cursor_when_searching() {
+        let mut viewer = SessionViewer::new();
+
+        // Start search mode
+        viewer.start_search();
+        assert!(viewer.is_searching());
+
+        // Type some text
+        let key = KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE);
+        viewer.handle_key(key);
+        let key = KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE);
+        viewer.handle_key(key);
+        let key = KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE);
+        viewer.handle_key(key);
+        let key = KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE);
+        viewer.handle_key(key);
+
+        // Move cursor to middle
+        let key = KeyEvent::new(KeyCode::Left, KeyModifiers::NONE);
+        viewer.handle_key(key);
+        let key = KeyEvent::new(KeyCode::Left, KeyModifiers::NONE);
+        viewer.handle_key(key);
+
+        // Text should be "test" with cursor at position 2
+        assert_eq!(viewer.text_input.text(), "test");
+        assert_eq!(viewer.text_input.cursor_position(), 2);
+
+        // Call set_query - should not update text_input when searching
+        viewer.set_query("different".to_string());
+
+        // Text and cursor position should be preserved
+        assert_eq!(viewer.text_input.text(), "test");
+        assert_eq!(viewer.text_input.cursor_position(), 2);
+    }
+
+    #[test]
+    fn test_text_input_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+
+        // Start search mode
+        viewer.start_search();
+        assert!(viewer.is_searching());
+
+        // Test regular character input including 'f', 'c', 'i', 'p'
+        let test_chars = ['f', 'o', 'o', ' ', 'c', 'i', 'p'];
+        for ch in test_chars {
+            let key = KeyEvent::new(KeyCode::Char(ch), KeyModifiers::NONE);
+            let result = viewer.handle_key(key);
+            assert!(matches!(result, Some(Message::SessionQueryChanged(_))));
+        }
+
+        assert_eq!(viewer.text_input.text(), "foo cip");
+    }
+
+    #[test]
+    fn test_ctrl_d_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+
+        // Add some text
+        for ch in ['f', 'o', 'o'] {
+            let key = KeyEvent::new(KeyCode::Char(ch), KeyModifiers::NONE);
+            viewer.handle_key(key);
+        }
+        assert_eq!(viewer.text_input.text(), "foo");
+
+        // Move cursor to beginning
+        let key = KeyEvent::new(KeyCode::Home, KeyModifiers::NONE);
+        viewer.handle_key(key);
+
+        // Use Ctrl+D to delete character under cursor
+        let key = KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+
+        // Ctrl+D is used for navigation (half page down), not delete in search mode
+        assert!(matches!(result, Some(Message::SessionNavigated(_, _))));
+        // Text should remain unchanged
+        assert_eq!(viewer.text_input.text(), "foo");
+    }
+
+    #[test]
+    fn test_navigation_keys_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+
+        // Add some sample results
+        use crate::query::condition::QueryCondition;
+        let results = vec![
+            SearchResult {
+                file: "/file.jsonl".to_string(),
+                uuid: "uuid1".to_string(),
+                timestamp: "2024-01-01T00:00:00Z".to_string(),
+                session_id: "session1".to_string(),
+                role: "user".to_string(),
+                text: "Message 1".to_string(),
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: String::new(),
+                    case_sensitive: false,
+                },
+                cwd: "/path".to_string(),
+                raw_json: Some("{}".to_string()),
+            },
+            SearchResult {
+                file: "/file.jsonl".to_string(),
+                uuid: "uuid2".to_string(),
+                timestamp: "2024-01-01T00:01:00Z".to_string(),
+                session_id: "session1".to_string(),
+                role: "assistant".to_string(),
+                text: "Message 2".to_string(),
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: String::new(),
+                    case_sensitive: false,
+                },
+                cwd: "/path".to_string(),
+                raw_json: Some("{}".to_string()),
+            },
+        ];
+        viewer.set_results(results);
+
+        // Test Up/Down keys for navigation
+        let key = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::SessionNavigated(_, _))));
+
+        let key = KeyEvent::new(KeyCode::Up, KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::SessionNavigated(_, _))));
+
+        // Test Ctrl+P/N for navigation
+        let key = KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::SessionNavigated(_, _))));
+
+        let key = KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::SessionNavigated(_, _))));
+    }
+
+    #[test]
+    fn test_toggle_filters_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+
+        // Test Tab for role filter toggle
+        let key = KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::ToggleSessionRoleFilter)));
+
+        // Test Ctrl+O for order toggle
+        let key = KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::ToggleSessionOrder)));
+
+        // Test Ctrl+T for preview toggle
+        let key = KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::ToggleSessionPreview)));
+    }
+
+    #[test]
+    fn test_copy_shortcuts_not_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+
+        // Not in search mode - copy shortcuts should work
+        viewer.set_file_path(Some("/test/path.jsonl".to_string()));
+        viewer.set_session_id(Some("test-session".to_string()));
+
+        // Test 'f' key for file path copy
+        let key = KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(
+            result,
+            Some(Message::CopyToClipboard(CopyContent::FilePath(_)))
+        ));
+
+        // Test 'i' key for session ID copy
+        let key = KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(
+            result,
+            Some(Message::CopyToClipboard(CopyContent::SessionId(_)))
+        ));
     }
 }
