@@ -7,7 +7,6 @@ use crate::interactive_ratatui::ui::components::{
     text_input::TextInput,
     view_layout::{ColorScheme, ViewLayout},
 };
-use crate::interactive_ratatui::ui::debug_log::{init_debug_log, write_debug_log};
 use crate::interactive_ratatui::ui::events::{CopyContent, Message};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
@@ -102,20 +101,12 @@ impl SessionViewer {
     }
 
     pub fn set_query(&mut self, query: String) {
-        init_debug_log();
-        write_debug_log(&format!("[SessionViewer] set_query called: query='{}', is_searching={}", query, self.is_searching));
-        write_debug_log(&format!("[SessionViewer] Current text_input: text='{}', cursor_pos={}", self.text_input.text(), self.text_input.cursor_position()));
         // Don't update text_input during search mode to preserve cursor position
         if !self.is_searching {
             // Only update if the query actually changed to preserve cursor position
             if self.text_input.text() != query {
-                write_debug_log("[SessionViewer] Updating text_input because not searching and query changed");
                 self.text_input.set_text(query.clone());
-            } else {
-                write_debug_log("[SessionViewer] Not updating text_input: query unchanged");
             }
-        } else {
-            write_debug_log("[SessionViewer] Not updating text_input: in search mode");
         }
         self.list_viewer.set_query(query);
     }
@@ -164,11 +155,8 @@ impl SessionViewer {
     }
 
     pub fn start_search(&mut self) {
-        init_debug_log();
-        write_debug_log("[SessionViewer] start_search called");
         self.is_searching = true;
         self.text_input.set_text(String::new());
-        write_debug_log(&format!("[SessionViewer] After start_search: is_searching={}, text='{}'", self.is_searching, self.text_input.text()));
     }
 
     pub fn stop_search(&mut self) {
@@ -374,8 +362,6 @@ impl Component for SessionViewer {
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
         if self.is_searching {
-            init_debug_log();
-            write_debug_log(&format!("[SessionViewer] Search mode: key={:?}", key));
             match key.code {
                 KeyCode::Esc => {
                     self.is_searching = false;
@@ -431,17 +417,11 @@ impl Component for SessionViewer {
                 }
                 // Handle cursor movement keys explicitly
                 KeyCode::Left | KeyCode::Right | KeyCode::Home | KeyCode::End => {
-                    write_debug_log(&format!("[SessionViewer] Cursor movement key: {:?}", key.code));
-                    write_debug_log(&format!("[SessionViewer] Before: query='{}', cursor_pos={}", self.text_input.text(), self.text_input.cursor_position()));
                     self.text_input.handle_key(key);
-                    write_debug_log(&format!("[SessionViewer] After: query='{}', cursor_pos={}", self.text_input.text(), self.text_input.cursor_position()));
                     None
                 }
                 _ => {
-                    write_debug_log(&format!("[SessionViewer] Other key: {:?}", key));
-                    write_debug_log(&format!("[SessionViewer] Before: query='{}', cursor_pos={}", self.text_input.text(), self.text_input.cursor_position()));
                     let changed = self.text_input.handle_key(key);
-                    write_debug_log(&format!("[SessionViewer] After: query='{}', cursor_pos={}, changed={}", self.text_input.text(), self.text_input.cursor_position(), changed));
                     if changed {
                         Some(Message::SessionQueryChanged(
                             self.text_input.text().to_string(),

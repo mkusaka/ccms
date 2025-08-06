@@ -1,7 +1,6 @@
 pub mod app_state;
 pub mod commands;
 pub mod components;
-pub mod debug_log;
 pub mod events;
 pub mod navigation;
 pub mod renderer;
