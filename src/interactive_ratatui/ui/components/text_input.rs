@@ -1,4 +1,3 @@
-use crate::interactive_ratatui::ui::debug_log::{init_debug_log, write_debug_log};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     style::{Color, Style},
@@ -33,17 +32,8 @@ impl TextInput {
 
     /// Set the text and move cursor to the end
     pub fn set_text(&mut self, text: String) {
-        init_debug_log();
-        write_debug_log(&format!(
-            "[TextInput] set_text called: new_text='{}', old_text='{}', old_cursor_pos={}",
-            text, self.text, self.cursor_position
-        ));
         self.cursor_position = text.chars().count();
         self.text = text;
-        write_debug_log(&format!(
-            "[TextInput] After set_text: text='{}', cursor_pos={}",
-            self.text, self.cursor_position
-        ));
     }
 
     /// Set the cursor position
@@ -162,11 +152,6 @@ impl TextInput {
 
     /// Handle a key event and return true if the text changed
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
-        init_debug_log();
-        write_debug_log(&format!(
-            "[TextInput] handle_key: key={:?}, text='{}', cursor_pos={}",
-            key, self.text, self.cursor_position
-        ));
         // Handle Control key combinations
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
@@ -326,35 +311,14 @@ impl TextInput {
                 }
             }
             KeyCode::Left => {
-                write_debug_log(&format!(
-                    "[TextInput] Left arrow pressed, cursor_position={}",
-                    self.cursor_position
-                ));
                 if self.cursor_position > 0 {
                     self.cursor_position -= 1;
-                    write_debug_log(&format!(
-                        "[TextInput] Moved cursor left to {}",
-                        self.cursor_position
-                    ));
-                } else {
-                    write_debug_log("[TextInput] Already at beginning");
                 }
                 false
             }
             KeyCode::Right => {
-                write_debug_log(&format!(
-                    "[TextInput] Right arrow pressed, cursor_position={}, text_len={}",
-                    self.cursor_position,
-                    self.text.chars().count()
-                ));
                 if self.cursor_position < self.text.chars().count() {
                     self.cursor_position += 1;
-                    write_debug_log(&format!(
-                        "[TextInput] Moved cursor right to {}",
-                        self.cursor_position
-                    ));
-                } else {
-                    write_debug_log("[TextInput] Already at end");
                 }
                 false
             }
