@@ -4,8 +4,8 @@ use crate::interactive_ratatui::ui::app_state::{AppState, Mode};
 use crate::interactive_ratatui::ui::components::{
     Component, help_dialog::HelpDialog, is_exit_prompt, message_detail::MessageDetail,
     message_preview::MessagePreview, result_list::ResultList, search_bar::SearchBar,
-    session_list::SessionList, session_preview::SessionPreview,
-    session_viewer_unified::SessionViewerUnified, tab_bar::TabBar,
+    session_list::SessionList, session_preview::SessionPreview, session_viewer::SessionViewer,
+    tab_bar::TabBar,
 };
 use ratatui::{
     Frame,
@@ -20,7 +20,7 @@ pub struct Renderer {
     result_list: ResultList,
     message_detail: MessageDetail,
     message_preview: MessagePreview,
-    session_viewer: SessionViewerUnified,
+    session_viewer: SessionViewer,
     session_list: SessionList,
     session_preview: SessionPreview,
     tab_bar: TabBar,
@@ -34,7 +34,7 @@ impl Renderer {
             result_list: ResultList::new(),
             message_detail: MessageDetail::new(),
             message_preview: MessagePreview::new(),
-            session_viewer: SessionViewerUnified::new(),
+            session_viewer: SessionViewer::new(),
             session_list: SessionList::new(),
             session_preview: SessionPreview::new(),
             tab_bar: TabBar::new(),
@@ -275,7 +275,7 @@ impl Renderer {
         &mut self.message_detail
     }
 
-    pub fn get_session_viewer_mut(&mut self) -> &mut SessionViewerUnified {
+    pub fn get_session_viewer_mut(&mut self) -> &mut SessionViewer {
         &mut self.session_viewer
     }
 

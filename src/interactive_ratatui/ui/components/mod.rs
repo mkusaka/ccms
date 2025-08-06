@@ -7,8 +7,7 @@ pub mod result_list;
 pub mod search_bar;
 pub mod session_list;
 pub mod session_preview;
-// pub mod session_viewer; // Replaced by session_viewer_unified
-pub mod session_viewer_unified;
+pub mod session_viewer;
 pub mod tab_bar;
 pub mod text_input;
 pub mod view_layout;
