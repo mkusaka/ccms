@@ -240,7 +240,10 @@ impl Renderer {
         // Update session viewer state with search results
         self.session_viewer
             .set_results(state.session.search_results.clone());
-        self.session_viewer.set_query(state.session.query.clone());
+        // Only update query when not in search mode to preserve cursor position
+        if !self.session_viewer.is_searching() {
+            self.session_viewer.set_query(state.session.query.clone());
+        }
         self.session_viewer.set_order(state.session.order);
         self.session_viewer
             .set_file_path(state.session.file_path.clone());

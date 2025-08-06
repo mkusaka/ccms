@@ -6,6 +6,7 @@ use crate::interactive_ratatui::ui::components::{
     text_input::TextInput,
     view_layout::{ColorScheme, ViewLayout},
 };
+use crate::interactive_ratatui::ui::debug_log::{init_debug_log, write_debug_log};
 use crate::interactive_ratatui::ui::events::{CopyContent, Message};
 use crate::query::condition::SearchResult;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -63,7 +64,30 @@ impl SessionViewerUnified {
     }
 
     pub fn set_query(&mut self, query: String) {
-        self.text_input.set_text(query);
+        init_debug_log();
+        write_debug_log(&format!(
+            "[SessionViewerUnified] set_query called: query='{}', is_searching={}",
+            query, self.is_searching
+        ));
+        write_debug_log(&format!(
+            "[SessionViewerUnified] Current text_input: text='{}', cursor_pos={}",
+            self.text_input.text(),
+            self.text_input.cursor_position()
+        ));
+        // Don't update text_input during search mode to preserve cursor position
+        if !self.is_searching {
+            // Only update if the query actually changed to preserve cursor position
+            if self.text_input.text() != query {
+                write_debug_log(
+                    "[SessionViewerUnified] Updating text_input because not searching and query changed",
+                );
+                self.text_input.set_text(query.clone());
+            } else {
+                write_debug_log("[SessionViewerUnified] Not updating text_input: query unchanged");
+            }
+        } else {
+            write_debug_log("[SessionViewerUnified] Not updating text_input: in search mode");
+        }
     }
 
     pub fn set_order(&mut self, order: SessionOrder) {
@@ -108,12 +132,23 @@ impl SessionViewerUnified {
     }
 
     pub fn start_search(&mut self) {
+        init_debug_log();
+        write_debug_log("[SessionViewerUnified] start_search called");
         self.is_searching = true;
         self.text_input.set_text(String::new());
+        write_debug_log(&format!(
+            "[SessionViewerUnified] After start_search: is_searching={}, text='{}'",
+            self.is_searching,
+            self.text_input.text()
+        ));
     }
 
     pub fn stop_search(&mut self) {
         self.is_searching = false;
+    }
+
+    pub fn is_searching(&self) -> bool {
+        self.is_searching
     }
 
     #[cfg(test)]
@@ -291,6 +326,8 @@ impl Component for SessionViewerUnified {
 
     fn handle_key(&mut self, key: KeyEvent) -> Option<Message> {
         if self.is_searching {
+            init_debug_log();
+            write_debug_log(&format!("[SessionViewerUnified] Search mode: key={key:?}"));
             match key.code {
                 KeyCode::Esc => {
                     self.is_searching = false;
@@ -392,6 +429,11 @@ impl Component for SessionViewerUnified {
                     .file_path
                     .clone()
                     .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path))),
+                // Handle cursor movement keys explicitly (but Home/End are already handled above for list navigation)
+                KeyCode::Left | KeyCode::Right => {
+                    self.text_input.handle_key(key);
+                    None
+                }
                 _ => {
                     let changed = self.text_input.handle_key(key);
                     if changed {
@@ -504,5 +546,65 @@ impl Component for SessionViewerUnified {
                 _ => None,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    #[test]
+    fn test_is_searching_state() {
+        let mut viewer = SessionViewerUnified::new();
+
+        // Initially not searching
+        assert!(!viewer.is_searching());
+
+        // Start search with '/' key
+        let key = KeyEvent::new(KeyCode::Char('/'), KeyModifiers::NONE);
+        viewer.handle_key(key);
+        assert!(viewer.is_searching());
+
+        // Stop search with Esc
+        let key = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+        viewer.handle_key(key);
+        assert!(!viewer.is_searching());
+    }
+
+    #[test]
+    fn test_set_query_preserves_cursor_when_searching() {
+        let mut viewer = SessionViewerUnified::new();
+
+        // Start search mode
+        viewer.start_search();
+        assert!(viewer.is_searching());
+
+        // Type some text
+        let key = KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE);
+        viewer.handle_key(key);
+        let key = KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE);
+        viewer.handle_key(key);
+        let key = KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE);
+        viewer.handle_key(key);
+        let key = KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE);
+        viewer.handle_key(key);
+
+        // Move cursor to middle
+        let key = KeyEvent::new(KeyCode::Left, KeyModifiers::NONE);
+        viewer.handle_key(key);
+        let key = KeyEvent::new(KeyCode::Left, KeyModifiers::NONE);
+        viewer.handle_key(key);
+
+        // Text should be "test" with cursor at position 2
+        assert_eq!(viewer.text_input.text(), "test");
+        assert_eq!(viewer.text_input.cursor_position(), 2);
+
+        // Call set_query - should not update text_input when searching
+        viewer.set_query("different".to_string());
+
+        // Text and cursor position should be preserved
+        assert_eq!(viewer.text_input.text(), "test");
+        assert_eq!(viewer.text_input.cursor_position(), 2);
     }
 }
