@@ -54,6 +54,10 @@ pub struct SearchState {
     pub order: SearchOrder,
     pub preview_enabled: bool,
     pub current_tab: SearchTab,
+    // Pagination fields
+    pub has_more_results: bool,
+    pub loading_more: bool,
+    pub total_loaded: usize,
 }
 
 pub struct SessionState {
@@ -100,6 +104,9 @@ impl AppState {
                 order: SearchOrder::Descending,
                 preview_enabled: false,
                 current_tab: SearchTab::Search,
+                has_more_results: false,
+                loading_more: false,
+                total_loaded: 0,
             },
             session: SessionState {
                 messages: Vec::new(),
@@ -147,13 +154,45 @@ impl AppState {
                 self.search.is_searching = true;
                 self.ui.message = Some("[searching...]".to_string());
                 self.search.current_search_id += 1;
+                // Reset pagination for new search
+                self.search.has_more_results = false;
+                self.search.loading_more = false;
+                self.search.total_loaded = 0;
                 Command::ExecuteSearch
             }
             Message::SearchCompleted(results) => {
+                // Check if we got the full initial limit (100)
+                self.search.has_more_results = results.len() == 100;
+                self.search.total_loaded = results.len();
                 self.search.results = results;
                 self.search.is_searching = false;
                 // Results are already sorted by the search engine based on current order
                 self.ui.message = None;
+                Command::None
+            }
+            Message::LoadMoreResults => {
+                if self.search.has_more_results && !self.search.loading_more {
+                    self.search.loading_more = true;
+                    self.ui.message = Some("[loading more...]".to_string());
+                    Command::LoadMore(self.search.total_loaded)
+                } else {
+                    Command::None
+                }
+            }
+            Message::MoreResultsLoaded(new_results) => {
+                // Check if we got a full batch
+                self.search.has_more_results = new_results.len() == 100;
+                self.search.total_loaded += new_results.len();
+
+                // Append new results to existing ones
+                self.search.results.extend(new_results);
+                self.search.loading_more = false;
+
+                if !self.search.has_more_results {
+                    self.ui.message = Some("[all results loaded]".to_string());
+                } else {
+                    self.ui.message = None;
+                }
                 Command::None
             }
             Message::SelectResult(index) => {

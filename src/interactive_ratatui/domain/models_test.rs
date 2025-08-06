@@ -44,6 +44,8 @@ mod tests {
             role_filter: Some("user".to_string()),
             pattern: "*.jsonl".to_string(),
             order: SearchOrder::Descending,
+            limit: None,
+            offset: None,
         };
 
         assert_eq!(request.id, 42);
@@ -103,6 +105,8 @@ mod tests {
             role_filter: None,
             pattern: "*.jsonl".to_string(),
             order: SearchOrder::Ascending,
+            limit: Some(100),
+            offset: Some(50),
         };
 
         let cloned = original.clone();
@@ -111,5 +115,7 @@ mod tests {
         assert_eq!(cloned.role_filter, original.role_filter);
         assert_eq!(cloned.pattern, original.pattern);
         assert_eq!(cloned.order, original.order);
+        assert_eq!(cloned.limit, original.limit);
+        assert_eq!(cloned.offset, original.offset);
     }
 }

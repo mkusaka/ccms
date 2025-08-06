@@ -284,7 +284,8 @@ impl<T: ListItem> ListViewer<T> {
         if index < self.scroll_offset {
             self.scroll_offset = index;
         } else if index >= self.scroll_offset + visible_count {
-            self.scroll_offset = index.saturating_sub(visible_count - 1);
+            // Ensure we can scroll to show the last item at the bottom of the viewport
+            self.scroll_offset = index.saturating_sub(visible_count.saturating_sub(1));
         }
     }
 

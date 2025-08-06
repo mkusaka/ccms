@@ -790,4 +790,174 @@ mod tests {
         state.update(Message::ToggleSessionListPreview);
         assert!(state.session_list.preview_enabled);
     }
+
+    // Pagination tests
+    #[test]
+    fn test_search_completed_sets_pagination_state() {
+        let mut state = create_test_state();
+
+        // Create exactly 100 results to simulate a full page
+        let mut results = Vec::new();
+        for i in 0..100 {
+            let mut result = create_test_result();
+            result.text = format!("Message {i}");
+            results.push(result);
+        }
+
+        state.update(Message::SearchCompleted(results));
+
+        // Should indicate more results are available
+        assert_eq!(state.search.total_loaded, 100);
+        assert!(state.search.has_more_results);
+        assert!(!state.search.loading_more);
+    }
+
+    #[test]
+    fn test_search_completed_with_partial_page() {
+        let mut state = create_test_state();
+
+        // Create less than 100 results
+        let mut results = Vec::new();
+        for i in 0..50 {
+            let mut result = create_test_result();
+            result.text = format!("Message {i}");
+            results.push(result);
+        }
+
+        state.update(Message::SearchCompleted(results));
+
+        // Should indicate no more results
+        assert_eq!(state.search.total_loaded, 50);
+        assert!(!state.search.has_more_results);
+        assert!(!state.search.loading_more);
+    }
+
+    #[test]
+    fn test_search_requested_resets_pagination() {
+        let mut state = create_test_state();
+
+        // Set some pagination state
+        state.search.has_more_results = true;
+        state.search.loading_more = true;
+        state.search.total_loaded = 200;
+
+        // New search should reset pagination
+        state.update(Message::SearchRequested);
+
+        assert!(!state.search.has_more_results);
+        assert!(!state.search.loading_more);
+        assert_eq!(state.search.total_loaded, 0);
+    }
+
+    #[test]
+    fn test_load_more_results_message() {
+        let mut state = create_test_state();
+
+        // Set up initial state with results available
+        state.search.has_more_results = true;
+        state.search.loading_more = false;
+        state.search.total_loaded = 100;
+
+        let command = state.update(Message::LoadMoreResults);
+
+        // Should start loading more
+        assert!(state.search.loading_more);
+        assert_eq!(state.ui.message, Some("[loading more...]".to_string()));
+        assert!(matches!(command, Command::LoadMore(100)));
+    }
+
+    #[test]
+    fn test_load_more_when_no_more_results() {
+        let mut state = create_test_state();
+
+        // No more results available
+        state.search.has_more_results = false;
+        state.search.loading_more = false;
+
+        let command = state.update(Message::LoadMoreResults);
+
+        // Should not trigger loading
+        assert!(!state.search.loading_more);
+        assert!(matches!(command, Command::None));
+    }
+
+    #[test]
+    fn test_load_more_when_already_loading() {
+        let mut state = create_test_state();
+
+        // Already loading
+        state.search.has_more_results = true;
+        state.search.loading_more = true;
+
+        let command = state.update(Message::LoadMoreResults);
+
+        // Should not trigger another load
+        assert!(matches!(command, Command::None));
+    }
+
+    #[test]
+    fn test_more_results_loaded_full_batch() {
+        let mut state = create_test_state();
+
+        // Set initial state
+        state.search.loading_more = true;
+        state.search.total_loaded = 100;
+        let mut existing_results = Vec::new();
+        for i in 0..100 {
+            let mut result = create_test_result();
+            result.text = format!("Message {i}");
+            existing_results.push(result);
+        }
+        state.search.results = existing_results;
+
+        // Load another full batch of 100
+        let mut new_results = Vec::new();
+        for i in 100..200 {
+            let mut result = create_test_result();
+            result.text = format!("Message {i}");
+            new_results.push(result);
+        }
+
+        state.update(Message::MoreResultsLoaded(new_results));
+
+        // Should append results and update state
+        assert_eq!(state.search.results.len(), 200);
+        assert_eq!(state.search.total_loaded, 200);
+        assert!(state.search.has_more_results);
+        assert!(!state.search.loading_more);
+        assert_eq!(state.ui.message, None);
+    }
+
+    #[test]
+    fn test_more_results_loaded_partial_batch() {
+        let mut state = create_test_state();
+
+        // Set initial state
+        state.search.loading_more = true;
+        state.search.total_loaded = 100;
+        let mut existing_results = Vec::new();
+        for i in 0..100 {
+            let mut result = create_test_result();
+            result.text = format!("Message {i}");
+            existing_results.push(result);
+        }
+        state.search.results = existing_results;
+
+        // Load partial batch (less than 100)
+        let mut new_results = Vec::new();
+        for i in 100..130 {
+            let mut result = create_test_result();
+            result.text = format!("Message {i}");
+            new_results.push(result);
+        }
+
+        state.update(Message::MoreResultsLoaded(new_results));
+
+        // Should indicate no more results
+        assert_eq!(state.search.results.len(), 130);
+        assert_eq!(state.search.total_loaded, 130);
+        assert!(!state.search.has_more_results);
+        assert!(!state.search.loading_more);
+        assert_eq!(state.ui.message, Some("[all results loaded]".to_string()));
+    }
 }

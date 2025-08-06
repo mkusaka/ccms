@@ -17,6 +17,9 @@ pub struct ResultList {
     list_viewer: ListViewer<SearchResult>,
     preview_enabled: bool,
     show_status_bar: bool,
+    has_more_results: bool,
+    loading_more: bool,
+    total_loaded: usize,
 }
 
 impl ResultList {
@@ -25,6 +28,9 @@ impl ResultList {
             list_viewer: ListViewer::new("Results".to_string(), "No results found".to_string()),
             preview_enabled: false,
             show_status_bar: true,
+            has_more_results: false,
+            loading_more: false,
+            total_loaded: 0,
         }
     }
 
@@ -53,6 +59,12 @@ impl ResultList {
     pub fn update_results(&mut self, results: Vec<SearchResult>, selected_index: usize) {
         self.list_viewer.set_items(results);
         self.list_viewer.set_selected_index(selected_index);
+    }
+
+    pub fn set_pagination_state(&mut self, has_more: bool, loading: bool, total: usize) {
+        self.has_more_results = has_more;
+        self.loading_more = loading;
+        self.total_loaded = total;
     }
 
     pub fn set_truncation_enabled(&mut self, enabled: bool) {
@@ -107,11 +119,24 @@ impl Component for ResultList {
             .constraints(constraints)
             .split(area);
 
-        // Render title
-        let title_lines = vec![Line::from(vec![Span::styled(
-            "Search Results",
-            Styles::title(),
-        )])];
+        // Render title with pagination info
+        let title_text = if self.loading_more {
+            format!(
+                "Search Results - Loading more... (loaded: {})",
+                self.total_loaded
+            )
+        } else if self.has_more_results {
+            format!(
+                "Search Results - {} loaded (more available, scroll down to load)",
+                self.total_loaded
+            )
+        } else if self.total_loaded > 0 {
+            format!("Search Results - {} total", self.total_loaded)
+        } else {
+            "Search Results".to_string()
+        };
+
+        let title_lines = vec![Line::from(vec![Span::styled(title_text, Styles::title())])];
         let title = Paragraph::new(title_lines).block(Block::default().borders(Borders::BOTTOM));
         f.render_widget(title, chunks[0]);
 
@@ -140,6 +165,19 @@ impl Component for ResultList {
             }
             KeyCode::Down => {
                 if self.list_viewer.move_down() {
+                    let selected = self.list_viewer.selected_index;
+                    let total = self.list_viewer.items_count();
+
+                    // Check if we're near the bottom (within last 10 items) and we have more results to load
+                    if self.has_more_results
+                        && !self.loading_more
+                        && selected > 0
+                        && selected >= total - 10
+                    {
+                        // Trigger loading more results
+                        return Some(Message::LoadMoreResults);
+                    }
+
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
                     None
@@ -154,6 +192,19 @@ impl Component for ResultList {
             }
             KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
                 if self.list_viewer.move_down() {
+                    let selected = self.list_viewer.selected_index;
+                    let total = self.list_viewer.items_count();
+
+                    // Check if we're near the bottom (within last 10 items) and we have more results to load
+                    if self.has_more_results
+                        && !self.loading_more
+                        && selected > 0
+                        && selected >= total - 10
+                    {
+                        // Trigger loading more results
+                        return Some(Message::LoadMoreResults);
+                    }
+
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
                     None
@@ -168,6 +219,19 @@ impl Component for ResultList {
             }
             KeyCode::PageDown => {
                 if self.list_viewer.page_down() {
+                    let selected = self.list_viewer.selected_index;
+                    let total = self.list_viewer.items_count();
+
+                    // Check if we're near the bottom (within last 10 items) and we have more results to load
+                    if self.has_more_results
+                        && !self.loading_more
+                        && selected > 0
+                        && selected >= total - 10
+                    {
+                        // Trigger loading more results
+                        return Some(Message::LoadMoreResults);
+                    }
+
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
                     None
@@ -196,6 +260,19 @@ impl Component for ResultList {
             }
             KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
                 if self.list_viewer.half_page_down() {
+                    let selected = self.list_viewer.selected_index;
+                    let total = self.list_viewer.items_count();
+
+                    // Check if we're near the bottom (within last 10 items) and we have more results to load
+                    if self.has_more_results
+                        && !self.loading_more
+                        && selected > 0
+                        && selected >= total - 10
+                    {
+                        // Trigger loading more results
+                        return Some(Message::LoadMoreResults);
+                    }
+
                     Some(Message::SelectResult(self.list_viewer.selected_index()))
                 } else {
                     None

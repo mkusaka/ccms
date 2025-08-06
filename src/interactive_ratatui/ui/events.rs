@@ -18,6 +18,8 @@ pub enum Message {
     QueryChanged(String),
     SearchRequested,
     SearchCompleted(Vec<SearchResult>),
+    LoadMoreResults,
+    MoreResultsLoaded(Vec<SearchResult>),
     SelectResult(usize),
     ScrollUp,
     ScrollDown,

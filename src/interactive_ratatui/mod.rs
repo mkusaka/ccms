@@ -160,8 +160,14 @@ impl InteractiveSearch {
                 if let Some(error) = response.error {
                     self.state.ui.message = Some(error);
                     self.state.search.is_searching = false;
+                    self.state.search.loading_more = false;
                 } else {
-                    let msg = Message::SearchCompleted(response.results);
+                    // Check if this is a pagination response (loading more)
+                    let msg = if self.state.search.loading_more {
+                        Message::MoreResultsLoaded(response.results)
+                    } else {
+                        Message::SearchCompleted(response.results)
+                    };
                     self.handle_message(msg);
                 }
             }
@@ -438,6 +444,9 @@ impl InteractiveSearch {
             Command::LoadSessionList => {
                 self.load_session_list().await;
             }
+            Command::LoadMore(offset) => {
+                self.load_more_results(offset).await;
+            }
             Command::CopyToClipboard(content) => {
                 let (text, copy_message) = match content {
                     ui::events::CopyContent::FilePath(path) => {
@@ -502,6 +511,8 @@ impl InteractiveSearch {
                 role_filter: self.state.search.role_filter.clone(),
                 pattern: self.pattern.clone(),
                 order: self.state.search.order,
+                limit: Some(100), // Initial load limit for pagination
+                offset: None,
             };
             let _ = sender.send(request).await;
         }
@@ -519,6 +530,8 @@ impl InteractiveSearch {
                     SessionOrder::Ascending => SearchOrder::Ascending,
                     SessionOrder::Descending => SearchOrder::Descending,
                 },
+                limit: None, // No limit for session viewer
+                offset: None,
             };
 
             match self
@@ -554,6 +567,8 @@ impl InteractiveSearch {
                     SessionOrder::Ascending => SearchOrder::Ascending,
                     SessionOrder::Descending => SearchOrder::Descending,
                 },
+                limit: None, // No limit for session viewer
+                offset: None,
             };
 
             match self
@@ -592,6 +607,22 @@ impl InteractiveSearch {
         }
     }
 
+    async fn load_more_results(&mut self, offset: usize) {
+        // Create request with offset for pagination
+        if let Some(sender) = &self.search_sender {
+            let request = SearchRequest {
+                id: self.current_search_id,
+                query: self.state.search.query.clone(),
+                role_filter: self.state.search.role_filter.clone(),
+                pattern: self.pattern.clone(),
+                order: self.state.search.order,
+                limit: Some(100), // Load next 100 results
+                offset: Some(offset),
+            };
+            let _ = sender.send(request).await;
+        }
+    }
+
     async fn execute_session_list_search(&mut self) {
         self.state.session_list.current_search_id += 1;
         let current_search_id = self.state.session_list.current_search_id;
@@ -625,6 +656,8 @@ impl InteractiveSearch {
                         pattern: session.file_path.clone(),
                         role_filter: None,
                         order: crate::interactive_ratatui::domain::models::SearchOrder::Descending,
+                        limit: None, // No limit for session list search
+                        offset: None,
                     };
 
                     // Search within this specific session

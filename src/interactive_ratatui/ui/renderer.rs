@@ -126,6 +126,11 @@ impl Renderer {
                     self.result_list
                         .set_truncation_enabled(state.ui.truncation_enabled);
                     self.result_list.set_preview_enabled(true);
+                    self.result_list.set_pagination_state(
+                        state.search.has_more_results,
+                        state.search.loading_more,
+                        state.search.total_loaded,
+                    );
 
                     // Update preview state
                     let selected_result = state
@@ -146,6 +151,11 @@ impl Renderer {
                     self.result_list
                         .set_truncation_enabled(state.ui.truncation_enabled);
                     self.result_list.set_preview_enabled(false);
+                    self.result_list.set_pagination_state(
+                        state.search.has_more_results,
+                        state.search.loading_more,
+                        state.search.total_loaded,
+                    );
                     self.result_list.render(f, content_area);
                 }
             }

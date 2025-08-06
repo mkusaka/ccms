@@ -29,6 +29,8 @@ mod tests {
             role_filter: None,
             pattern: "/nonexistent/test/path/*.jsonl".to_string(),
             order: SearchOrder::Descending,
+            limit: None,
+            offset: None,
         };
 
         let response = service.search(request).unwrap();
@@ -54,6 +56,8 @@ mod tests {
             role_filter: Some("user".to_string()),
             pattern: "/nonexistent/test/path/*.jsonl".to_string(),
             order: SearchOrder::Descending,
+            limit: None,
+            offset: None,
         };
 
         // This would normally search files, but without test files it returns empty
@@ -80,6 +84,8 @@ mod tests {
                 role_filter: None,
                 pattern: "/nonexistent/test/path/*.jsonl".to_string(),
                 order: SearchOrder::Descending,
+                limit: None,
+                offset: None,
             };
 
             let response = service.search(request).unwrap();
@@ -101,6 +107,8 @@ mod tests {
             role_filter: None,
             pattern: "/nonexistent/test/path/*.jsonl".to_string(),
             order: SearchOrder::Descending,
+            limit: None,
+            offset: None,
         };
 
         // Should handle invalid regex gracefully
@@ -128,6 +136,8 @@ mod tests {
             role_filter: None,
             pattern: "/nonexistent/test/path/*.jsonl".to_string(),
             order: SearchOrder::Descending,
+            limit: None,
+            offset: None,
         };
 
         // Request with role filter should get only that role
@@ -137,6 +147,8 @@ mod tests {
             role_filter: Some("user".to_string()),
             pattern: "/nonexistent/test/path/*.jsonl".to_string(),
             order: SearchOrder::Descending,
+            limit: None,
+            offset: None,
         };
 
         // Both will return empty due to missing file, but the structure is correct
