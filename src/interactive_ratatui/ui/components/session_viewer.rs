@@ -556,4 +556,155 @@ mod tests {
         assert_eq!(viewer.text_input.text(), "test");
         assert_eq!(viewer.text_input.cursor_position(), 2);
     }
+
+    #[test]
+    fn test_text_input_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+
+        // Start search mode
+        viewer.start_search();
+        assert!(viewer.is_searching());
+
+        // Test regular character input including 'f', 'c', 'i', 'p'
+        let test_chars = ['f', 'o', 'o', ' ', 'c', 'i', 'p'];
+        for ch in test_chars {
+            let key = KeyEvent::new(KeyCode::Char(ch), KeyModifiers::NONE);
+            let result = viewer.handle_key(key);
+            assert!(matches!(result, Some(Message::SessionQueryChanged(_))));
+        }
+
+        assert_eq!(viewer.text_input.text(), "foo cip");
+    }
+
+    #[test]
+    fn test_ctrl_d_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+
+        // Add some text
+        for ch in ['f', 'o', 'o'] {
+            let key = KeyEvent::new(KeyCode::Char(ch), KeyModifiers::NONE);
+            viewer.handle_key(key);
+        }
+        assert_eq!(viewer.text_input.text(), "foo");
+
+        // Move cursor to beginning
+        let key = KeyEvent::new(KeyCode::Home, KeyModifiers::NONE);
+        viewer.handle_key(key);
+
+        // Use Ctrl+D to delete character under cursor
+        let key = KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+
+        // Ctrl+D is used for navigation (half page down), not delete in search mode
+        assert!(matches!(result, Some(Message::SessionNavigated(_, _))));
+        // Text should remain unchanged
+        assert_eq!(viewer.text_input.text(), "foo");
+    }
+
+    #[test]
+    fn test_navigation_keys_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+
+        // Add some sample results
+        use crate::query::condition::QueryCondition;
+        let results = vec![
+            SearchResult {
+                file: "/file.jsonl".to_string(),
+                uuid: "uuid1".to_string(),
+                timestamp: "2024-01-01T00:00:00Z".to_string(),
+                session_id: "session1".to_string(),
+                role: "user".to_string(),
+                text: "Message 1".to_string(),
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: String::new(),
+                    case_sensitive: false,
+                },
+                cwd: "/path".to_string(),
+                raw_json: Some("{}".to_string()),
+            },
+            SearchResult {
+                file: "/file.jsonl".to_string(),
+                uuid: "uuid2".to_string(),
+                timestamp: "2024-01-01T00:01:00Z".to_string(),
+                session_id: "session1".to_string(),
+                role: "assistant".to_string(),
+                text: "Message 2".to_string(),
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: String::new(),
+                    case_sensitive: false,
+                },
+                cwd: "/path".to_string(),
+                raw_json: Some("{}".to_string()),
+            },
+        ];
+        viewer.set_results(results);
+
+        // Test Up/Down keys for navigation
+        let key = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::SessionNavigated(_, _))));
+
+        let key = KeyEvent::new(KeyCode::Up, KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::SessionNavigated(_, _))));
+
+        // Test Ctrl+P/N for navigation
+        let key = KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::SessionNavigated(_, _))));
+
+        let key = KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::SessionNavigated(_, _))));
+    }
+
+    #[test]
+    fn test_toggle_filters_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+        viewer.start_search();
+
+        // Test Tab for role filter toggle
+        let key = KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::ToggleSessionRoleFilter)));
+
+        // Test Ctrl+O for order toggle
+        let key = KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::ToggleSessionOrder)));
+
+        // Test Ctrl+T for preview toggle
+        let key = KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::ToggleSessionPreview)));
+    }
+
+    #[test]
+    fn test_copy_shortcuts_not_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+
+        // Not in search mode - copy shortcuts should work
+        viewer.set_file_path(Some("/test/path.jsonl".to_string()));
+        viewer.set_session_id(Some("test-session".to_string()));
+
+        // Test 'f' key for file path copy
+        let key = KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(
+            result,
+            Some(Message::CopyToClipboard(CopyContent::FilePath(_)))
+        ));
+
+        // Test 'i' key for session ID copy
+        let key = KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(
+            result,
+            Some(Message::CopyToClipboard(CopyContent::SessionId(_)))
+        ));
+    }
 }
