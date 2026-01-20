@@ -125,6 +125,7 @@ impl HelpDialog {
             Line::from("  /           - Search within session"),
             Line::from("  c           - Copy message content to clipboard"),
             Line::from("  C           - Copy message as JSON to clipboard"),
+            Line::from("  m           - Copy entire session as Markdown"),
             Line::from("  i           - Copy session ID to clipboard"),
             Line::from("  f           - Copy file path to clipboard"),
             Line::from("  p           - Copy project path to clipboard"),

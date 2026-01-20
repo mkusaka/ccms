@@ -467,6 +467,9 @@ impl InteractiveSearch {
                     ui::events::CopyContent::FullMessageDetails(details) => {
                         (details, "✓ Copied full message details".to_string())
                     }
+                    ui::events::CopyContent::SessionMarkdown(markdown) => {
+                        (markdown, "✓ Copied session as Markdown".to_string())
+                    }
                 };
 
                 if let Err(e) = self.copy_to_clipboard(&text) {

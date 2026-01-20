@@ -87,6 +87,10 @@ impl ResultList {
     pub fn items_count(&self) -> usize {
         self.list_viewer.items_count()
     }
+
+    pub fn get_items(&self) -> &[SearchResult] {
+        &self.list_viewer.items
+    }
 }
 
 impl Component for ResultList {

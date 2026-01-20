@@ -10,6 +10,7 @@ pub enum CopyContent {
     MessageContent(String),
     JsonData(String),
     FullMessageDetails(String),
+    SessionMarkdown(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]

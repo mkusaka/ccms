@@ -108,6 +108,62 @@ impl SessionViewer {
         self.role_filter = role_filter;
     }
 
+    /// Generate Markdown export of all session messages in Simon Willison format
+    pub fn generate_session_markdown(&self) -> Option<String> {
+        let results = self.result_list.get_items();
+        if results.is_empty() {
+            return None;
+        }
+
+        let mut markdown = String::new();
+
+        // Add title with session ID
+        if let Some(session_id) = &self.session_id {
+            markdown.push_str(&format!("# Session: {session_id}\n\n"));
+        } else {
+            markdown.push_str("# Session\n\n");
+        }
+
+        // Sort results by timestamp for export (always ascending for readability)
+        let mut sorted_results = results.to_vec();
+        sorted_results.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+        for result in &sorted_results {
+            // Format role label (capitalize first letter)
+            let role = match result.role.as_str() {
+                "user" => "human",
+                "assistant" => "assistant",
+                "system" => "system",
+                "summary" => "summary",
+                _ => &result.role,
+            };
+
+            // Format timestamp (remove T and Z, keep readable format)
+            let formatted_timestamp = Self::format_timestamp(&result.timestamp);
+
+            // Add message header
+            markdown.push_str(&format!("**{role}** ({formatted_timestamp})\n\n"));
+
+            // Add message content
+            markdown.push_str(&result.text);
+            markdown.push_str("\n\n");
+        }
+
+        Some(markdown.trim_end().to_string())
+    }
+
+    fn format_timestamp(timestamp: &str) -> String {
+        // Try to parse ISO 8601 timestamp and format it nicely
+        // Input: "2024-01-15T10:30:00Z" or similar
+        // Output: "Jan 15, 2024, 10:30 AM"
+        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+            dt.format("%b %d, %Y, %I:%M %p").to_string()
+        } else {
+            // Fallback: just return the original timestamp
+            timestamp.to_string()
+        }
+    }
+
     pub fn set_preview_enabled(&mut self, enabled: bool) {
         self.preview_enabled = enabled;
         self.result_list.set_preview_enabled(enabled);
@@ -260,7 +316,7 @@ impl Component for SessionViewer {
         let layout = ViewLayout::new("Session Viewer".to_string())
             .with_subtitle(subtitle)
             .with_status_bar(true) // Let ViewLayout handle the status bar
-            .with_status_text("↑/↓ Ctrl+P/N Ctrl+U/D: Navigate | Tab: Filter | Enter: Detail | Ctrl+O: Sort | Ctrl+T: Preview | c/C: Copy text/JSON | i/f/p: Copy IDs/paths | /: Search | Alt+←/→: History | Esc: Back".to_string());
+            .with_status_text("↑/↓ Ctrl+P/N Ctrl+U/D: Navigate | Tab: Filter | Enter: Detail | Ctrl+O: Sort | Ctrl+T: Preview | c/C: Copy text/JSON | m: Copy as Markdown | i/f/p: Copy IDs/paths | /: Search | Esc: Back".to_string());
 
         layout.render(f, chunks[0], |f, content_area| {
             self.render_content(f, content_area);
@@ -491,6 +547,9 @@ impl Component for SessionViewer {
                     .file_path
                     .clone()
                     .map(|path| Message::CopyToClipboard(CopyContent::FilePath(path))),
+                KeyCode::Char('m') => self
+                    .generate_session_markdown()
+                    .map(|md| Message::CopyToClipboard(CopyContent::SessionMarkdown(md))),
                 KeyCode::Esc => Some(Message::ExitToSearch),
                 _ => None,
             }
@@ -705,6 +764,96 @@ mod tests {
         assert!(matches!(
             result,
             Some(Message::CopyToClipboard(CopyContent::SessionId(_)))
+        ));
+    }
+
+    #[test]
+    fn test_generate_session_markdown_empty() {
+        let viewer = SessionViewer::new();
+        // Empty results should return None
+        assert!(viewer.generate_session_markdown().is_none());
+    }
+
+    #[test]
+    fn test_generate_session_markdown_with_results() {
+        use crate::query::condition::QueryCondition;
+        let mut viewer = SessionViewer::new();
+        viewer.set_session_id(Some("test-session-123".to_string()));
+
+        let results = vec![
+            SearchResult {
+                file: "/file.jsonl".to_string(),
+                uuid: "uuid1".to_string(),
+                timestamp: "2024-01-15T10:30:00Z".to_string(),
+                session_id: "test-session-123".to_string(),
+                role: "user".to_string(),
+                text: "Hello, how are you?".to_string(),
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: String::new(),
+                    case_sensitive: false,
+                },
+                cwd: "/path".to_string(),
+                raw_json: Some("{}".to_string()),
+            },
+            SearchResult {
+                file: "/file.jsonl".to_string(),
+                uuid: "uuid2".to_string(),
+                timestamp: "2024-01-15T10:31:00Z".to_string(),
+                session_id: "test-session-123".to_string(),
+                role: "assistant".to_string(),
+                text: "I'm doing well, thank you!".to_string(),
+                message_type: "message".to_string(),
+                query: QueryCondition::Literal {
+                    pattern: String::new(),
+                    case_sensitive: false,
+                },
+                cwd: "/path".to_string(),
+                raw_json: Some("{}".to_string()),
+            },
+        ];
+        viewer.set_results(results);
+
+        let markdown = viewer.generate_session_markdown();
+        assert!(markdown.is_some());
+
+        let md = markdown.unwrap();
+        assert!(md.contains("# Session: test-session-123"));
+        assert!(md.contains("**human**"));
+        assert!(md.contains("**assistant**"));
+        assert!(md.contains("Hello, how are you?"));
+        assert!(md.contains("I'm doing well, thank you!"));
+    }
+
+    #[test]
+    fn test_copy_session_markdown_shortcut() {
+        use crate::query::condition::QueryCondition;
+        let mut viewer = SessionViewer::new();
+        viewer.set_session_id(Some("test-session".to_string()));
+
+        let results = vec![SearchResult {
+            file: "/file.jsonl".to_string(),
+            uuid: "uuid1".to_string(),
+            timestamp: "2024-01-15T10:30:00Z".to_string(),
+            session_id: "test-session".to_string(),
+            role: "user".to_string(),
+            text: "Test message".to_string(),
+            message_type: "message".to_string(),
+            query: QueryCondition::Literal {
+                pattern: String::new(),
+                case_sensitive: false,
+            },
+            cwd: "/path".to_string(),
+            raw_json: Some("{}".to_string()),
+        }];
+        viewer.set_results(results);
+
+        // Test 'm' key for markdown copy
+        let key = KeyEvent::new(KeyCode::Char('m'), KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(
+            result,
+            Some(Message::CopyToClipboard(CopyContent::SessionMarkdown(_)))
         ));
     }
 }
