@@ -18,10 +18,10 @@ pub fn parse_query(input: &str) -> Result<QueryCondition> {
             if remaining.trim().is_empty() {
                 Ok(condition)
             } else {
-                Err(anyhow!("Unexpected input: '{}'", remaining))
+                Err(anyhow!("Unexpected input: '{remaining}'"))
             }
         }
-        Err(e) => Err(anyhow!("Parse error: {:?}", e)),
+        Err(e) => Err(anyhow!("Parse error: {e:?}")),
     }
 }
 
