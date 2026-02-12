@@ -475,9 +475,7 @@ fn parse_since_time(input: &str) -> Result<String> {
     match parse_datetime_at_date(now, input) {
         Ok(dt) => Ok(dt.to_rfc3339()),
         Err(e) => Err(anyhow::anyhow!(
-            "Failed to parse time '{}': {}. Expected Unix timestamp or relative time like '1 day ago'",
-            input,
-            e
+            "Failed to parse time '{input}': {e}. Expected Unix timestamp or relative time like '1 day ago'"
         )),
     }
 }
