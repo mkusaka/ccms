@@ -47,6 +47,13 @@ enum Event {
     Signal(i32),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InitialView {
+    Search,
+    LatestSession,
+    LatestMessageDetail,
+}
+
 pub struct InteractiveSearch {
     state: AppState,
     renderer: Renderer,
@@ -60,6 +67,7 @@ pub struct InteractiveSearch {
     last_search_timer: Option<std::time::Instant>,
     scheduled_search_delay: Option<u64>,
     pattern: String,
+    initial_view: InitialView,
     last_ctrl_c_press: Option<std::time::Instant>,
     message_timer: Option<std::time::Instant>,
     message_clear_delay: u64,
@@ -82,6 +90,7 @@ impl InteractiveSearch {
             last_search_timer: None,
             scheduled_search_delay: None,
             pattern: String::new(),
+            initial_view: InitialView::Search,
             last_ctrl_c_press: None,
             message_timer: None,
             message_clear_delay: MESSAGE_CLEAR_DELAY_MS,
@@ -92,8 +101,40 @@ impl InteractiveSearch {
         smol::block_on(self.run_async(pattern))
     }
 
+    pub fn set_start_latest(&mut self, start_latest: bool) {
+        self.initial_view = if start_latest {
+            InitialView::LatestSession
+        } else {
+            InitialView::Search
+        };
+    }
+
+    pub fn set_start_latest_message_detail(&mut self, start_latest: bool) {
+        self.initial_view = if start_latest {
+            InitialView::LatestMessageDetail
+        } else {
+            InitialView::Search
+        };
+    }
+
     async fn run_async(&mut self, pattern: &str) -> Result<()> {
         self.pattern = pattern.to_string();
+
+        // Resolve the latest session before terminal setup so errors can return cleanly.
+        let latest_session = if self.initial_view != InitialView::Search {
+            let search_service = self.search_service.clone();
+            let sessions = blocking::unblock(move || search_service.get_all_sessions()).await?;
+
+            if sessions.is_empty() {
+                anyhow::bail!("No sessions found");
+            }
+
+            let first = &sessions[0];
+            Some((first.0.clone(), first.1.clone()))
+        } else {
+            None
+        };
+
         let mut terminal = self.setup_terminal()?;
 
         // Start event workers
@@ -107,9 +148,46 @@ impl InteractiveSearch {
         self.search_receiver = Some(rx);
         self.search_task = Some(task);
 
-        // Initial search (even with empty pattern to show all results)
-        // Note: pattern is stored internally but not shown in search bar
-        self.execute_command(Command::ExecuteSearch).await;
+        if let Some((file_path, session_id)) = latest_session {
+            // Save initial Search state so Esc / Alt+Left can restore it.
+            let initial_state = self.state.create_navigation_state();
+            self.state.navigation_history.push(initial_state);
+
+            self.state.mode = Mode::SessionViewer;
+            self.state.session.file_path = Some(file_path.clone());
+            self.state.session.session_id = Some(session_id);
+            self.state.session.query.clear();
+            self.state.session.selected_index = 0;
+            self.state.session.scroll_offset = 0;
+
+            self.execute_command(Command::LoadSession(file_path)).await;
+
+            // If loading succeeded, move selection to the newest message by default.
+            if !self.state.session.search_results.is_empty() {
+                self.state.session.selected_index = self.state.session.search_results.len() - 1;
+                self.state.session.scroll_offset = self.state.session.selected_index;
+            }
+
+            let session_viewer_state = self.state.create_navigation_state();
+            self.state.navigation_history.push(session_viewer_state);
+
+            if self.initial_view == InitialView::LatestMessageDetail
+                && !self.state.session.search_results.is_empty()
+            {
+                let latest_result =
+                    self.state.session.search_results[self.state.session.selected_index].clone();
+                self.state.ui.selected_result = Some(latest_result);
+                self.state.ui.detail_scroll_offset = 0;
+                self.state.mode = Mode::MessageDetail;
+
+                let message_detail_state = self.state.create_navigation_state();
+                self.state.navigation_history.push(message_detail_state);
+            }
+        } else {
+            // Initial search (even with empty pattern to show all results)
+            // Note: pattern is stored internally but not shown in search bar
+            self.execute_command(Command::ExecuteSearch).await;
+        }
 
         let result = self.run_app(&mut terminal, pattern).await;
 

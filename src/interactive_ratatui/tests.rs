@@ -12,6 +12,20 @@ fn test_interactive_search_creation() {
 }
 
 #[test]
+fn test_set_start_latest() {
+    let mut interactive = InteractiveSearch::new(SearchOptions::default());
+    interactive.set_start_latest(true);
+    assert_eq!(interactive.initial_view, InitialView::LatestSession);
+}
+
+#[test]
+fn test_set_start_latest_message_detail() {
+    let mut interactive = InteractiveSearch::new(SearchOptions::default());
+    interactive.set_start_latest_message_detail(true);
+    assert_eq!(interactive.initial_view, InitialView::LatestMessageDetail);
+}
+
+#[test]
 fn test_app_state_creation() {
     let state = AppState::new();
     assert_eq!(state.mode, Mode::Search);

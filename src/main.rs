@@ -40,6 +40,14 @@ struct Cli {
     #[arg(short, long)]
     session_id: Option<String>,
 
+    /// Jump directly to the latest message detail in the most recent session
+    #[arg(long, conflicts_with_all = ["session_id", "latest_session"])]
+    latest: bool,
+
+    /// Jump directly to the most recent session's detail view
+    #[arg(long, conflicts_with = "session_id")]
+    latest_session: bool,
+
     /// Search for a specific message by UUID
     #[arg(long)]
     message_id: Option<String>,
@@ -229,6 +237,52 @@ fn main() -> Result<()> {
         }
 
         return Ok(());
+    }
+
+    // Handle --latest mode
+    if cli.latest {
+        if cli.query.as_ref().map(|q| !q.is_empty()).unwrap_or(false) {
+            eprintln!("Error: --latest cannot be used with a search query");
+            std::process::exit(1);
+        }
+
+        let options = SearchOptions {
+            max_results: None, // Interactive mode should not be limited by max_results
+            role: cli.role,
+            session_id: None,
+            message_id: None,
+            before: cli.before,
+            after: parsed_after.clone(),
+            verbose: cli.verbose,
+            project_path: project_path.clone(),
+        };
+
+        let mut interactive = InteractiveSearch::new(options);
+        interactive.set_start_latest_message_detail(true);
+        return interactive.run(pattern);
+    }
+
+    // Handle --latest-session mode
+    if cli.latest_session {
+        if cli.query.as_ref().map(|q| !q.is_empty()).unwrap_or(false) {
+            eprintln!("Error: --latest-session cannot be used with a search query");
+            std::process::exit(1);
+        }
+
+        let options = SearchOptions {
+            max_results: None, // Interactive mode should not be limited by max_results
+            role: cli.role,
+            session_id: None,
+            message_id: None,
+            before: cli.before,
+            after: parsed_after.clone(),
+            verbose: cli.verbose,
+            project_path: project_path.clone(),
+        };
+
+        let mut interactive = InteractiveSearch::new(options);
+        interactive.set_start_latest(true);
+        return interactive.run(pattern);
     }
 
     // Interactive mode when no query provided or query is empty (but not when --stats is used)
@@ -758,5 +812,23 @@ mod tests {
                     .map(|s| s.is_empty())
                     .unwrap_or(false))
         );
+    }
+
+    #[test]
+    fn test_cli_latest_conflicts_with_session_id() {
+        let parsed = Cli::try_parse_from(["ccms", "--latest", "--session-id", "sid"]);
+        assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn test_cli_latest_session_conflicts_with_session_id() {
+        let parsed = Cli::try_parse_from(["ccms", "--latest-session", "--session-id", "sid"]);
+        assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn test_cli_latest_conflicts_with_latest_session() {
+        let parsed = Cli::try_parse_from(["ccms", "--latest", "--latest-session"]);
+        assert!(parsed.is_err());
     }
 }
