@@ -73,7 +73,7 @@ mimalloc = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
 codspeed-criterion-compat = "=3.0.5"
-tempfile = "=3.20.0"
+tempfile = "=3.25.0"
 
 [[bench]]
 name = "search_benchmark"
