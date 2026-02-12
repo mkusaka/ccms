@@ -333,9 +333,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.9.1"
+version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
+checksum = "812e12b5285cc515a9c72a5c1d3b6d46a19dac5acfef5265968c166106e31dd3"
 
 [[package]]
 name = "block-buffer"
@@ -429,7 +429,7 @@ dependencies = [
  "futures-lite",
  "globset",
  "jwalk",
- "lru 0.16.3",
+ "lru",
  "mimalloc",
  "nom 8.0.0",
  "num_cpus",
@@ -758,7 +758,7 @@ version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b9f2e4c67f833b660cdb0a3523065869fb35570177239812ed4c905aeff87b"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.10.0",
  "crossterm_winapi",
  "derive_more",
  "document-features",
@@ -1411,7 +1411,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "391290121bad3d37fbddad76d8f5d1c1c314cfc646d143d7e07a3086ddff0ce3"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.10.0",
  "libc",
 ]
 
@@ -1421,7 +1421,7 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51a1679740111eb63b7b4cb3c97b1d5d9f82e142292a25edcfdb4120a48b3880"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.10.0",
 ]
 
 [[package]]
@@ -1451,15 +1451,6 @@ name = "log"
 version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
-
-[[package]]
-name = "lru"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f8cc7106155f10bdf99a6f379688f543ad6596a415375b36a59a054ceda1198"
-dependencies = [
- "hashbrown 0.15.4",
-]
 
 [[package]]
 name = "lru"
@@ -1598,7 +1589,7 @@ version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.10.0",
  "cfg-if",
  "cfg_aliases",
  "libc",
@@ -1630,7 +1621,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2110,9 +2101,9 @@ checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 
 [[package]]
 name = "ratatui"
-version = "0.30.0-alpha.5"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71365e96fb8f1350c02908e788815c5a57c0c1f557673b274a94edee7a4fe001"
+checksum = "d1ce67fb8ba4446454d1c8dbaeda0557ff5e94d39d5e5ed7f10a65eb4c8266bc"
 dependencies = [
  "instability",
  "ratatui-core",
@@ -2124,17 +2115,17 @@ dependencies = [
 
 [[package]]
 name = "ratatui-core"
-version = "0.1.0-alpha.6"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f836b2eac888da74162b680a8facdbe784ae73df3b0f711eef74bb90a7477f78"
+checksum = "5ef8dea09a92caaf73bff7adb70b76162e5937524058a7e5bff37869cbbec293"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.10.0",
  "compact_str",
- "hashbrown 0.15.4",
+ "hashbrown 0.16.1",
  "indoc",
  "itertools 0.14.0",
  "kasuari",
- "lru 0.14.0",
+ "lru",
  "strum",
  "thiserror 2.0.12",
  "unicode-segmentation",
@@ -2144,10 +2135,11 @@ dependencies = [
 
 [[package]]
 name = "ratatui-crossterm"
-version = "0.1.0-alpha.5"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22f4a90548bf8ed759d226d621d73561110db23aee7b7dc4e12c39ac7132062f"
+checksum = "577c9b9f652b4c121fb25c6a391dd06406d3b092ba68827e6d2f09550edc54b3"
 dependencies = [
+ "cfg-if",
  "crossterm",
  "instability",
  "ratatui-core",
@@ -2155,9 +2147,9 @@ dependencies = [
 
 [[package]]
 name = "ratatui-macros"
-version = "0.7.0-alpha.4"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f4c660248a5a9edf95698cf33dc36a82ae48a918594480cdada340d81584e0b"
+checksum = "a7f1342a13e83e4bb9d0b793d0ea762be633f9582048c892ae9041ef39c936f4"
 dependencies = [
  "ratatui-core",
  "ratatui-widgets",
@@ -2165,9 +2157,9 @@ dependencies = [
 
 [[package]]
 name = "ratatui-termwiz"
-version = "0.1.0-alpha.5"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cbb5d7645e56f06ead2a49a72b9cc05022f0b215ec7cdf39d37ed94e9a73d69"
+checksum = "0f76fe0bd0ed4295f0321b1676732e2454024c15a35d01904ddb315afd3d545c"
 dependencies = [
  "ratatui-core",
  "termwiz",
@@ -2175,12 +2167,12 @@ dependencies = [
 
 [[package]]
 name = "ratatui-widgets"
-version = "0.3.0-alpha.5"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "388428527811be6da3e23157d951308d9eae4ce1b4d1d545a55673bbcdfb7326"
+checksum = "d7dbfa023cd4e604c2553483820c5fe8aa9d71a42eea5aa77c6e7f35756612db"
 dependencies = [
- "bitflags 2.9.1",
- "hashbrown 0.15.4",
+ "bitflags 2.10.0",
+ "hashbrown 0.16.1",
  "indoc",
  "instability",
  "itertools 0.14.0",
@@ -2218,7 +2210,7 @@ version = "0.5.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5407465600fb0548f1442edf71dd20683c6ed326200ace4b1ef0763521bb3b77"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.10.0",
 ]
 
 [[package]]
@@ -2337,7 +2329,7 @@ version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "146c9e247ccc180c1f61615433868c99f3de3ae256a30a43b49f67c2d9171f34"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.10.0",
  "errno",
  "libc",
  "linux-raw-sys",
@@ -2701,7 +2693,7 @@ checksum = "4676b37242ccbd1aabf56edb093a4827dc49086c0ffd764a5705899e0f35f8f7"
 dependencies = [
  "anyhow",
  "base64",
- "bitflags 2.9.1",
+ "bitflags 2.10.0",
  "fancy-regex",
  "filedescriptor",
  "finl_unicode",
@@ -3407,7 +3399,7 @@ version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f42320e61fe2cfd34354ecb597f86f413484a798ba44a8ca1165c58d42da6c1"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.10.0",
 ]
 
 [[package]]
