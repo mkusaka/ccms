@@ -115,6 +115,13 @@ harness = false
 name = "session_list_benchmark"
 harness = false
 
+[[bench]]
+name = "file_discovery_benchmark"
+harness = false
+
+[[bench]]
+name = "statistics_benchmark"
+harness = false
 
 [profile.release]
 lto = true
