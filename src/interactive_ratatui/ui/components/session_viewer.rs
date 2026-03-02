@@ -316,7 +316,7 @@ impl Component for SessionViewer {
         let layout = ViewLayout::new("Session Viewer".to_string())
             .with_subtitle(subtitle)
             .with_status_bar(true) // Let ViewLayout handle the status bar
-            .with_status_text("↑/↓ Ctrl+P/N Ctrl+U/D: Navigate | Tab: Filter | Enter: Detail | Ctrl+O: Sort | Ctrl+T: Preview | c/C: Copy text/JSON | m: Copy as Markdown | i/f/p: Copy IDs/paths | /: Search | Esc: Back".to_string());
+            .with_status_text("↑/↓ Ctrl+P/N Ctrl+U/D: Navigate | Tab: Filter | Enter: Detail | Ctrl+O: Sort | Ctrl+T: Preview | c/C: Copy text/JSON | m: Copy as Markdown | i/f/p: Copy IDs/paths | v: Convert+Copy Codex ID | /: Search | Esc: Back".to_string());
 
         layout.render(f, chunks[0], |f, content_area| {
             self.render_content(f, content_area);
@@ -550,6 +550,7 @@ impl Component for SessionViewer {
                 KeyCode::Char('m') => self
                     .generate_session_markdown()
                     .map(|md| Message::CopyToClipboard(CopyContent::SessionMarkdown(md))),
+                KeyCode::Char('v') => Some(Message::ConvertSessionToCodex),
                 KeyCode::Esc => Some(Message::ExitToSearch),
                 _ => None,
             }
@@ -855,5 +856,13 @@ mod tests {
             result,
             Some(Message::CopyToClipboard(CopyContent::SessionMarkdown(_)))
         ));
+    }
+
+    #[test]
+    fn test_convert_shortcut_not_in_search_mode() {
+        let mut viewer = SessionViewer::new();
+        let key = KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(result, Some(Message::ConvertSessionToCodex)));
     }
 }
