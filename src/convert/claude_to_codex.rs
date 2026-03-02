@@ -106,8 +106,7 @@ fn resolve_source_file(session_id: &str, hint: Option<&Path>) -> Result<PathBuf>
         }
         if !file_contains_session_id(path, session_id)? {
             bail!(
-                "source file does not contain session_id '{}': {}",
-                session_id,
+                "source file does not contain session_id '{session_id}': {}",
                 path.display()
             );
         }
@@ -124,10 +123,7 @@ fn resolve_source_file(session_id: &str, hint: Option<&Path>) -> Result<PathBuf>
     }
 
     if matches.is_empty() {
-        bail!(
-            "no Claude session file found for session_id '{}'",
-            session_id
-        );
+        bail!("no Claude session file found for session_id '{session_id}'");
     }
 
     if matches.len() > 1 {
@@ -138,8 +134,7 @@ fn resolve_source_file(session_id: &str, hint: Option<&Path>) -> Result<PathBuf>
             .collect::<Vec<_>>()
             .join(", ");
         bail!(
-            "multiple Claude session files found for session_id '{}': {}{}",
-            session_id,
+            "multiple Claude session files found for session_id '{session_id}': {}{}",
             preview,
             if matches.len() > 5 { ", ..." } else { "" }
         );
@@ -248,8 +243,7 @@ fn build_rollout_jsonl(
 
     if responses.is_empty() {
         bail!(
-            "no convertible messages found for session_id '{}' in {}",
-            session_id,
+            "no convertible messages found for session_id '{session_id}' in {}",
             source_file.display()
         );
     }
