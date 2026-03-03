@@ -583,6 +583,19 @@ impl AppState {
                 self.session.preview_enabled = !self.session.preview_enabled;
                 Command::None
             }
+            Message::ConvertSessionToCodex => {
+                if let (Some(session_id), Some(file_path)) = (
+                    self.session.session_id.clone(),
+                    self.session.file_path.clone(),
+                ) {
+                    Command::ConvertSessionToCodex {
+                        session_id,
+                        file_path,
+                    }
+                } else {
+                    Command::ShowMessage("⚠ Session conversion is unavailable".to_string())
+                }
+            }
             Message::SetStatus(msg) => {
                 self.ui.message = Some(msg);
                 Command::None

@@ -12,10 +12,12 @@ use signal_hook::{
 };
 use smol::channel::{Receiver, Sender};
 use std::io::{self, Stdout};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use crate::SearchOptions;
+use crate::convert::{ConvertMode, ConvertRequest, convert_session_to_codex};
 
 mod application;
 mod constants;
@@ -524,6 +526,31 @@ impl InteractiveSearch {
             }
             Command::LoadMore(offset) => {
                 self.load_more_results(offset).await;
+            }
+            Command::ConvertSessionToCodex {
+                session_id,
+                file_path,
+            } => {
+                let mut request = ConvertRequest::new(session_id);
+                request.mode = ConvertMode::WriteFile;
+                request.source_file_hint = Some(PathBuf::from(file_path));
+
+                match convert_session_to_codex(&request) {
+                    Ok(result) => {
+                        if let Err(e) = self.copy_to_clipboard(&result.codex_session_id) {
+                            self.state.ui.message = Some(format!("Failed to copy: {e}"));
+                        } else {
+                            self.state.ui.message = Some(format!(
+                                "✓ Converted and copied Codex session ID ({})",
+                                result.codex_session_id
+                            ));
+                            self.message_timer = Some(std::time::Instant::now());
+                        }
+                    }
+                    Err(e) => {
+                        self.state.ui.message = Some(format!("Failed to convert: {e}"));
+                    }
+                }
             }
             Command::CopyToClipboard(content) => {
                 let (text, copy_message) = match content {

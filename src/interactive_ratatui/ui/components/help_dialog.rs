@@ -129,6 +129,7 @@ impl HelpDialog {
             Line::from("  i           - Copy session ID to clipboard"),
             Line::from("  f           - Copy file path to clipboard"),
             Line::from("  p           - Copy project path to clipboard"),
+            Line::from("  v           - Convert and copy Codex session ID"),
             Line::from("  Ctrl+O      - Toggle sort order (ascending/descending)"),
             Line::from("  Backspace   - Back to search results (or clear search)"),
             Line::from("  Esc         - Back to search results"),

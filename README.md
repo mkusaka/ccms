@@ -191,6 +191,7 @@ ccms -n 100                               # Adjust result limit
 - `i` - Copy session ID
 - `f` - Copy file path  
 - `p` - Copy project path
+- `v` - Convert current session to Codex rollout and copy Codex session ID (Session Viewer only)
 
 **Session Viewer Controls:**
 - `↑/↓` or `Ctrl+P/N` - Navigate messages
@@ -250,6 +251,15 @@ ccms --project "/" "bug"
 
 # Combine filters
 ccms -r user -n 20 --after "2024-06-01T00:00:00Z" "question"
+
+# Convert a Claude session to Codex rollout (resolve by session-id)
+ccms convert claude-to-codex --session-id "session-123"
+
+# Dry-run conversion (show destination only)
+ccms convert claude-to-codex --session-id "session-123" --dry-run
+
+# Output rollout JSONL to stdout
+ccms convert claude-to-codex --session-id "session-123" --stdout
 ```
 
 ### Output Formats
@@ -331,6 +341,12 @@ JSON output structure includes:
 - `--profile <NAME>` - Generate profiling report (requires --features profiling)
 - `-h, --help` - Print help information
 - `-V, --version` - Print version information
+
+### Conversion Subcommand
+- `convert claude-to-codex --session-id <ID>` - Convert one Claude session to Codex rollout format
+- `--codex-home <DIR>` - Override destination root (`$CODEX_HOME` or `~/.codex` by default)
+- `--dry-run` - Resolve source and output path without writing
+- `--stdout` - Print converted rollout JSONL to stdout
 
 ## Query Syntax Reference
 

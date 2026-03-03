@@ -243,8 +243,17 @@ async fn search_file(
     options: &SearchOptions,
 ) -> Result<Vec<SearchResult>> {
     let file_path_owned = file_path.to_owned();
+    let file_path_str = file_path_owned.to_string_lossy().to_string();
     let query_owned = query.clone();
     let options_owned = options.clone();
+    let should_capture_raw_json =
+        options_owned.session_id.is_some() || options_owned.message_id.is_some();
+
+    if let Some(project_path) = &options_owned.project_path
+        && !path_encoding::file_belongs_to_project(&file_path_str, project_path)
+    {
+        return Ok(Vec::new());
+    }
 
     // Use smol's blocking executor with larger buffer for better throughput
     blocking::unblock(move || {
@@ -320,10 +329,12 @@ async fn search_file(
 
             match message {
                 Ok(message) => {
+                    let message_type = message.get_type();
+
                     // Check if first message is summary
                     if is_first_line {
                         is_first_line = false;
-                        if message.get_type() == "summary" {
+                        if message_type == "summary" {
                             found_summary_first = true;
                             if options_owned.verbose {
                                 eprintln!(
@@ -356,11 +367,11 @@ async fn search_file(
                             // Apply inline filters
                             if let Some(role) = &options_owned.role {
                                 // For summary messages, only match if explicitly filtering for "summary"
-                                if message.get_type() == "summary" {
+                                if message_type == "summary" {
                                     if role != "summary" {
                                         continue;
                                     }
-                                } else if message.get_type() != role {
+                                } else if message_type != role {
                                     continue;
                                 }
                             }
@@ -370,21 +381,13 @@ async fn search_file(
                                     continue;
                                 }
 
-                            // Check project_path filter (matches against file path)
-                            if let Some(project_path) = &options_owned.project_path {
-                                let file_path_str = file_path_owned.to_string_lossy();
-                                if !path_encoding::file_belongs_to_project(&file_path_str, project_path) {
-                                    continue;
-                                }
-                            }
-
                             // Determine timestamp based on message type (matching main branch logic)
                             let final_timestamp = message
                                 .get_timestamp()
                                 .map(|ts| ts.to_string())
                                 .or_else(|| {
                                     // For summary messages, prefer first_timestamp over latest_timestamp
-                                    if message.get_type() == "summary" {
+                                    if message_type == "summary" {
                                         first_timestamp.clone()
                                     } else {
                                         latest_timestamp.clone()
@@ -393,21 +396,23 @@ async fn search_file(
                                 .unwrap_or_else(|| file_ctime.clone());
 
                             // For SessionViewer and message details, we need raw_json
-                            let raw_json = if options_owned.session_id.is_some() || options_owned.message_id.is_some() {
+                            let raw_json = if should_capture_raw_json {
                                 // Convert line_buffer to String for raw_json
                                 Some(String::from_utf8_lossy(&line_buffer).to_string())
                             } else {
                                 None
                             };
 
+                            let message_type_owned = message_type.to_string();
+
                             let result = SearchResult {
-                                file: file_path_owned.to_string_lossy().to_string(),
+                                file: file_path_str.clone(),
                                 uuid: message.get_uuid().unwrap_or("").to_string(),
                                 timestamp: final_timestamp,
                                 session_id: message.get_session_id().unwrap_or("").to_string(),
-                                role: message.get_type().to_string(),
+                                role: message_type_owned.clone(),
                                 text: message.get_content_text(),
-                                message_type: message.get_type().to_string(),
+                                message_type: message_type_owned,
                                 query: query_owned.clone(),
                                 cwd: message.get_cwd().unwrap_or("").to_string(),
                                 raw_json,

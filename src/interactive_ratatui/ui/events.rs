@@ -75,6 +75,7 @@ pub enum Message {
     SessionListHalfPageDown,
     ToggleSessionListPreview,
     EnterSessionViewerFromList(String), // file_path
+    ConvertSessionToCodex,
 
     // Clipboard
     CopyToClipboard(CopyContent),

@@ -18,6 +18,7 @@ clap_complete = "4.5"
 sonic-rs = { version = "0.5" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+uuid = { version = "1.10", features = ["v5"] }
 
 # File system and path handling
 globset = "0.4"
