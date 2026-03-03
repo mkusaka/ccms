@@ -68,11 +68,21 @@ pub fn convert_session_to_codex(request: &ConvertRequest) -> Result<ConvertResul
 
     let source_file =
         resolve_source_file(&request.session_id, request.source_file_hint.as_deref())?;
-    let codex_session_id = normalize_or_generate_session_id(&request.session_id, &source_file);
+    let codex_session_id = normalize_or_generate_session_id(&request.session_id);
 
     let build = build_rollout_jsonl(&source_file, &request.session_id, &codex_session_id)?;
-    let codex_home = resolve_codex_home(request.codex_home.as_deref())?;
-    let output_path = build_output_path(&codex_home, build.timestamp, &codex_session_id);
+    let output_path = match request.mode {
+        ConvertMode::WriteFile => {
+            let codex_home = resolve_codex_home(request.codex_home.as_deref())?;
+            build_output_path(&codex_home, build.timestamp, &codex_session_id)
+        }
+        ConvertMode::Stdout => PathBuf::from("<stdout>"),
+        ConvertMode::DryRun => request
+            .codex_home
+            .as_deref()
+            .map(|codex_home| build_output_path(codex_home, build.timestamp, &codex_session_id))
+            .unwrap_or_else(|| PathBuf::from("<dry-run>")),
+    };
 
     match request.mode {
         ConvertMode::WriteFile => {
@@ -113,7 +123,7 @@ fn resolve_source_file(session_id: &str, hint: Option<&Path>) -> Result<PathBuf>
         return Ok(path.to_path_buf());
     }
 
-    let files = discover_claude_files(None)?;
+    let files = discover_claude_files(None).context("failed to discover Claude session files")?;
     let mut matches = Vec::new();
 
     for file in files {
@@ -171,12 +181,14 @@ fn file_contains_session_id(path: &Path, session_id: &str) -> Result<bool> {
     Ok(false)
 }
 
-fn normalize_or_generate_session_id(session_id: &str, source_file: &Path) -> String {
-    if let Ok(parsed) = Uuid::parse_str(session_id) {
+fn normalize_or_generate_session_id(session_id: &str) -> String {
+    let normalized_session_id = session_id.trim();
+
+    if let Ok(parsed) = Uuid::parse_str(normalized_session_id) {
         return parsed.to_string();
     }
 
-    let seed = format!("ccms:{}:{}", source_file.display(), session_id);
+    let seed = format!("ccms:{normalized_session_id}");
     Uuid::new_v5(&Uuid::NAMESPACE_URL, seed.as_bytes()).to_string()
 }
 
@@ -272,7 +284,10 @@ fn build_rollout_jsonl(
         }
     });
 
-    let mut lines = vec![serde_json::to_string(&session_meta_line)?];
+    let mut lines = vec![
+        serde_json::to_string(&session_meta_line)
+            .context("failed to serialize session_meta rollout line")?,
+    ];
 
     for response in responses {
         let content_type = if response.role == "assistant" {
@@ -280,6 +295,7 @@ fn build_rollout_jsonl(
         } else {
             "input_text"
         };
+        let response_role = response.role;
 
         let timestamp_for_line = if response.timestamp.is_empty() {
             timestamp_str.clone()
@@ -288,11 +304,11 @@ fn build_rollout_jsonl(
         };
 
         let line = json!({
-            "timestamp": timestamp_for_line,
+            "timestamp": &timestamp_for_line,
             "type": "response_item",
             "payload": {
                 "type": "message",
-                "role": response.role,
+                "role": &response_role,
                 "content": [{
                     "type": content_type,
                     "text": response.text,
@@ -300,7 +316,11 @@ fn build_rollout_jsonl(
             }
         });
 
-        lines.push(serde_json::to_string(&line)?);
+        lines.push(serde_json::to_string(&line).with_context(|| {
+            format!(
+                "failed to serialize response_item rollout line (role={response_role}, timestamp={timestamp_for_line})"
+            )
+        })?);
     }
 
     Ok(RolloutBuild {
@@ -460,5 +480,43 @@ mod tests {
             err.to_string()
                 .contains("source file does not contain session_id")
         );
+    }
+
+    #[test]
+    fn test_convert_generates_stable_id_across_source_files() {
+        let dir = tempdir().unwrap();
+        let source_a = dir.path().join("session_a.jsonl");
+        let source_b = dir.path().join("session_b.jsonl");
+        write_claude_jsonl(&source_a, "session-abc");
+        write_claude_jsonl(&source_b, "session-abc");
+
+        let mut request_a = ConvertRequest::new("session-abc");
+        request_a.source_file_hint = Some(source_a);
+        request_a.mode = ConvertMode::DryRun;
+
+        let mut request_b = ConvertRequest::new("session-abc");
+        request_b.source_file_hint = Some(source_b);
+        request_b.mode = ConvertMode::DryRun;
+
+        let result_a = convert_session_to_codex(&request_a).unwrap();
+        let result_b = convert_session_to_codex(&request_b).unwrap();
+
+        assert_eq!(result_a.codex_session_id, result_b.codex_session_id);
+    }
+
+    #[test]
+    fn test_convert_stdout_does_not_require_codex_home() {
+        let dir = tempdir().unwrap();
+        let source = dir.path().join("session.jsonl");
+        write_claude_jsonl(&source, "session-abc");
+
+        let mut request = ConvertRequest::new("session-abc");
+        request.source_file_hint = Some(source);
+        request.mode = ConvertMode::Stdout;
+
+        let result = convert_session_to_codex(&request).unwrap();
+
+        assert_eq!(result.output_path, PathBuf::from("<stdout>"));
+        assert!(result.rollout_jsonl.is_some());
     }
 }

@@ -191,7 +191,7 @@ ccms -n 100                               # Adjust result limit
 - `i` - Copy session ID
 - `f` - Copy file path  
 - `p` - Copy project path
-- `v` - Convert current session to Codex rollout and copy Codex session ID
+- `v` - Convert current session to Codex rollout and copy Codex session ID (Session Viewer only)
 
 **Session Viewer Controls:**
 - `↑/↓` or `Ctrl+P/N` - Navigate messages

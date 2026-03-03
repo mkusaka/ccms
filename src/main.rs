@@ -598,6 +598,11 @@ fn handle_cli_command(command: &CliCommand, verbose: bool) -> Result<()> {
 }
 
 fn handle_convert_claude_to_codex(args: &ConvertClaudeToCodexArgs, verbose: bool) -> Result<()> {
+    anyhow::ensure!(
+        !(args.dry_run && args.stdout),
+        "--dry-run and --stdout cannot be used together"
+    );
+
     let mode = if args.dry_run {
         ConvertMode::DryRun
     } else if args.stdout {
@@ -966,5 +971,21 @@ mod tests {
             "session-123",
         ]);
         assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn test_convert_handler_rejects_dry_run_and_stdout_together() {
+        let args = ConvertClaudeToCodexArgs {
+            session_id: "session-123".to_string(),
+            codex_home: None,
+            stdout: true,
+            dry_run: true,
+        };
+
+        let err = handle_convert_claude_to_codex(&args, false).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("--dry-run and --stdout cannot be used together")
+        );
     }
 }

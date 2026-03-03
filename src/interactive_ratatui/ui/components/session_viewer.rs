@@ -366,11 +366,17 @@ impl Component for SessionViewer {
                 KeyCode::Enter => {
                     // Navigate to result detail for selected message (keep search mode active)
                     if let Some(result) = self.result_list.selected_result() {
-                        Some(Message::EnterMessageDetailFromSession(
-                            result.raw_json.clone().unwrap_or_default(),
-                            self.file_path.clone().unwrap_or_default(),
-                            self.session_id.clone(),
-                        ))
+                        if let Some(raw_json) = result.raw_json.clone() {
+                            Some(Message::EnterMessageDetailFromSession(
+                                raw_json,
+                                self.file_path.clone().unwrap_or_default(),
+                                self.session_id.clone(),
+                            ))
+                        } else {
+                            Some(Message::SetStatus(
+                                "⚠ Raw JSON is unavailable for this message".to_string(),
+                            ))
+                        }
                     } else {
                         None
                     }
@@ -469,11 +475,17 @@ impl Component for SessionViewer {
                 KeyCode::Enter => {
                     // Navigate to result detail for selected message
                     if let Some(result) = self.result_list.selected_result() {
-                        Some(Message::EnterMessageDetailFromSession(
-                            result.raw_json.clone().unwrap_or_default(),
-                            self.file_path.clone().unwrap_or_default(),
-                            self.session_id.clone(),
-                        ))
+                        if let Some(raw_json) = result.raw_json.clone() {
+                            Some(Message::EnterMessageDetailFromSession(
+                                raw_json,
+                                self.file_path.clone().unwrap_or_default(),
+                                self.session_id.clone(),
+                            ))
+                        } else {
+                            Some(Message::SetStatus(
+                                "⚠ Raw JSON is unavailable for this message".to_string(),
+                            ))
+                        }
                     } else {
                         None
                     }
@@ -530,10 +542,16 @@ impl Component for SessionViewer {
                 KeyCode::Char('c') => self.result_list.selected_result().map(|result| {
                     Message::CopyToClipboard(CopyContent::MessageContent(result.text.clone()))
                 }),
-                KeyCode::Char('C') => self.result_list.selected_result().map(|result| {
-                    Message::CopyToClipboard(CopyContent::JsonData(
-                        result.raw_json.clone().unwrap_or_default(),
-                    ))
+                KeyCode::Char('C') => self.result_list.selected_result().and_then(|result| {
+                    result
+                        .raw_json
+                        .clone()
+                        .map(|raw_json| Message::CopyToClipboard(CopyContent::JsonData(raw_json)))
+                        .or_else(|| {
+                            Some(Message::SetStatus(
+                                "⚠ Raw JSON is unavailable for this message".to_string(),
+                            ))
+                        })
                 }),
                 KeyCode::Char('i') => self
                     .session_id
@@ -864,5 +882,35 @@ mod tests {
         let key = KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE);
         let result = viewer.handle_key(key);
         assert!(matches!(result, Some(Message::ConvertSessionToCodex)));
+    }
+
+    #[test]
+    fn test_enter_without_raw_json_shows_status_message() {
+        use crate::query::condition::QueryCondition;
+
+        let mut viewer = SessionViewer::new();
+        let results = vec![SearchResult {
+            file: "/file.jsonl".to_string(),
+            uuid: "uuid1".to_string(),
+            timestamp: "2024-01-15T10:30:00Z".to_string(),
+            session_id: "test-session".to_string(),
+            role: "user".to_string(),
+            text: "Test message".to_string(),
+            message_type: "message".to_string(),
+            query: QueryCondition::Literal {
+                pattern: String::new(),
+                case_sensitive: false,
+            },
+            cwd: "/path".to_string(),
+            raw_json: None,
+        }];
+        viewer.set_results(results);
+
+        let key = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
+        let result = viewer.handle_key(key);
+        assert!(matches!(
+            result,
+            Some(Message::SetStatus(msg)) if msg.contains("Raw JSON is unavailable")
+        ));
     }
 }
