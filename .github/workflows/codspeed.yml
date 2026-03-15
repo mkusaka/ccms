@@ -49,7 +49,7 @@ jobs:
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
       
       - name: Install cargo-codspeed
-        uses: taiki-e/install-action@d31232495ad76f47aad66e3501e47780b49f0f3e # v2.57.5
+        uses: ./.github/actions/install-rust-tool
         with:
           tool: cargo-codspeed
       
