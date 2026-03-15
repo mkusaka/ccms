@@ -1,0 +1,15 @@
+name: Install Rust tool
+description: Install a Cargo tool via taiki-e/install-action
+
+inputs:
+  tool:
+    description: Cargo binary to install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install tool
+      uses: taiki-e/install-action@d31232495ad76f47aad66e3501e47780b49f0f3e # v2.57.5
+      with:
+        tool: ${{ inputs.tool }}
