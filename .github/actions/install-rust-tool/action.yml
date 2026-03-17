@@ -10,6 +10,6 @@ runs:
   using: composite
   steps:
     - name: Install tool
-      uses: taiki-e/install-action@d31232495ad76f47aad66e3501e47780b49f0f3e # v2.57.5
+      uses: taiki-e/install-action@d4422f254e595ee762a758628fe4f16ce050fa2e # v2.67.28
       with:
         tool: ${{ inputs.tool }}
