@@ -13,10 +13,10 @@ use ccms::{
     interactive_ratatui::InteractiveSearch,
     parse_query, profiling,
 };
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use clap::{Args, Command, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{Generator, Shell, generate};
-use parse_datetime::parse_datetime_at_date;
+use parse_datetime::parse_datetime;
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -575,10 +575,15 @@ fn parse_since_time(input: &str) -> Result<String> {
         return Ok(dt.to_rfc3339());
     }
 
-    // Try to parse as relative time using parse_datetime
-    let now = Local::now();
-    match parse_datetime_at_date(now, input) {
-        Ok(dt) => Ok(dt.to_rfc3339()),
+    // Try to parse as relative/absolute time using parse_datetime
+    match parse_datetime(input) {
+        Ok(dt) => {
+            let ts = dt.timestamp();
+            let utc_dt =
+                DateTime::<Utc>::from_timestamp(ts.as_second(), ts.subsec_nanosecond() as u32)
+                    .context("Failed to convert parsed time to UTC timestamp")?;
+            Ok(utc_dt.to_rfc3339())
+        }
         Err(e) => Err(anyhow::anyhow!(
             "Failed to parse time '{input}': {e}. Expected Unix timestamp or relative time like '1 day ago'"
         )),
