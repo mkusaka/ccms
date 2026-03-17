@@ -59,7 +59,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"]
 
 # Smol runtime
 smol = "2.0"
-async-fs = "2.1"
 futures-lite = "2.5"
 blocking = "1.6"
 
@@ -75,6 +74,7 @@ mimalloc = { version = "0.1", default-features = false, optional = true }
 [dev-dependencies]
 codspeed-criterion-compat = "=3.0.5"
 tempfile = "=3.27.0"
+async-fs = "2.1"
 
 [[bench]]
 name = "search_benchmark"
