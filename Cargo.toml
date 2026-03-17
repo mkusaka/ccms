@@ -73,7 +73,7 @@ num_cpus = "1.17"
 mimalloc = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
-codspeed-criterion-compat = "=3.0.5"
+codspeed-criterion-compat = "=4.4.1"
 tempfile = "=3.27.0"
 
 [[bench]]
