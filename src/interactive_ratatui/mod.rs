@@ -921,19 +921,32 @@ impl InteractiveSearch {
         #[cfg(target_os = "windows")]
         {
             use std::process::Command;
-            let mut child = Command::new("clip.exe")
+            // Use PowerShell's Set-Clipboard with an explicit UTF-8 input
+            // encoding so non-ASCII text round-trips correctly. clip.exe
+            // would otherwise interpret stdin in the active OEM codepage and
+            // mangle multibyte characters.
+            let mut child = Command::new("powershell")
+                .args([
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    "[Console]::InputEncoding = [System.Text.Encoding]::UTF8; \
+                     [Console]::In.ReadToEnd() | Set-Clipboard",
+                ])
                 .stdin(std::process::Stdio::piped())
                 .spawn()
-                .context("Failed to spawn clip.exe")?;
+                .context("Failed to spawn powershell Set-Clipboard")?;
 
             if let Some(mut stdin) = child.stdin.take() {
                 use std::io::Write;
                 stdin
                     .write_all(text.as_bytes())
-                    .context("Failed to write to clip.exe")?;
+                    .context("Failed to write to powershell Set-Clipboard")?;
             }
 
-            child.wait().context("Failed to wait for clip.exe")?;
+            child
+                .wait()
+                .context("Failed to wait for powershell Set-Clipboard")?;
             Ok(())
         }
 

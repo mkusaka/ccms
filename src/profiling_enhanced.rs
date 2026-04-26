@@ -1,12 +1,13 @@
+// This module is gated at the crate root with `cfg(all(feature = "profiling",
+// unix))`, so every item here can assume both conditions hold.
+
 use anyhow::Result;
-#[cfg(all(feature = "profiling", unix))]
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};
 use std::time::{Duration, Instant};
 use tracing::info;
 
 /// Enhanced profiling system with multiple strategies
 pub struct EnhancedProfiler {
-    #[cfg(all(feature = "profiling", unix))]
     pprof_guard: Option<ProfilerGuard<'static>>,
     start_time: Instant,
     profile_name: String,
@@ -16,33 +17,21 @@ impl EnhancedProfiler {
     pub fn new(profile_name: &str) -> Result<Self> {
         let start_time = Instant::now();
 
-        #[cfg(all(feature = "profiling", unix))]
-        {
-            // Initialize pprof with better settings
-            let pprof_guard = ProfilerGuardBuilder::default()
-                .frequency(1000) // 1kHz sampling
-                .blocklist(&["libc", "libgcc", "pthread", "vdso", "__pthread"]) // Exclude system libs
-                .build()?;
+        // Initialize pprof with better settings
+        let pprof_guard = ProfilerGuardBuilder::default()
+            .frequency(1000) // 1kHz sampling
+            .blocklist(&["libc", "libgcc", "pthread", "vdso", "__pthread"]) // Exclude system libs
+            .build()?;
 
-            info!("Enhanced profiling started for: {}", profile_name);
+        info!("Enhanced profiling started for: {}", profile_name);
 
-            Ok(Self {
-                pprof_guard: Some(pprof_guard),
-                start_time,
-                profile_name: profile_name.to_string(),
-            })
-        }
-
-        #[cfg(not(all(feature = "profiling", unix)))]
-        {
-            Ok(Self {
-                start_time,
-                profile_name: profile_name.to_string(),
-            })
-        }
+        Ok(Self {
+            pprof_guard: Some(pprof_guard),
+            start_time,
+            profile_name: profile_name.to_string(),
+        })
     }
 
-    #[cfg(all(feature = "profiling", unix))]
     pub fn generate_comprehensive_report(&mut self, output_path: &str) -> Result<String> {
         let elapsed = self.start_time.elapsed();
         let mut report = String::new();
@@ -76,7 +65,6 @@ impl EnhancedProfiler {
         Ok(report)
     }
 
-    #[cfg(all(feature = "profiling", unix))]
     fn generate_pprof_text_report(&self, report: &pprof::Report) -> Result<String> {
         let mut output = String::new();
         output.push_str("CPU Profiling Report (pprof)\n");
@@ -151,7 +139,6 @@ impl EnhancedProfiler {
         Ok(output)
     }
 
-    #[cfg(all(feature = "profiling", unix))]
     fn clean_function_name(&self, name: &str) -> String {
         // Remove common Rust mangling patterns
         let clean = name
@@ -181,11 +168,6 @@ impl EnhancedProfiler {
         } else {
             short
         }
-    }
-
-    #[cfg(not(all(feature = "profiling", unix)))]
-    pub fn generate_comprehensive_report(&mut self, _output_path: &str) -> Result<String> {
-        Ok("Profiling not enabled. Build with --features profiling".to_string())
     }
 }
 

@@ -109,6 +109,20 @@ mod tests {
             extract_project_from_file_path("/Users/me/other/path.jsonl"),
             None
         );
+        // Windows-style backslash paths.
+        assert_eq!(
+            extract_project_from_file_path(
+                r"C:\Users\me\.claude\projects\C--Users-me-project\session.jsonl"
+            ),
+            Some("C--Users-me-project".to_string())
+        );
+        // Mixed separators (PathBuf::join often produces these on Windows).
+        assert_eq!(
+            extract_project_from_file_path(
+                r"C:\Users\me\.claude/projects/C--Users-me-src-github-com-org-repo\abc.jsonl"
+            ),
+            Some("C--Users-me-src-github-com-org-repo".to_string())
+        );
     }
 
     #[test]
@@ -124,6 +138,15 @@ mod tests {
         assert!(!file_belongs_to_project(
             "/Users/me/.claude/projects/-Users-me-other-project/session.jsonl",
             "/Users/me/src/project"
+        ));
+        // Windows-style paths: the file lives under the encoded project dir.
+        assert!(file_belongs_to_project(
+            r"C:\Users\me\.claude\projects\C--Users-me-ghq-github-com-org-repo\session.jsonl",
+            r"C:\Users\me\ghq\github.com\org\repo"
+        ));
+        assert!(!file_belongs_to_project(
+            r"C:\Users\me\.claude\projects\C--Users-me-other\session.jsonl",
+            r"C:\Users\me\ghq\github.com\org\repo"
         ));
     }
 }

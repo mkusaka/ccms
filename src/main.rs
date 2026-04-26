@@ -110,7 +110,7 @@ struct Cli {
     #[arg(long)]
     profile: Option<String>,
 
-    #[cfg(not(feature = "profiling"))]
+    #[cfg(not(all(feature = "profiling", unix)))]
     #[arg(long, hide = true)]
     profile: Option<String>,
 
@@ -218,7 +218,7 @@ fn main() -> Result<()> {
         None
     };
 
-    #[cfg(not(feature = "profiling"))]
+    #[cfg(not(all(feature = "profiling", unix)))]
     if cli.profile.is_some() {
         eprintln!(
             "Warning: Profiling is not enabled. Build with --features profiling to enable profiling."
