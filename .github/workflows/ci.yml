@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         rust: [stable]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -49,7 +49,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         rust: [stable]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -84,9 +84,11 @@ jobs:
       
       - name: Run tests with cargo-nextest
         run: cargo nextest run --all-features
-        # Note: Some clipboard-related tests are marked with #[ignore] as they require
-        # clipboard utilities (pbcopy/xclip) not available in CI. Run locally with:
-        # cargo test -- --ignored
+        # Note: Some clipboard-related tests are marked with #[ignore] as they
+        # require clipboard utilities (pbcopy on macOS, xclip on Linux,
+        # clip.exe / Set-Clipboard on Windows) that may be unavailable on
+        # headless CI runners. Run them locally with:
+        #   cargo test -- --ignored
       
       - name: Run doc tests
         run: cargo test --doc --all-features

@@ -1,9 +1,9 @@
 use anyhow::Result;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-#[cfg(feature = "profiling")]
+#[cfg(all(feature = "profiling", unix))]
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};
-#[cfg(feature = "profiling")]
+#[cfg(all(feature = "profiling", unix))]
 use std::fs::File;
 
 pub fn init_tracing() {
@@ -16,12 +16,12 @@ pub fn init_tracing() {
         .init();
 }
 
-#[cfg(feature = "profiling")]
+#[cfg(all(feature = "profiling", unix))]
 pub struct Profiler {
     guard: Option<ProfilerGuard<'static>>,
 }
 
-#[cfg(feature = "profiling")]
+#[cfg(all(feature = "profiling", unix))]
 impl Profiler {
     pub fn new() -> Result<Self> {
         let guard = ProfilerGuardBuilder::default()
@@ -109,10 +109,10 @@ impl Profiler {
     }
 }
 
-#[cfg(not(feature = "profiling"))]
+#[cfg(not(all(feature = "profiling", unix)))]
 pub struct Profiler;
 
-#[cfg(not(feature = "profiling"))]
+#[cfg(not(all(feature = "profiling", unix)))]
 impl Profiler {
     pub fn new() -> Result<Self> {
         Ok(Self)

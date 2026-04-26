@@ -52,8 +52,7 @@ ratatui = { version = "0.30.0-alpha.5", features = ["unstable-rendered-line-info
 crossterm = "0.29"
 
 
-# Profiling and tracing
-pprof = { version = "0.15", features = ["flamegraph", "prost-codec"], optional = true }
+# Profiling and tracing (pprof is Unix-only — see [target.'cfg(unix)'.dependencies] below)
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 
@@ -62,14 +61,19 @@ smol = "2.0"
 futures-lite = "2.5"
 blocking = "1.6"
 
-# Signal handling
-signal-hook = "0.4.3"
 
 # Performance optimizations
 num_cpus = "1.17"
 
 # Custom allocator for performance
 mimalloc = { version = "0.1", default-features = false, optional = true }
+
+# Unix-only dependencies:
+# - signal-hook: SIGTSTP/SIGCONT have no Windows equivalent
+# - pprof:       does not build on Windows
+[target.'cfg(unix)'.dependencies]
+signal-hook = "0.4.3"
+pprof = { version = "0.15", features = ["flamegraph", "prost-codec"], optional = true }
 
 [dev-dependencies]
 codspeed-criterion-compat = "=4.4.1"
@@ -132,5 +136,5 @@ debug = true  # Enable debug symbols for better profiling
 
 [features]
 default = ["mimalloc"]
-profiling = ["pprof"]
+profiling = ["dep:pprof"]
 mimalloc = ["dep:mimalloc"]
