@@ -5,6 +5,7 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
+#[cfg(unix)]
 use signal_hook::{
     consts::signal::{SIGCONT, SIGTSTP},
     iterator::Signals,
@@ -46,6 +47,7 @@ use self::ui::{
 // Event type that can handle both key events and signals
 enum Event {
     Key(KeyEvent),
+    #[cfg(unix)]
     Signal(i32),
 }
 
@@ -287,12 +289,14 @@ impl InteractiveSearch {
                             break;
                         }
                     }
+                    #[cfg(unix)]
                     Ok(Event::Signal(SIGCONT)) => {
                         // Terminal was resumed from background, reinitialize
                         enable_raw_mode()?;
                         execute!(terminal.backend_mut(), EnterAlternateScreen)?;
                         terminal.clear()?;
                     }
+                    #[cfg(unix)]
                     Ok(Event::Signal(_)) => {
                         // Handle other signals if needed
                     }
@@ -311,7 +315,8 @@ impl InteractiveSearch {
     fn handle_input(&mut self, key: KeyEvent) -> Result<bool> {
         use crossterm::event::KeyModifiers;
 
-        // Handle Ctrl+Z for background suspend (always available)
+        // Handle Ctrl+Z for background suspend (Unix only — no Windows equivalent)
+        #[cfg(unix)]
         if key.code == KeyCode::Char('z') && key.modifiers.contains(KeyModifiers::CONTROL) {
             // Cleanup terminal before suspending
             disable_raw_mode()?;
@@ -808,19 +813,24 @@ impl InteractiveSearch {
         });
         tasks.push(key_task);
 
-        // Spawn signal handler task using blocking thread
-        let signal_tx = tx;
-        let signal_task = smol::spawn(async move {
-            blocking::unblock(move || {
-                if let Ok(mut signals) = Signals::new([SIGCONT]) {
-                    for sig in signals.forever() {
-                        smol::block_on(signal_tx.send(Event::Signal(sig))).ok();
+        // Spawn signal handler task using blocking thread (Unix only)
+        #[cfg(unix)]
+        {
+            let signal_tx = tx;
+            let signal_task = smol::spawn(async move {
+                blocking::unblock(move || {
+                    if let Ok(mut signals) = Signals::new([SIGCONT]) {
+                        for sig in signals.forever() {
+                            smol::block_on(signal_tx.send(Event::Signal(sig))).ok();
+                        }
                     }
-                }
-            })
-            .await
-        });
-        tasks.push(signal_task);
+                })
+                .await
+            });
+            tasks.push(signal_task);
+        }
+        #[cfg(not(unix))]
+        let _ = tx;
 
         (rx, tasks)
     }
@@ -908,8 +918,28 @@ impl InteractiveSearch {
             Ok(())
         }
 
-        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        #[cfg(target_os = "windows")]
         {
+            use std::process::Command;
+            let mut child = Command::new("clip.exe")
+                .stdin(std::process::Stdio::piped())
+                .spawn()
+                .context("Failed to spawn clip.exe")?;
+
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write;
+                stdin
+                    .write_all(text.as_bytes())
+                    .context("Failed to write to clip.exe")?;
+            }
+
+            child.wait().context("Failed to wait for clip.exe")?;
+            Ok(())
+        }
+
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+        {
+            let _ = text;
             Err(anyhow::anyhow!("Clipboard not supported on this platform"))
         }
     }

@@ -21,8 +21,11 @@ pub fn encode_project_path(path: &str) -> String {
 
 /// Extract project name from Claude Code file path
 /// Example: /Users/me/.claude/projects/-Users-me-project/file.jsonl -> -Users-me-project
+/// Also handles Windows backslash paths.
 pub fn extract_project_from_file_path(file_path: &str) -> Option<String> {
-    let parts: Vec<&str> = file_path.split("/.claude/projects/").collect();
+    // Normalize separators so the same logic works on Unix and Windows.
+    let normalized = file_path.replace('\\', "/");
+    let parts: Vec<&str> = normalized.split("/.claude/projects/").collect();
     if parts.len() >= 2 {
         let project_part = parts[1];
         if let Some(slash_idx) = project_part.find('/') {
