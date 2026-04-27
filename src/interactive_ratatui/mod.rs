@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use crossterm::{
-    event::{self, KeyCode, KeyEvent, poll},
+    event::{self, KeyCode, KeyEvent, KeyEventKind, poll},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -805,6 +805,9 @@ impl InteractiveSearch {
                 // Check for key events every 50ms
                 if poll(Duration::from_millis(EVENT_POLL_INTERVAL_MS)).unwrap_or(false)
                     && let Ok(crossterm::event::Event::Key(key)) = event::read()
+                    // Windows reports Press, Repeat, and Release. We only act on Press
+                    // (Unix backends already collapse to Press-only by default).
+                    && key.kind == KeyEventKind::Press
                 {
                     let _ = key_tx.send(Event::Key(key)).await;
                 }
