@@ -76,7 +76,7 @@ signal-hook = "0.4.3"
 pprof = { version = "0.15", features = ["flamegraph", "prost-codec"], optional = true }
 
 [dev-dependencies]
-codspeed-criterion-compat = "=4.4.1"
+codspeed-criterion-compat = "=4.5.0"
 tempfile = "=3.27.0"
 async-fs = "=2.2.0"
 
