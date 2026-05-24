@@ -1,5 +1,4 @@
 name: CodSpeed Performance Monitoring
-
 on:
   push:
     branches: [main, codespeed]
@@ -13,52 +12,49 @@ on:
       - '**.rs'
       - 'Cargo.toml'
       - 'Cargo.lock'
-
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-
 jobs:
   benchmarks:
     name: Run CodSpeed Benchmarks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      
+        with:
+          persist-credentials: false
       - name: Install Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: stable
-      
       - name: Cache cargo registry
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-      
       - name: Cache cargo index
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-      
       - name: Cache cargo build
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-      
       - name: Install cargo-codspeed
         uses: ./.github/actions/install-rust-tool
         with:
           tool: cargo-codspeed
-      
       - name: Build benchmarks
         run: cargo codspeed build
-      
       - name: Run benchmarks
         uses: CodSpeedHQ/action@3194d9a39c4d46684cb44bf7207fc56626aad8fd # v4.15.1
         with:
           mode: simulation
           run: cargo codspeed run
           token: ${{ secrets.CODSPEED_TOKEN }}
+    permissions: {}
+    timeout-minutes: 60
+    environment: codspeed
+permissions: {}
