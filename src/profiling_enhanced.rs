@@ -104,7 +104,7 @@ impl EnhancedProfiler {
 
         // Sort by sample count
         let mut sorted_functions: Vec<_> = function_stats.into_iter().collect();
-        sorted_functions.sort_by(|a, b| b.1.0.abs().cmp(&a.1.0.abs()));
+        sorted_functions.sort_by_key(|function| std::cmp::Reverse(function.1.0.abs()));
 
         output.push_str("Top Functions by CPU Time:\n");
         output.push_str("--------------------------\n");

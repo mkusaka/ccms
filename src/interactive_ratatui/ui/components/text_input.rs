@@ -274,41 +274,33 @@ impl TextInput {
                 self.cursor_position += 1;
                 true
             }
-            KeyCode::Backspace => {
-                if self.cursor_position > 0 {
-                    let char_pos = self.cursor_position - 1;
-                    let byte_start = self
-                        .text
-                        .chars()
-                        .take(char_pos)
-                        .map(|c| c.len_utf8())
-                        .sum::<usize>();
-                    let ch = self.text.chars().nth(char_pos).unwrap();
-                    let byte_end = byte_start + ch.len_utf8();
+            KeyCode::Backspace if self.cursor_position > 0 => {
+                let char_pos = self.cursor_position - 1;
+                let byte_start = self
+                    .text
+                    .chars()
+                    .take(char_pos)
+                    .map(|c| c.len_utf8())
+                    .sum::<usize>();
+                let ch = self.text.chars().nth(char_pos).unwrap();
+                let byte_end = byte_start + ch.len_utf8();
 
-                    self.text.drain(byte_start..byte_end);
-                    self.cursor_position -= 1;
-                    true
-                } else {
-                    false
-                }
+                self.text.drain(byte_start..byte_end);
+                self.cursor_position -= 1;
+                true
             }
-            KeyCode::Delete => {
-                if self.cursor_position < self.text.chars().count() {
-                    let byte_start = self
-                        .text
-                        .chars()
-                        .take(self.cursor_position)
-                        .map(|c| c.len_utf8())
-                        .sum::<usize>();
-                    let ch = self.text.chars().nth(self.cursor_position).unwrap();
-                    let byte_end = byte_start + ch.len_utf8();
+            KeyCode::Delete if self.cursor_position < self.text.chars().count() => {
+                let byte_start = self
+                    .text
+                    .chars()
+                    .take(self.cursor_position)
+                    .map(|c| c.len_utf8())
+                    .sum::<usize>();
+                let ch = self.text.chars().nth(self.cursor_position).unwrap();
+                let byte_end = byte_start + ch.len_utf8();
 
-                    self.text.drain(byte_start..byte_end);
-                    true
-                } else {
-                    false
-                }
+                self.text.drain(byte_start..byte_end);
+                true
             }
             KeyCode::Left => {
                 if self.cursor_position > 0 {
