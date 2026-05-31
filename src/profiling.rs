@@ -65,7 +65,7 @@ impl Profiler {
         }
 
         let mut functions: Vec<_> = function_counts.into_iter().collect();
-        functions.sort_by(|a, b| b.1.abs().cmp(&a.1.abs()));
+        functions.sort_by_key(|function| std::cmp::Reverse(function.1.abs()));
 
         output.push_str("Top Functions by Self Time:\n");
         output.push_str("--------------------------\n");

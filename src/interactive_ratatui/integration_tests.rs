@@ -976,11 +976,11 @@ mod tests {
         }
 
         // Call the check that happens in the main loop
-        if let Some(timer) = app.message_timer {
-            if timer.elapsed() >= std::time::Duration::from_millis(app.message_clear_delay) {
-                app.message_timer = None;
-                smol::block_on(app.execute_command(Command::ClearMessage));
-            }
+        if let Some(timer) = app.message_timer
+            && timer.elapsed() >= std::time::Duration::from_millis(app.message_clear_delay)
+        {
+            app.message_timer = None;
+            smol::block_on(app.execute_command(Command::ClearMessage));
         }
 
         // Message should be cleared

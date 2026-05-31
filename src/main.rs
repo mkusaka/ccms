@@ -553,14 +553,12 @@ fn main() -> Result<()> {
 
     // Generate profiling report if requested
     #[cfg(all(feature = "profiling", unix))]
-    if let Some(ref mut profiler) = profiler {
-        if let Some(profile_path) = &cli.profile {
-            let report = profiler.generate_comprehensive_report(profile_path)?;
-            eprintln!("\n{report}");
-            eprintln!(
-                "\nDetailed profiling reports saved to {profile_path}_{{comprehensive.txt,svg}}"
-            );
-        }
+    if let Some(ref mut profiler) = profiler
+        && let Some(profile_path) = &cli.profile
+    {
+        let report = profiler.generate_comprehensive_report(profile_path)?;
+        eprintln!("\n{report}");
+        eprintln!("\nDetailed profiling reports saved to {profile_path}_{{comprehensive.txt,svg}}");
     }
 
     Ok(())
