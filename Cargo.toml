@@ -23,7 +23,7 @@ uuid = { version = "1.10", features = ["v5"] }
 # File system and path handling
 globset = "0.4"
 jwalk = "0.8"
-dirs = "6.0"
+dirs = "7.0"
 
 # Regex and string matching
 regex = "1.10"
