@@ -576,7 +576,10 @@ fn parse_since_time(input: &str) -> Result<String> {
     // Try to parse as relative/absolute time using parse_datetime
     match parse_datetime(input) {
         Ok(dt) => {
-            let ts = dt.timestamp();
+            let ts = dt
+                .into_zoned()
+                .context("Parsed time is out of the supported range")?
+                .timestamp();
             let utc_dt =
                 DateTime::<Utc>::from_timestamp(ts.as_second(), ts.subsec_nanosecond() as u32)
                     .context("Failed to convert parsed time to UTC timestamp")?;
