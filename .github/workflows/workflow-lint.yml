@@ -97,7 +97,7 @@ jobs:
       pull-requests: write
     env:
       # renovate: datasource=github-releases depName=reviewdog/reviewdog
-      REVIEWDOG_VERSION: v0.21.0
+      REVIEWDOG_VERSION: v0.21.2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -159,7 +159,7 @@ jobs:
       - name: Download pinact
         env:
           # renovate: datasource=github-releases depName=suzuki-shunsuke/pinact
-          PINACT_VERSION: v4.1.1
+          PINACT_VERSION: v5.0.1
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           archive="pinact_linux_amd64.tar.gz"
