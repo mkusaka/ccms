@@ -1,0 +1,204 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: {}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate release tag
+        id: version
+        run: |
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tags must use vX.Y.Z format, got ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+          package_version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          if [[ "${GITHUB_REF_NAME#v}" != "$package_version" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} must match Cargo.toml version ${package_version}"
+            exit 1
+          fi
+          echo "version=${package_version}" >> "$GITHUB_OUTPUT"
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - run: cargo fmt -- --check
+      - run: cargo clippy --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --all-features --locked
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: verify
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions: {}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: darwin_arm64
+            runner: macos-15
+          - target: darwin_amd64
+            runner: macos-15-intel
+          - target: linux_amd64
+            runner: ubuntu-24.04
+          - target: linux_arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+      - name: Build binary
+        env:
+          # The release profile keeps debug info for profiling; ship a stripped binary.
+          CARGO_PROFILE_RELEASE_DEBUG: "false"
+          CARGO_PROFILE_RELEASE_STRIP: "true"
+        run: cargo build --release --locked
+      - name: Package archive
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          target/release/ccms --version | grep -F "$VERSION"
+          mkdir -p dist
+          tar -czf "dist/ccms_${TARGET}.tar.gz" -C target/release ccms -C "$GITHUB_WORKSPACE" LICENSE README.md
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ccms_${{ matrix.target }}
+          path: dist/ccms_${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ccms_*
+          path: dist
+          merge-multiple: true
+      - name: Write checksums
+        run: |
+          cd dist
+          sha256sum ccms_*.tar.gz > checksums.txt
+          cat checksums.txt
+      - name: Attest release artifacts
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: dist/checksums.txt
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Upload while draft, then publish so the release becomes immutable with every asset attached.
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --verify-tag \
+            --title "ccms $GITHUB_REF_NAME" \
+            --generate-notes
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
+
+  homebrew:
+    name: Update Homebrew tap
+    needs: [verify, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Render Homebrew formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Fails unless the published release is immutable and its attestation verifies.
+          gh release verify "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern checksums.txt --dir "$RUNNER_TEMP"
+          (cd "$RUNNER_TEMP" && gh release verify-asset "$GITHUB_REF_NAME" checksums.txt --repo "$GITHUB_REPOSITORY")
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          sha() {
+            local sum
+            sum="$(awk -v f="ccms_$1.tar.gz" '$2 == f { print $1 }' "$RUNNER_TEMP/checksums.txt")"
+            [[ "$sum" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::missing checksum for $1" >&2; exit 1; }
+            echo "$sum"
+          }
+          export FORMULA_PATH="$RUNNER_TEMP/ccms.rb"
+          cp packaging/homebrew/ccms.rb "$FORMULA_PATH"
+          DARWIN_ARM64_URL="$base/ccms_darwin_arm64.tar.gz"
+          DARWIN_X64_URL="$base/ccms_darwin_amd64.tar.gz"
+          LINUX_ARM64_URL="$base/ccms_linux_arm64.tar.gz"
+          LINUX_X64_URL="$base/ccms_linux_amd64.tar.gz"
+          DARWIN_ARM64_SHA256="$(sha darwin_arm64)"
+          DARWIN_X64_SHA256="$(sha darwin_amd64)"
+          LINUX_ARM64_SHA256="$(sha linux_arm64)"
+          LINUX_X64_SHA256="$(sha linux_amd64)"
+          export DARWIN_ARM64_URL DARWIN_X64_URL LINUX_ARM64_URL LINUX_X64_URL
+          export DARWIN_ARM64_SHA256 DARWIN_X64_SHA256 LINUX_ARM64_SHA256 LINUX_X64_SHA256
+          ruby <<'RUBY'
+          path = ENV.fetch("FORMULA_PATH")
+          text = File.read(path)
+          %w[VERSION DARWIN_ARM64_URL DARWIN_ARM64_SHA256 DARWIN_X64_URL DARWIN_X64_SHA256
+             LINUX_ARM64_URL LINUX_ARM64_SHA256 LINUX_X64_URL LINUX_X64_SHA256].each do |key|
+            placeholder = "__#{key}__"
+            raise "missing placeholder: #{placeholder}" unless text.include?(placeholder)
+            text.gsub!(placeholder, ENV.fetch(key))
+          end
+          File.write(path, text)
+          RUBY
+          ruby -c "$FORMULA_PATH"
+          cat "$FORMULA_PATH"
+          echo "FORMULA_CONTENTS_B64=$(base64 < "$FORMULA_PATH" | tr -d '\n')" >> "$GITHUB_ENV"
+      - name: Dispatch tap update
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::Missing required secret: HOMEBREW_TAP_TOKEN (environment: release)"
+            exit 1
+          fi
+          gh api repos/mkusaka/homebrew-tap/dispatches \
+            -f event_type=update-formula \
+            -f "client_payload[formula]=ccms" \
+            -f "client_payload[repository]=${GITHUB_REPOSITORY}" \
+            -f "client_payload[version]=${VERSION}" \
+            -f "client_payload[formula_contents_b64]=${FORMULA_CONTENTS_B64}"
