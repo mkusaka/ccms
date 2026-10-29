@@ -427,7 +427,7 @@ dependencies = [
  "futures-lite",
  "globset",
  "jwalk",
- "lru",
+ "lru 0.19.0",
  "mimalloc",
  "nom 8.0.0",
  "num_cpus",
@@ -1439,9 +1439,9 @@ dependencies = [
 
 [[package]]
 name = "jwalk"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2735847566356cd2179a2a38264839308f7079fa96e6bd5a42d740460e003c56"
+checksum = "5e610b2b1eaea9e0e062c47e319d20a2e0f929e7aabf24d58514354de967bfbd"
 dependencies = [
  "crossbeam",
  "rayon",
@@ -1541,6 +1541,15 @@ name = "lru"
 version = "0.18.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef9ac18847474e638e3702b76c65d4eb93428471a74778ef0f1be711717f89b5"
+dependencies = [
+ "hashbrown",
+]
+
+[[package]]
+name = "lru"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a9f71e3591c7ec44d3e563e87bf14ddc2bada8519dca046e5b0e560cd004e2d"
 dependencies = [
  "hashbrown",
 ]
@@ -1881,9 +1890,9 @@ dependencies = [
 
 [[package]]
 name = "parse_datetime"
-version = "0.15.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f15dc0ed203652fed0fc0e2b4de76bca160565afe16507973df55e6407b84353"
+checksum = "cb51967a779ef73b125a243688e53e4bb2474f91cae72734ee5051e857fb2645"
 dependencies = [
  "jiff",
  "num-traits",
@@ -2294,7 +2303,7 @@ dependencies = [
  "hashbrown",
  "itertools 0.14.0",
  "kasuari",
- "lru",
+ "lru 0.18.5",
  "palette",
  "serde",
  "strum",
